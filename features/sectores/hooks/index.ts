@@ -1,0 +1,1 @@
+export { useSectores } from './useSectores'

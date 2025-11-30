@@ -1,0 +1,65 @@
+﻿
+> aprendizaje-app@0.1.0 build
+> next build
+
+   Ôû▓ Next.js 16.0.1 (Turbopack)
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+ Ô£ô Compiled successfully in 1680.3ms
+   Running TypeScript ...
+node.exe : Failed to 
+compile.
+En línea: 1 Carácter: 
+1
++ & "C:\Program Files\
+nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo 
+...
++ ~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
+~~~~~
+    + CategoryInfo    
+          : NotSpeci  
+  fied: (Failed to    
+ compile.:String)     
+[], RemoteExcepti    
+on
+    + FullyQualifiedE 
+   rrorId : NativeCo  
+  mmandError
+ 
+
+./app/aprender/Finaliz
+eAprendizajeFlow.tsx:6
+:3
+Type error: Module '".
+./../lib/apiClient"' 
+has no exported 
+member 
+'finalizeAprendizaje'.
+
+[0m [90m 4 |[39m 
+[36mimport[39m {
+ [90m 5 |[39m   crea
+teAprendizajeDraft[33
+m,[39m
+[31m[1m>[22m[39m[
+90m 6 |[39m   finaliz
+eAprendizaje[33m,[39
+m
+ [90m   |[39m   
+[31m[1m^[22m[39m
+ [90m 7 |[39m } 
+[36mfrom[39m [32m".
+./../lib/apiClient"[3
+9m[33m;[39m
+ [90m 8 |[39m
+ [90m 9 |[39m type 
+[33mChatLike[39m 
+[33m=[39m {[0m
+Next.js build worker 
+exited with code: 1 
+and signal: null

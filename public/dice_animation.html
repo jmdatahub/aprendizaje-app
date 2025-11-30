@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Natural Dice Animation</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { width: 100vw; height: 100vh; overflow: hidden; background: #000; }
+        canvas { display: block; width: 100%; height: 100%; }
+        
+        #transitionOverlay {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(to bottom right, #6366f1, #9333ea);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 1.5s ease-in-out;
+            z-index: 10;
+        }
+        
+        #transitionOverlay.active {
+            opacity: 1;
+        }
+
+        #designMessage {
+            position: fixed;
+            top: 70%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-family: system-ui, -apple-system, sans-serif;
+            font-size: 24px;
+            font-weight: 300;
+            opacity: 0;
+            transition: opacity 1s ease;
+            text-align: center;
+            pointer-events: none;
+            letter-spacing: 2px;
+        }
+        
+        #designMessage.visible {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div id="designMessage">DISEÑANDO TU ENTRENAMIENTO...</div>
+    <div id="transitionOverlay"></div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let width, height;
+        
+        const resize = () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        };
+        window.addEventListener('resize', resize);
+        resize();
+
+        const sectionTitles = [
+            "Salud y Rendimiento", "Ciencias Naturales", "Física Cuántica",
+            "Matemáticas", "Tecnología", "Historia",
+            "Arte y Cultura", "Economía", "Psicología"
+        ];
+
+        // Audio Context
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+        let sandNode = null;
+        let sandGain = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new AudioContext();
+            }
+        }
+
+        function createSandNoise() {
+            if (!audioCtx) return;
+            const bufferSize = 2 * audioCtx.sampleRate;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const output = buffer.getChannelData(0);
+            
+            let lastOut = 0;
+            for (let i = 0; i < bufferSize; i++) {
+                const white = Math.random() * 2 - 1;
+                output[i] = (lastOut + (0.02 * white)) / 1.02;
+                lastOut = output[i];
+                output[i] *= 3.5; 
+            }
+            
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+            noise.loop = true;
+            
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 800;
+            
+            const gain = audioCtx.createGain();
+            gain.gain.value = 0;
+            
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            noise.start();
+            return { node: noise, gain: gain };
+        }
+
+        function playSandSound(enable) {
+            if (!audioCtx) initAudio();
+            if (enable) {
+                if (!sandNode) {
+                    const sand = createSandNoise();
+                    if (sand) {
+                        sandNode = sand.node;
+                        sandGain = sand.gain;
+                    }
+                }
+                if (sandGain) {
+                    sandGain.gain.setTargetAtTime(0.15, audioCtx.currentTime, 0.5);
+                }
+            } else {
+                if (sandGain) {
+                    sandGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5);
+                }
+            }
+        }
+
+        function playCollisionSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.3);
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+        }
+
+        function playPieceSound(pitch = 1) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(400 * pitch, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        // Physics Constants
+        const GRAVITY = 0.4;
+
+        class Vector {
+            constructor(x, y) { this.x = x; this.y = y; }
+            add(v) { this.x += v.x; this.y += v.y; }
+            mult(s) { this.x *= s; this.y *= s; }
+        }
+
+        class Dice {
+            constructor(x, y, vx, vy) {
+                this.pos = new Vector(x, y);
+                this.vel = new Vector(vx, vy);
+                this.size = 70;
+                this.rotation = 0;
+                this.rotVel = (Math.random() - 0.5) * 0.1; // Slower rotation
+                this.active = true;
+            }
+
+            update() {
+                if (!this.active) return;
+                this.vel.y += GRAVITY;
+                this.pos.add(this.vel);
+                this.rotation += this.rotVel;
+
+                if (this.pos.y > height - 150) {
+                    this.pos.y = height - 150;
+                    this.vel.y *= -0.5;
+                    this.vel.x *= 0.95;
+                }
+            }
+
+            draw() {
+                if (!this.active) return;
+                ctx.save();
+                ctx.translate(this.pos.x, this.pos.y);
+                ctx.rotate(this.rotation);
+                const s = this.size;
+                
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.fillRect(-s/2, s/2 + 10, s, 10);
+                
+                ctx.fillStyle = '#ffffff';
+                ctx.strokeStyle = '#1e1b4b';
+                ctx.lineWidth = 2;
+                ctx.fillRect(-s/2, -s/2, s, s);
+                ctx.strokeRect(-s/2, -s/2, s, s);
+                
+                ctx.fillStyle = '#4f46e5';
+                ctx.beginPath();
+                ctx.arc(0, 0, 8, 0, Math.PI*2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class PuzzlePiece {
+            constructor(targetX, targetY, title, delay) {
+                this.pos = new Vector(width/2, height/2);
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 8 + 2;
+                this.vel = new Vector(Math.cos(angle) * speed, Math.sin(angle) * speed);
+                this.target = new Vector(targetX, targetY);
+                this.title = title;
+                this.delay = delay;
+                this.timer = 0;
+                this.state = 'exploding';
+                this.opacity = 0;
+                this.soundPlayed = false;
+            }
+
+            update() {
+                this.timer++;
+                if (this.state === 'exploding') {
+                    this.opacity = Math.min(this.opacity + 0.05, 1);
+                    this.vel.mult(0.92);
+                    this.pos.add(this.vel);
+                    if (this.timer > 40 + this.delay) this.state = 'moving'; // Longer delay
+                } else if (this.state === 'moving') {
+                    const dx = this.target.x - this.pos.x;
+                    const dy = this.target.y - this.pos.y;
+                    this.pos.x += dx * 0.08; // Slower move
+                    this.pos.y += dy * 0.08;
+                    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) {
+                        this.state = 'settled';
+                        this.pos.x = this.target.x;
+                        this.pos.y = this.target.y;
+                        if (!this.soundPlayed) {
+                            playPieceSound(1 + (this.delay / 80));
+                            this.soundPlayed = true;
+                        }
+                    }
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.opacity;
+                ctx.translate(this.pos.x, this.pos.y);
+                
+                ctx.fillStyle = 'rgba(30, 27, 75, 0.9)';
+                ctx.strokeStyle = 'rgba(99, 102, 241, 0.3)';
+                ctx.lineWidth = 1;
+                ctx.shadowColor = 'rgba(99, 102, 241, 0.2)';
+                ctx.shadowBlur = 15;
+                
+                const w = 140;
+                const h = 100;
+                ctx.fillRect(-w/2, -h/2, w, h);
+                ctx.strokeRect(-w/2, -h/2, w, h);
+                
+                ctx.fillStyle = '#e0e7ff';
+                ctx.font = '600 13px system-ui';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                const words = this.title.split(' ');
+                let line = '';
+                let y = -10;
+                if (words.length > 2) y = -15;
+                
+                for(let n = 0; n < words.length; n++) {
+                    const testLine = line + words[n] + ' ';
+                    const metrics = ctx.measureText(testLine);
+                    if (metrics.width > w - 20 && n > 0) {
+                        ctx.fillText(line, 0, y);
+                        line = words[n] + ' ';
+                        y += 18;
+                    } else {
+                        line = testLine;
+                    }
+                }
+                ctx.fillText(line, 0, y);
+                ctx.restore();
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color) {
+                this.pos = new Vector(x, y);
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 3 + 1;
+                this.vel = new Vector(Math.cos(angle) * speed, Math.sin(angle) * speed);
+                this.life = 1.0;
+                this.color = color;
+            }
+            update() {
+                this.pos.add(this.vel);
+                this.life -= 0.02;
+            }
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.life;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.pos.x, this.pos.y, 2, 0, Math.PI*2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // Hourglass Animation
+        let hourglassTime = 0;
+        function drawHourglass(x, y) {
+            hourglassTime += 0.05;
+            ctx.save();
+            ctx.translate(x, y);
+            
+            // Glow
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#fbbf24';
+            
+            // Glass
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(-20, -30);
+            ctx.lineTo(20, -30);
+            ctx.lineTo(0, 0);
+            ctx.lineTo(20, 30);
+            ctx.lineTo(-20, 30);
+            ctx.lineTo(0, 0);
+            ctx.closePath();
+            ctx.stroke();
+            
+            // Sand Top
+            const topLevel = Math.max(0, 30 - (hourglassTime * 2) % 30);
+            ctx.fillStyle = '#fbbf24';
+            ctx.beginPath();
+            ctx.moveTo(-20 * (topLevel/30), -topLevel);
+            ctx.lineTo(20 * (topLevel/30), -topLevel);
+            ctx.lineTo(0, 0);
+            ctx.fill();
+            
+            // Sand Bottom
+            const bottomLevel = Math.min(30, (hourglassTime * 2) % 30);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(20 * (bottomLevel/30), bottomLevel);
+            ctx.lineTo(-20 * (bottomLevel/30), bottomLevel);
+            ctx.fill();
+            
+            // Falling stream
+            if (topLevel > 0) {
+                ctx.strokeStyle = '#fbbf24';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(0, 30);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        // --- Main Loop ---
+
+        let dice1, dice2;
+        let puzzlePieces = [];
+        let particles = [];
+        let phase = 'roll';
+        let collisionSoundPlayed = false;
+        let dataReady = false;
+
+        // Listen for data ready message from parent
+        window.addEventListener('message', (e) => {
+            if (e.data === 'dataReady') {
+                dataReady = true;
+            }
+        });
+
+        function init() {
+            // Slower dice speed (5 instead of 10)
+            dice1 = new Dice(100, 100, 5, 3);
+            dice2 = new Dice(width - 100, 100, -5, 3);
+            initAudio();
+        }
+
+        function createPuzzle() {
+            const cols = 3;
+            const rows = 3;
+            const gap = 20;
+            const w = 140;
+            const h = 100;
+            const totalW = cols * w + (cols-1) * gap;
+            const totalH = rows * h + (rows-1) * gap;
+            const startX = width/2 - totalW/2 + w/2;
+            const startY = height/2 - totalH/2 + h/2;
+
+            sectionTitles.forEach((title, i) => {
+                const c = i % cols;
+                const r = Math.floor(i / cols);
+                const x = startX + c * (w + gap);
+                const y = startY + r * (h + gap);
+                puzzlePieces.push(new PuzzlePiece(x, y, title, i * 5));
+            });
+        }
+
+        function animate() {
+            // Dark background
+            const bgGrad = ctx.createRadialGradient(width/2, height/2, 0, width/2, height/2, width);
+            bgGrad.addColorStop(0, '#1e1b4b');
+            bgGrad.addColorStop(1, '#0f172a');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, width, height);
+
+            if (phase === 'roll') {
+                dice1.update();
+                dice2.update();
+                dice1.draw();
+                dice2.draw();
+
+                const dx = dice1.pos.x - dice2.pos.x;
+                const dy = dice1.pos.y - dice2.pos.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+
+                if (dist < 90) {
+                    phase = 'impact';
+                    dice1.active = false;
+                    dice2.active = false;
+                    if (!collisionSoundPlayed) {
+                        playCollisionSound();
+                        collisionSoundPlayed = true;
+                    }
+                    for(let i=0; i<40; i++) particles.push(new Particle(width/2, height/2, '#818cf8'));
+                    for(let i=0; i<20; i++) particles.push(new Particle(width/2, height/2, '#c084fc'));
+                    createPuzzle();
+                }
+            } else if (phase === 'impact' || phase === 'puzzle') {
+                particles.forEach((p, i) => {
+                    p.update();
+                    p.draw();
+                    if(p.life <= 0) particles.splice(i, 1);
+                });
+
+                let allSettled = true;
+                puzzlePieces.forEach(p => {
+                    p.update();
+                    p.draw();
+                    if (p.state !== 'settled') allSettled = false;
+                });
+
+                if (allSettled) {
+                    phase = 'designing';
+                    document.getElementById('designMessage').classList.add('visible');
+                    playSandSound(true);
+                }
+            } else if (phase === 'designing') {
+                // Keep drawing puzzle in background
+                puzzlePieces.forEach(p => p.draw());
+                
+                // Draw hourglass
+                drawHourglass(width/2, height/2 + 100);
+
+                // Check if we can finish
+                if (dataReady) {
+                    phase = 'finished';
+                    playSandSound(false);
+                    document.getElementById('transitionOverlay').classList.add('active');
+                    setTimeout(() => {
+                        window.parent.postMessage('animationComplete', '*');
+                    }, 1000);
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        init();
+        requestAnimationFrame(animate);
+
+    </script>
+</body>
+</html>

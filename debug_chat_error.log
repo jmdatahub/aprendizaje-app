@@ -1,0 +1,27 @@
+[2025-11-23T17:36:54.499Z] Error: 401 Incorrect API key provided: sk-proj-***********************************uIK8. You can find your API key at https://platform.openai.com/account/api-keys.
+Stack: Error: 401 Incorrect API key provided: sk-proj-***********************************uIK8. You can find your API key at https://platform.openai.com/account/api-keys.
+    at APIError.generate (C:\Jorge\Personal\Desarrollo\aprendizaje-app\.next\dev\server\chunks\node_modules_openai_f417a314._.js:161:20)
+    at OpenAI.makeStatusError (C:\Jorge\Personal\Desarrollo\aprendizaje-app\.next\dev\server\chunks\node_modules_openai_f417a314._.js:8973:167)
+    at OpenAI.makeRequest (C:\Jorge\Personal\Desarrollo\aprendizaje-app\.next\dev\server\chunks\node_modules_openai_f417a314._.js:9144:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async POST (C:\Jorge\Personal\Desarrollo\aprendizaje-app\.next\dev\server\chunks\[root-of-the-server]__d4e8c60d._.js:121:28)
+    at async AppRouteRouteModule.do (C:\Jorge\Personal\Desarrollo\aprendizaje-app\node_modules\next\dist\compiled\next-server\app-route-turbo.runtime.dev.js:23:37913)
+    at async AppRouteRouteModule.handle (C:\Jorge\Personal\Desarrollo\aprendizaje-app\node_modules\next\dist\compiled\next-server\app-route-turbo.runtime.dev.js:23:45132)
+    at async responseGenerator (C:\Jorge\Personal\Desarrollo\aprendizaje-app\.next\dev\server\chunks\node_modules_next_51df90dd._.js:14318:38)
+    at async AppRouteRouteModule.handleResponse (C:\Jorge\Personal\Desarrollo\aprendizaje-app\node_modules\next\dist\compiled\next-server\app-route-turbo.runtime.dev.js:19:132654)
+    at async handleResponse (C:\Jorge\Personal\Desarrollo\aprendizaje-app\.next\dev\server\chunks\node_modules_next_51df90dd._.js:14380:32)
+    at async handler (C:\Jorge\Personal\Desarrollo\aprendizaje-app\.next\dev\server\chunks\node_modules_next_51df90dd._.js:14433:13)
+    at async DevServer.renderToResponseWithComponentsImpl (C:\Jorge\Personal\Desarrollo\aprendizaje-app\node_modules\next\dist\server\base-server.js:1415:9)
+    at async DevServer.renderPageComponent (C:\Jorge\Personal\Desarrollo\aprendizaje-app\node_modules\next\dist\server\base-server.js:1467:24)
+    at async DevServer.renderToResponseImpl (C:\Jorge\Personal\Desarrollo\aprendizaje-app\node_modules\next\dist\server\base-server.js:1517:32)
+    at async DevServer.pipeImpl (C:\Jorge\Personal\Desarrollo\aprendizaje-app\node_modules\next\dist\server\base-server.js:1023:25)
+    at async NextNodeServer.handleCatchallRenderRequest (C:\Jorge\Personal\Desarrollo\aprendizaje-app\node_modules\next\dist\server\next-server.js:394:17)
+    at async DevServer.handleRequestImpl (C:\Jorge\Personal\Desarrollo\aprendizaje-app\node_modules\next\dist\server\base-server.js:914:17)
+    at async C:\Jorge\Personal\Desarrollo\aprendizaje-app\node_modules\next\dist\server\dev\next-dev-server.js:373:20
+    at async Span.traceAsyncFn (C:\Jorge\Personal\Desarrollo\aprendizaje-app\node_modules\next\dist\trace\trace.js:157:20)
+    at async DevServer.handleRequest (C:\Jorge\Personal\Desarrollo\aprendizaje-app\node_modules\next\dist\server\dev\next-dev-server.js:369:24)
+    at async invokeRender (C:\Jorge\Personal\Desarrollo\aprendizaje-app\node_modules\next\dist\server\lib\router-server.js:240:21)
+    at async handleRequest (C:\Jorge\Personal\Desarrollo\aprendizaje-app\node_modules\next\dist\server\lib\router-server.js:436:24)
+    at async requestHandlerImpl (C:\Jorge\Personal\Desarrollo\aprendizaje-app\node_modules\next\dist\server\lib\router-server.js:484:13)
+    at async Server.requestListener (C:\Jorge\Personal\Desarrollo\aprendizaje-app\node_modules\next\dist\server\lib\start-server.js:226:13)
+
