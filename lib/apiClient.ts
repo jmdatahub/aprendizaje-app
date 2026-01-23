@@ -1,6 +1,13 @@
 /**
  * API client functions for the learning app
+ * Uses shared/utils/api for consistent error handling and timeouts
  */
+
+import { apiPost } from '@/shared/utils/api'
+
+// ============================================
+// Types
+// ============================================
 
 interface ChatMessage {
   rol: string
@@ -50,6 +57,10 @@ interface AprendizajeParams {
   sectorId?: number
 }
 
+// ============================================
+// Helpers
+// ============================================
+
 /**
  * Convert ChatLike format to ChatMessage format
  */
@@ -64,9 +75,10 @@ function convertToChatMessage(message: ChatLike | ChatMessage): ChatMessage {
   }
 }
 
-/**
- * Send a chat message to the AI assistant
- */
+// ============================================
+// API Functions
+// ============================================
+
 /**
  * Send a chat message to the AI assistant
  */
@@ -76,19 +88,7 @@ export async function sendChatMessage(
   config?: { verbosity?: 'concise' | 'normal' | 'detailed' }
 ): Promise<ChatResponse> {
   try {
-    const response = await fetch('/api/chat', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ messages, context, config }),
-    })
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-
-    return await response.json()
+    return await apiPost<ChatResponse>('/api/chat', { messages, context, config })
   } catch (error) {
     console.error('Error sending chat message:', error)
     return {
@@ -129,22 +129,9 @@ export async function createAprendizajeDraft(
       }
     }
 
-    const response = await fetch('/api/aprender', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(params),
-    })
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-
-    return await response.json()
+    return await apiPost<AprendizajeDraftResponse | AprendizajeSaveResponse>('/api/aprender', params)
   } catch (error) {
     console.error('Error creating aprendizaje draft:', error)
-    // Return a response that satisfies both possible return types
     return {
       titulo: 'Error',
       resumen: 'No se pudo generar el resumen. Por favor, intenta de nuevo.',
@@ -160,19 +147,7 @@ export async function generateRecommendations(
   messages: { role: string; content: string }[]
 ): Promise<RecommendationsResponse> {
   try {
-    const response = await fetch('/api/recommendations', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ messages }),
-    })
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-
-    return await response.json()
+    return await apiPost<RecommendationsResponse>('/api/recommendations', { messages })
   } catch (error) {
     console.error('Error generating recommendations:', error)
     return {

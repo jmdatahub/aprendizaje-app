@@ -33,23 +33,30 @@ function getBaseUrl(): string {
   return `http://localhost:${port}`
 }
 
+interface ApiRequestOptions extends RequestInit {
+  /**
+   * Timeout in milliseconds. Default is 60000ms (60 seconds).
+   * AI responses can take a while, so use a longer timeout by default.
+   */
+  timeout?: number;
+}
+
 /**
  * Generic API request wrapper with error handling
  */
 export async function apiRequest<T>(
   url: string,
-  options?: RequestInit
+  options?: ApiRequestOptions
 ): Promise<T> {
   const baseUrl = getBaseUrl()
   const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`
   
-  // Add timeout to prevent hanging requests
+  // Use configurable timeout, default to 60 seconds (AI responses can be slow)
+  const timeoutMs = options?.timeout ?? 60000
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
   
   try {
-    console.log(`[apiRequest] Fetching: ${fullUrl}`)
-    
     const response = await fetch(fullUrl, {
       ...options,
       headers: {
@@ -72,7 +79,6 @@ export async function apiRequest<T>(
       )
     }
 
-    console.log(`[apiRequest] Success from ${fullUrl}`)
     return data as T
   } catch (error) {
     clearTimeout(timeoutId)
@@ -99,8 +105,8 @@ export async function apiRequest<T>(
 /**
  * GET request helper
  */
-export async function apiGet<T>(url: string, headers?: HeadersInit): Promise<T> {
-  return apiRequest<T>(url, { method: 'GET', headers })
+export async function apiGet<T>(url: string, headers?: HeadersInit, timeout?: number): Promise<T> {
+  return apiRequest<T>(url, { method: 'GET', headers, timeout })
 }
 
 /**
@@ -109,11 +115,13 @@ export async function apiGet<T>(url: string, headers?: HeadersInit): Promise<T> 
 export async function apiPost<T>(
   url: string,
   body?: any,
-  headers?: HeadersInit
+  headers?: HeadersInit,
+  timeout?: number
 ): Promise<T> {
   return apiRequest<T>(url, {
     method: 'POST',
     body: body ? JSON.stringify(body) : undefined,
     headers,
+    timeout,
   })
 }

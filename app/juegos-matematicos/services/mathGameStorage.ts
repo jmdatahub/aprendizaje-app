@@ -2,13 +2,98 @@ import { OperationType, DifficultyLevel } from '../utils/mathGameUtils';
 
 export type GameMode = 'timed' | 'free' | 'smart';
 
+// ============================================
+// Player Profiles
+// ============================================
+
+export interface PlayerProfile {
+  id: string;
+  name: string;
+  emoji: string;
+  createdAt: number;
+}
+
+const PROFILES_KEY = 'math_game_profiles';
+const ACTIVE_PROFILE_KEY = 'math_game_active_profile';
+
+const DEFAULT_PROFILES: PlayerProfile[] = [
+  { id: 'serio', name: 'En serio', emoji: '🎯', createdAt: 0 },
+  { id: 'casual', name: 'Por diversión', emoji: '🎮', createdAt: 0 },
+];
+
+export const getProfiles = (): PlayerProfile[] => {
+  try {
+    const stored = localStorage.getItem(PROFILES_KEY);
+    if (!stored) {
+      // Initialize with defaults
+      localStorage.setItem(PROFILES_KEY, JSON.stringify(DEFAULT_PROFILES));
+      return DEFAULT_PROFILES;
+    }
+    return JSON.parse(stored);
+  } catch (error) {
+    console.error('Failed to get profiles:', error);
+    return DEFAULT_PROFILES;
+  }
+};
+
+export const createProfile = (name: string, emoji: string = '👤'): PlayerProfile => {
+  const profiles = getProfiles();
+  const newProfile: PlayerProfile = {
+    id: crypto.randomUUID(),
+    name,
+    emoji,
+    createdAt: Date.now(),
+  };
+  profiles.push(newProfile);
+  localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
+  return newProfile;
+};
+
+export const deleteProfile = (profileId: string): boolean => {
+  const profiles = getProfiles();
+  // Don't allow deleting default profiles
+  if (profileId === 'serio' || profileId === 'casual') return false;
+  
+  const filtered = profiles.filter(p => p.id !== profileId);
+  localStorage.setItem(PROFILES_KEY, JSON.stringify(filtered));
+  
+  // Clear active profile if deleted
+  if (getActiveProfileId() === profileId) {
+    setActiveProfile('serio');
+  }
+  return true;
+};
+
+export const getActiveProfileId = (): string => {
+  try {
+    return localStorage.getItem(ACTIVE_PROFILE_KEY) || 'serio';
+  } catch {
+    return 'serio';
+  }
+};
+
+export const getActiveProfile = (): PlayerProfile | undefined => {
+  const profiles = getProfiles();
+  const activeId = getActiveProfileId();
+  return profiles.find(p => p.id === activeId);
+};
+
+export const setActiveProfile = (profileId: string): void => {
+  localStorage.setItem(ACTIVE_PROFILE_KEY, profileId);
+};
+
+// ============================================
+// Game Sessions (updated with profile support)
+// ============================================
+
 export interface GameSession {
   id: string;
   timestamp: number;
+  profileId: string; // NEW: links to player profile
   mode: GameMode;
   operation: OperationType;
   level: DifficultyLevel;
-  durationSeconds: number | null; // null for free mode if not tracked, but we will track it
+  durationSeconds: number | null;
   totalAttempts: number;
   correctCount: number;
   incorrectCount: number;
@@ -21,7 +106,6 @@ export interface OperationStats {
   correctCount: number;
   incorrectCount: number;
   lastLevel: DifficultyLevel;
-  // We could add speed tracking here too if needed
 }
 
 export interface MathGameStats {
@@ -43,19 +127,18 @@ const initialStats: MathGameStats = {
   mixed: { totalAttempts: 0, correctCount: 0, incorrectCount: 0, lastLevel: 'facil' },
 };
 
-export const saveGameSession = (session: Omit<GameSession, 'id' | 'timestamp'>) => {
+export const saveGameSession = (session: Omit<GameSession, 'id' | 'timestamp' | 'profileId'>) => {
   try {
     const history = getGameHistory();
     const newSession: GameSession = {
       ...session,
       id: crypto.randomUUID(),
       timestamp: Date.now(),
+      profileId: getActiveProfileId(), // Automatically uses active profile
     };
     
-    // Add to beginning of array
     history.unshift(newSession);
     
-    // Limit history size (e.g., keep last 100 games)
     if (history.length > 100) {
       history.pop();
     }
@@ -68,50 +151,59 @@ export const saveGameSession = (session: Omit<GameSession, 'id' | 'timestamp'>) 
   }
 };
 
-export const getGameHistory = (): GameSession[] => {
+export const getGameHistory = (profileId?: string): GameSession[] => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return [];
-    return JSON.parse(stored);
+    const allSessions: GameSession[] = JSON.parse(stored);
+    
+    // If profileId is provided, filter by it
+    if (profileId) {
+      return allSessions.filter(s => s.profileId === profileId);
+    }
+    
+    return allSessions;
   } catch (error) {
     console.error('Failed to retrieve game history:', error);
     return [];
   }
 };
 
-export const getSmartStats = (): MathGameStats => {
+// Stats are now per-profile
+const getStatsKey = (profileId: string) => `${STATS_KEY}_${profileId}`;
+
+export const getSmartStats = (profileId?: string): MathGameStats => {
+  const pid = profileId || getActiveProfileId();
   try {
-    const stored = localStorage.getItem(STATS_KEY);
+    const stored = localStorage.getItem(getStatsKey(pid));
     if (!stored) return initialStats;
-    return { ...initialStats, ...JSON.parse(stored) }; // Merge to ensure all keys exist
+    return { ...initialStats, ...JSON.parse(stored) };
   } catch (error) {
     console.error('Failed to retrieve smart stats:', error);
     return initialStats;
   }
 };
 
-export const updateSmartStats = (newStats: Partial<MathGameStats>) => {
+export const updateSmartStats = (newStats: Partial<MathGameStats>, profileId?: string) => {
+  const pid = profileId || getActiveProfileId();
   try {
-    const current = getSmartStats();
+    const current = getSmartStats(pid);
     const updated = { ...current };
 
-    // Merge updates
     (Object.keys(newStats) as OperationType[]).forEach((op) => {
       if (newStats[op]) {
         updated[op] = {
           ...updated[op],
           ...newStats[op]!,
-          // Accumulate counts
           totalAttempts: updated[op].totalAttempts + (newStats[op]?.totalAttempts || 0),
           correctCount: updated[op].correctCount + (newStats[op]?.correctCount || 0),
           incorrectCount: updated[op].incorrectCount + (newStats[op]?.incorrectCount || 0),
-          // Overwrite level if provided (it represents the latest level played)
           lastLevel: newStats[op]?.lastLevel || updated[op].lastLevel
         };
       }
     });
 
-    localStorage.setItem(STATS_KEY, JSON.stringify(updated));
+    localStorage.setItem(getStatsKey(pid), JSON.stringify(updated));
     return updated;
   } catch (error) {
     console.error('Failed to update smart stats:', error);

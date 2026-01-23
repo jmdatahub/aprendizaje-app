@@ -7,6 +7,8 @@ export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  animate?: boolean;
+  status?: 'pending' | 'sent' | 'error';
 }
 
 export interface Chat {

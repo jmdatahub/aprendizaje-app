@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button"
 import { playClick } from "@/shared/utils/sounds"
 import { SettingsModal } from "@/components/SettingsModal"
 import { useApp } from "@/shared/contexts/AppContext"
-import { AnimatePresence, motion } from "framer-motion"
 import { TestPreparationOverlay } from "@/features/test-semanal/components/TestPreparationOverlay"
 import { UnlockModal } from "@/features/sectores/components/UnlockModal"
 import { SectorWithProgress } from "@/features/sectores/types"
@@ -26,6 +25,7 @@ export default function Home() {
 
   const [showTestOverlay, setShowTestOverlay] = useState(false)
   const [selectedLockedSector, setSelectedLockedSector] = useState<SectorWithProgress | null>(null)
+  const [pendingItems, setPendingItems] = useState<any[]>([])
   const [sectorCounts, setSectorCounts] = useState<Record<string, number>>({})
 
   const handleTestSemanal = () => {
@@ -50,22 +50,54 @@ export default function Home() {
 
   useEffect(() => {
     const counts: Record<string, number> = {};
+    const allPending: any[] = [];
+    const decayedIds = JSON.parse(localStorage.getItem('decayed_items') || '[]');
+
     SECTORES_DATA.forEach(sector => {
       try {
+        // Try new key (ID-based)
         const key = `sector_data_${sector.id}`;
-        const stored = localStorage.getItem(key);
+        let stored = localStorage.getItem(key);
+        
+        // Migration: fallback to old key (localized name based)
+        if (!stored) {
+          const oldKey = `sector_data_${t(`sectors.${sector.key}`).toLowerCase()}`;
+          stored = localStorage.getItem(oldKey);
+          // If found in old key, migrate to new key
+          if (stored) {
+             console.log(`Migrating data for ${sector.key} to new storage key`);
+             localStorage.setItem(key, stored);
+             // Optionally remove old key? Let's keep it for safety for now
+          }
+        }
+
         if (stored) {
           const data = JSON.parse(stored);
-          counts[sector.id] = data.items?.length || 0;
+          const sectorItems = data.items || [];
+          counts[sector.id] = sectorItems.length;
+
+          // Check for pending reviews
+          if (decayedIds.length > 0) {
+            const sectorPending = sectorItems.filter((item: any) => decayedIds.includes(item.id));
+            if (sectorPending.length > 0) {
+              allPending.push(...sectorPending.map((item: any) => ({ 
+                ...item, 
+                sectorName: t(`sectors.${sector.key}`),
+                sectorIcon: sector.icono
+              })));
+            }
+          }
         } else {
           counts[sector.id] = 0;
         }
-      } catch {
+      } catch (e) {
+        console.error("Error loading sector counts", e);
         counts[sector.id] = 0;
       }
     });
     setSectorCounts(counts);
-  }, []);
+    setPendingItems(allPending);
+  }, [t]);
 
 
   const handleEmpezarAprender = () => {
@@ -124,9 +156,14 @@ export default function Home() {
 
         {/* 2. Accesos Rápidos */}
         <div className="flex flex-wrap justify-center gap-3">
-          <Link href="/aprendizajes" onClick={() => playClick()}>
-            <div className="px-4 py-2 bg-card hover:bg-accent rounded-full text-sm font-medium text-muted-foreground hover:text-foreground transition-colors border border-border shadow-sm">
+          <Link href={pendingItems.length > 0 ? "/aprendizajes?pending=true" : "/aprendizajes"} onClick={() => playClick()}>
+            <div className="px-4 py-2 bg-card hover:bg-accent rounded-full text-sm font-medium text-muted-foreground hover:text-foreground transition-colors border border-border shadow-sm flex items-center gap-2">
               {t('home.my_learnings')}
+              {pendingItems.length > 0 && (
+                <span className="flex items-center gap-1 text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-full">
+                  ⚠️ {pendingItems.length} {pendingItems.length === 1 ? 'pendiente' : 'pendientes'}
+                </span>
+              )}
             </div>
           </Link>
           
@@ -166,6 +203,22 @@ export default function Home() {
             </div>
           </Link>
         </div>
+
+        {/* 2.5 Pendientes de Repaso - Link to dedicated page */}
+        {pendingItems.length > 0 && (
+          <Link href="/aprendizajes?pending=true" onClick={() => playClick()} className="w-full">
+            <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded-xl border border-amber-200 dark:border-amber-900/40 transition-all group">
+              <div className="flex items-center gap-3">
+                <span className="text-xl animate-bounce">⚠️</span>
+                <div>
+                  <h3 className="text-sm font-bold text-amber-800 dark:text-amber-400">{t('home.pending_reviews')}</h3>
+                  <p className="text-[10px] text-amber-600 dark:text-amber-500">Tienes {pendingItems.length} temas para repasar</p>
+                </div>
+              </div>
+              <span className="text-amber-600 dark:text-amber-400 group-hover:translate-x-1 transition-transform">→</span>
+            </div>
+          </Link>
+        )}
 
         {/* 3. Secciones (Compactas) */}
         <div className="mt-12 w-full">

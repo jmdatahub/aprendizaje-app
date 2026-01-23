@@ -17,18 +17,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useApp } from "@/shared/contexts/AppContext"
 
-// Datos de sectores (duplicado temporalmente, idealmente en shared/constants)
-const SECTORES_DATA = [
-  { id: 1, key: 'health', icono: '🍎', color: 'green' },
-  { id: 2, key: 'nature', icono: '🔬', color: 'blue' },
-  { id: 3, key: 'physics', icono: '🛸', color: 'purple' },
-  { id: 4, key: 'math', icono: '🔢', color: 'yellow' },
-  { id: 5, key: 'tech', icono: '💻', color: 'blue' },
-  { id: 6, key: 'history', icono: '📜', color: 'orange' },
-  { id: 7, key: 'arts', icono: '🎨', color: 'pink' },
-  { id: 8, key: 'economy', icono: '💰', color: 'green' },
-  { id: 9, key: 'society', icono: '🧠', color: 'purple' },
-];
+import { SECTORES_DATA } from "@/shared/constants/sectores"
 
 const COLOR_CLASSES: Record<string, string> = {
   green: 'bg-green-50 text-green-900 border-green-200',
@@ -56,16 +45,32 @@ export default function SectorAprendizajesPage() {
   const params = useParams<{ sectorId: string }>()
   const router = useRouter()
   const { t, formatDate } = useApp()
-  const sectorId = useMemo(() => Number(params?.sectorId), [params])
+  const sectorId = params?.sectorId;
   
-  const sectorInfo = useMemo(() => SECTORES_DATA.find(s => s.id === sectorId), [sectorId]);
+  const sectorInfo: any = useMemo(() => {
+    if (!sectorId) return null;
+    // Find by ID (string)
+    let found = SECTORES_DATA.find(s => s.id === sectorId);
+    // Fallback for old numeric IDs if they come in the URL
+    if (!found) {
+       const numericIdMap: Record<string, string> = {
+          '1': 'health', '2': 'nature', '3': 'physics', '4': 'math',
+          '5': 'tech', '6': 'history', '7': 'arts', '8': 'economy', '9': 'society'
+       };
+       const coreId = numericIdMap[sectorId];
+       if (coreId) found = SECTORES_DATA.find(s => s.id === coreId);
+    }
+    
+    if (found) {
+       return { ...found, nombre: t(`sectors.${found.key}`) };
+    }
+    return null;
+  }, [sectorId, t]);
 
   const [items, setItems] = useState<Aprendizaje[]>([])
   const [loading, setLoading] = useState(true)
   const [seleccionado, setSeleccionado] = useState<Aprendizaje | null>(null)
   
-  // Chat State
-
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortOption>('date')
   const [dateSortDirection, setDateSortDirection] = useState<DateSortDirection>('desc')
@@ -81,7 +86,17 @@ export default function SectorAprendizajesPage() {
     // Leer de LocalStorage
     try {
       const key = `sector_data_${sectorInfo.id}`;
-      const stored = localStorage.getItem(key);
+      let stored = localStorage.getItem(key);
+
+      // Migration: fallback to old key (localized name based)
+      if (!stored) {
+        const oldKey = `sector_data_${sectorInfo.nombre.toLowerCase()}`;
+        stored = localStorage.getItem(oldKey);
+        if (stored) {
+           localStorage.setItem(key, stored);
+        }
+      }
+
       if (stored) {
         const data = JSON.parse(stored);
         if (data && Array.isArray(data.items)) {
@@ -297,14 +312,11 @@ export default function SectorAprendizajesPage() {
                             setDateSortDirection('desc');
                           }
                         }}
-                        className="gap-1"
+                        className="gap-1 h-8 text-xs px-3"
                       >
-                        📅 Fecha
-                        {sortBy === 'date' && (
-                          <span className="text-xs">
-                            {dateSortDirection === 'desc' ? '↓' : '↑'}
-                          </span>
-                        )}
+                        📅 {sortBy === 'date' 
+                          ? (dateSortDirection === 'desc' ? 'Más reciente' : 'Más antiguo') 
+                          : 'Fecha'}
                       </Button>
                       <Button
                         variant={sortBy === 'title' ? 'default' : 'outline'}

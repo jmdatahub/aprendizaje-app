@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, Suspense } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import ReactMarkdown from 'react-markdown'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Input } from '@/components/ui/input'
@@ -16,12 +17,19 @@ import { useApp } from "@/shared/contexts/AppContext"
 
 import { SECTORES_DATA } from "@/shared/constants/sectores"
 
+type ReviewEntry = {
+  date: string;
+  notes?: string;
+}
+
 type Item = { 
   id: string
   title: string
   summary: string
   tags?: string[]
   date: string
+  learnedDate?: string
+  reviewHistory?: ReviewEntry[]
   sectorId: string
   sectorName: string
   sectorIcon: string
@@ -31,8 +39,29 @@ type Item = {
 type SortOption = 'date' | 'category' | 'title'
 type DateSortDirection = 'desc' | 'asc'
 
+// Wrapper component to handle Suspense boundary for useSearchParams
 export default function AprendizajesPage() {
+  return (
+    <Suspense fallback={<AprendizajesLoadingFallback />}>
+      <AprendizajesContent />
+    </Suspense>
+  )
+}
+
+function AprendizajesLoadingFallback() {
+  return (
+    <div className="min-h-screen bg-background p-6 md:p-12 flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+        <p className="text-muted-foreground">Cargando...</p>
+      </div>
+    </div>
+  )
+}
+
+function AprendizajesContent() {
   const { t, formatDate } = useApp()
+  const searchParams = useSearchParams()
   const [items, setItems] = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
   const [seleccionado, setSeleccionado] = useState<Item | null>(null)
@@ -50,23 +79,43 @@ export default function AprendizajesPage() {
   const [loadingQuestions, setLoadingQuestions] = useState(false)
   const [chatIdToOpen, setChatIdToOpen] = useState<string | undefined>(undefined)
 
+  // Auto-activate pending filter from URL parameter
+  useEffect(() => {
+    if (searchParams.get('pending') === 'true') {
+      setShowOnlyPendingReview(true)
+    }
+  }, [searchParams])
+
   useEffect(() => {
     const allItems: Item[] = [];
 
     SECTORES_DATA.forEach(sector => {
       try {
+        // Try new key (ID-based)
         const key = `sector_data_${sector.id}`;
-        const stored = localStorage.getItem(key);
+        let stored = localStorage.getItem(key);
+
+        // Migration: fallback to old key (localized name based)
+        if (!stored) {
+          const oldKey = `sector_data_${t(`sectors.${sector.key}`).toLowerCase()}`;
+          stored = localStorage.getItem(oldKey);
+          if (stored) {
+             localStorage.setItem(key, stored);
+          }
+        }
+
         if (stored) {
           const data = JSON.parse(stored);
           if (data && Array.isArray(data.items)) {
             data.items.forEach((it: any) => {
               allItems.push({
                 id: it.id,
-                title: it.title,
-                summary: it.summary,
-                tags: it.tags,
-                date: it.date,
+                title: it.title || "Sin título",
+                summary: it.summary || "",
+                tags: it.tags || [],
+                date: it.date || new Date().toISOString(),
+                learnedDate: it.learnedDate || it.date || new Date().toISOString(),
+                reviewHistory: it.reviewHistory || [],
                 sectorId: sector.id,
                 sectorName: t(`sectors.${sector.key}`),
                 sectorIcon: sector.icono,
@@ -110,6 +159,45 @@ export default function AprendizajesPage() {
         playClick();
     } catch (e) {
         console.error("Error updating favorite status", e);
+    }
+  };
+
+  const handleMarkAsReviewed = (e: React.MouseEvent, item: Item) => {
+    e.stopPropagation();
+    
+    const now = new Date().toISOString();
+    const newReviewEntry: ReviewEntry = { date: now };
+    const updatedHistory = [...(item.reviewHistory || []), newReviewEntry];
+    
+    // Update local state
+    setItems(prev => prev.map(i => 
+      i.id === item.id ? { ...i, reviewHistory: updatedHistory } : i
+    ));
+    if (seleccionado?.id === item.id) {
+      setSeleccionado(prev => prev ? { ...prev, reviewHistory: updatedHistory } : null);
+    }
+
+    // Remove from pending list
+    const newPendingIds = pendingReviewIds.filter(id => id !== item.id);
+    setPendingReviewIds(newPendingIds);
+    localStorage.setItem('decayed_items', JSON.stringify(newPendingIds));
+
+    // Update localStorage sector data
+    try {
+      const key = `sector_data_${item.sectorId}`;
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        const data = JSON.parse(stored);
+        if (data && Array.isArray(data.items)) {
+          const updatedItems = data.items.map((it: any) =>
+            it.id === item.id ? { ...it, reviewHistory: updatedHistory } : it
+          );
+          localStorage.setItem(key, JSON.stringify({ ...data, items: updatedItems }));
+        }
+      }
+      playClick();
+    } catch (e) {
+      console.error("Error updating review history", e);
     }
   };
 
@@ -434,12 +522,9 @@ export default function AprendizajesPage() {
                         }}
                         className="gap-1 h-8 text-xs px-3"
                       >
-                        📅 Fecha
-                        {sortBy === 'date' && (
-                          <span className="text-[10px]">
-                            {dateSortDirection === 'desc' ? '↓' : '↑'}
-                          </span>
-                        )}
+                        📅 {sortBy === 'date' 
+                          ? (dateSortDirection === 'desc' ? 'Más reciente' : 'Más antiguo') 
+                          : 'Fecha'}
                       </Button>
                       <Button
                         variant={sortBy === 'category' ? 'secondary' : 'ghost'}
@@ -575,9 +660,12 @@ export default function AprendizajesPage() {
                       whileHover={{ scale: 1.02, y: -4 }}
                       whileTap={{ scale: 0.98 }}
                     >
-                      <button 
+                      <div 
+                        role="button"
+                        tabIndex={0}
                         onClick={() => { playClick(); setSeleccionado(it) }}
-                        className={`group bg-card rounded-2xl shadow-sm hover:shadow-md transition-all border border-border hover:border-primary/30 text-left flex flex-col h-full w-full ${viewMode === 'compact' ? 'p-3' : 'p-4'}`}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { playClick(); setSeleccionado(it) } }}
+                        className={`group bg-card rounded-2xl shadow-sm hover:shadow-md transition-all border border-border hover:border-primary/30 text-left flex flex-col h-full w-full cursor-pointer ${viewMode === 'compact' ? 'p-3' : 'p-4'}`}
                       >
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground bg-muted px-2 py-1 rounded-md">
@@ -629,7 +717,29 @@ export default function AprendizajesPage() {
                             ))}
                           </div>
                         )}
-                      </button>
+
+                        {/* Review History & Pending Action */}
+                        <div className={`flex items-center justify-between mt-auto pt-2 border-t border-border/50 ${viewMode === 'compact' ? 'text-[9px]' : 'text-[10px]'}`}>
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            {it.reviewHistory && it.reviewHistory.length > 0 ? (
+                              <span className="flex items-center gap-1">
+                                🔄 {it.reviewHistory.length} repaso{it.reviewHistory.length !== 1 ? 's' : ''}
+                              </span>
+                            ) : (
+                              <span className="opacity-50">Sin repasos aún</span>
+                            )}
+                          </div>
+                          
+                          {pendingReviewIds.includes(it.id) && (
+                            <button
+                              onClick={(e) => handleMarkAsReviewed(e, it)}
+                              className="flex items-center gap-1 px-2 py-1 bg-primary/10 hover:bg-primary/20 text-primary rounded-md transition-colors font-medium"
+                            >
+                              ✓ Repasado
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </motion.div>
                   ))}
                 </motion.div>

@@ -19,7 +19,13 @@ import {
   updateSmartStats,
   GameSession, 
   GameMode,
-  MathGameStats
+  MathGameStats,
+  PlayerProfile,
+  getProfiles,
+  getActiveProfileId,
+  getActiveProfile,
+  setActiveProfile,
+  createProfile
 } from "./services/mathGameStorage"
 import { 
   selectSmartOperation, 
@@ -59,9 +65,21 @@ export default function JuegosMatematicos() {
   // -- History --
   const [history, setHistory] = useState<GameSession[]>([])
   const [showHistory, setShowHistory] = useState(false)
+  
+  // -- Player Profiles --
+  const [profiles, setProfiles] = useState<PlayerProfile[]>([])
+  const [activeProfileId, setActiveProfileIdState] = useState<string>('serio')
+  const [showNewProfileInput, setShowNewProfileInput] = useState(false)
+  const [newProfileName, setNewProfileName] = useState('')
+  const [historyFilterProfile, setHistoryFilterProfile] = useState<string | 'all'>('all')
 
-  // Load history on mount
+  // Load profiles and history on mount
   useEffect(() => {
+    const loadedProfiles = getProfiles()
+    setProfiles(loadedProfiles)
+    const activeId = getActiveProfileId()
+    setActiveProfileIdState(activeId)
+    setHistoryFilterProfile(activeId) // Default to active profile
     setHistory(getGameHistory())
   }, [])
 
@@ -274,11 +292,30 @@ export default function JuegosMatematicos() {
         {showHistory && (
           <Card className="mb-6 bg-white/90 backdrop-blur border-indigo-200 dark:bg-slate-800/90 dark:border-slate-600 animate-in slide-in-from-top-4">
             <CardContent className="p-6">
-              <h3 className="text-xl font-bold mb-4 dark:text-white">{t('math_games.history_title')}</h3>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                <h3 className="text-xl font-bold dark:text-white">{t('math_games.history_title')}</h3>
+                
+                {/* Profile Filter */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Filtrar:</span>
+                  <select
+                    value={historyFilterProfile}
+                    onChange={(e) => setHistoryFilterProfile(e.target.value)}
+                    className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm dark:text-white focus:ring-2 focus:ring-indigo-200 outline-none"
+                  >
+                    <option value="all">Todos los perfiles</option>
+                    {profiles.map(p => (
+                      <option key={p.id} value={p.id}>{p.emoji} {p.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              
               <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
                   <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-slate-700 dark:text-gray-300">
                     <tr>
+                      <th className="px-4 py-2">Perfil</th>
                       <th className="px-4 py-2">Fecha</th>
                       <th className="px-4 py-2">Modo</th>
                       <th className="px-4 py-2">Op</th>
@@ -289,22 +326,32 @@ export default function JuegosMatematicos() {
                     </tr>
                   </thead>
                   <tbody>
-                    {history.map((game) => (
-                      <tr key={game.id} className="bg-white border-b dark:bg-slate-800 dark:border-slate-700">
-                        <td className="px-4 py-2">{new Date(game.timestamp).toLocaleDateString()} {new Date(game.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
-                        <td className="px-4 py-2 capitalize">
-                          {game.mode === 'timed' ? t('math_games.mode_timed') : game.mode === 'smart' ? t('math_games.mode_smart') : t('math_games.mode_free')}
-                        </td>
-                        <td className="px-4 py-2">{getOpName(game.operation)}</td>
-                        <td className="px-4 py-2 capitalize">{game.level}</td>
-                        <td className="px-4 py-2">{game.correctCount}/{game.totalAttempts}</td>
-                        <td className="px-4 py-2 font-bold text-indigo-600 dark:text-indigo-400">{game.accuracyPercentage.toFixed(0)}%</td>
-                        <td className="px-4 py-2">{game.opsPerSecond.toFixed(2)}</td>
-                      </tr>
-                    ))}
-                    {history.length === 0 && (
+                    {history
+                      .filter(game => historyFilterProfile === 'all' || game.profileId === historyFilterProfile)
+                      .map((game) => {
+                        const profile = profiles.find(p => p.id === game.profileId);
+                        return (
+                          <tr key={game.id} className="bg-white border-b dark:bg-slate-800 dark:border-slate-700">
+                            <td className="px-4 py-2">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-slate-600 rounded-full text-xs">
+                                {profile?.emoji || '👤'} {profile?.name || 'Desconocido'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2">{new Date(game.timestamp).toLocaleDateString()} {new Date(game.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                            <td className="px-4 py-2 capitalize">
+                              {game.mode === 'timed' ? t('math_games.mode_timed') : game.mode === 'smart' ? t('math_games.mode_smart') : t('math_games.mode_free')}
+                            </td>
+                            <td className="px-4 py-2">{getOpName(game.operation)}</td>
+                            <td className="px-4 py-2 capitalize">{game.level}</td>
+                            <td className="px-4 py-2">{game.correctCount}/{game.totalAttempts}</td>
+                            <td className="px-4 py-2 font-bold text-indigo-600 dark:text-indigo-400">{game.accuracyPercentage.toFixed(0)}%</td>
+                            <td className="px-4 py-2">{game.opsPerSecond.toFixed(2)}</td>
+                          </tr>
+                        );
+                      })}
+                    {history.filter(game => historyFilterProfile === 'all' || game.profileId === historyFilterProfile).length === 0 && (
                       <tr>
-                        <td colSpan={7} className="px-4 py-4 text-center text-gray-500">{t('math_games.history_empty')}</td>
+                        <td colSpan={8} className="px-4 py-4 text-center text-gray-500">{t('math_games.history_empty')}</td>
                       </tr>
                     )}
                   </tbody>
@@ -332,6 +379,91 @@ export default function JuegosMatematicos() {
             {!gameActive && !isGameOver ? (
               /* -- SETUP SCREEN -- */
               <div className="space-y-8 animate-in fade-in">
+                {/* Profile Selector */}
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Jugando como
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {profiles.map((profile) => (
+                      <button
+                        key={profile.id}
+                        onClick={() => {
+                          setActiveProfile(profile.id)
+                          setActiveProfileIdState(profile.id)
+                        }}
+                        className={`px-4 py-2 rounded-full border-2 transition-all flex items-center gap-2 ${
+                          activeProfileId === profile.id 
+                            ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 font-bold' 
+                            : 'border-gray-200 dark:border-slate-700 hover:border-indigo-300'
+                        }`}
+                      >
+                        <span className="text-lg">{profile.emoji}</span>
+                        <span className="dark:text-white">{profile.name}</span>
+                      </button>
+                    ))}
+                    
+                    {/* Add New Profile Button */}
+                    {!showNewProfileInput ? (
+                      <button
+                        onClick={() => setShowNewProfileInput(true)}
+                        className="px-4 py-2 rounded-full border-2 border-dashed border-gray-300 dark:border-slate-600 hover:border-indigo-400 text-gray-500 dark:text-gray-400 transition-all flex items-center gap-2"
+                      >
+                        <span>➕</span>
+                        <span>Nuevo</span>
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-2 animate-in fade-in">
+                        <input
+                          type="text"
+                          value={newProfileName}
+                          onChange={(e) => setNewProfileName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && newProfileName.trim()) {
+                              const newP = createProfile(newProfileName.trim())
+                              setProfiles(getProfiles())
+                              setActiveProfile(newP.id)
+                              setActiveProfileIdState(newP.id)
+                              setNewProfileName('')
+                              setShowNewProfileInput(false)
+                            }
+                          }}
+                          placeholder="Nombre del perfil..."
+                          className="px-3 py-2 rounded-full border-2 border-indigo-400 text-sm focus:ring-2 focus:ring-indigo-200 outline-none dark:bg-slate-700 dark:text-white"
+                          autoFocus
+                        />
+                        <button
+                          onClick={() => {
+                            if (newProfileName.trim()) {
+                              const newP = createProfile(newProfileName.trim())
+                              setProfiles(getProfiles())
+                              setActiveProfile(newP.id)
+                              setActiveProfileIdState(newP.id)
+                              setNewProfileName('')
+                            }
+                            setShowNewProfileInput(false)
+                          }}
+                          className="p-2 rounded-full bg-indigo-600 text-white hover:bg-indigo-700"
+                        >
+                          ✓
+                        </button>
+                        <button
+                          onClick={() => {
+                            setNewProfileName('')
+                            setShowNewProfileInput(false)
+                          }}
+                          className="p-2 rounded-full bg-gray-200 dark:bg-slate-600 text-gray-600 dark:text-gray-300 hover:bg-gray-300"
+                        >
+                          ✗
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Las estadísticas se guardan por separado para cada perfil
+                  </p>
+                </div>
+
                 {/* Mode Selector */}
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Modo de Juego</label>

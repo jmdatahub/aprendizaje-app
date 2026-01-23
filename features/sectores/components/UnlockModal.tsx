@@ -6,10 +6,16 @@ import { LoadingSpinner } from '@/shared/components'
 import { SectorWithProgress } from '../types'
 import { playSuccess } from '@/shared/utils/sounds'
 import { useApp } from '@/shared/contexts/AppContext'
+import { apiGet } from '@/shared/utils/api'
 
 interface UnlockModalProps {
   sector: SectorWithProgress | null
   onClose: () => void
+}
+
+interface SurpriseResponse {
+  chiste?: string;
+  sorpresa?: string;
 }
 
 export function UnlockModal({ sector, onClose }: UnlockModalProps) {
@@ -23,8 +29,7 @@ export function UnlockModal({ sector, onClose }: UnlockModalProps) {
 
     setLoading(true)
     try {
-      const response = await fetch(`/api/sorpresas?sector=${encodeURIComponent(sector.nombre)}`)
-      const data = await response.json()
+      const data = await apiGet<SurpriseResponse>(`/api/sorpresas?sector=${encodeURIComponent(sector.nombre)}`)
       setSurprise({
         chiste: data?.chiste || '',
         sorpresa: data?.sorpresa || '',

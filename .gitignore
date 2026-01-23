@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# credentials (never commit)
+/pass/
+
+# temporary build/debug files
+build-*.txt
+final-build.txt
+*.log
+api_audit*.md

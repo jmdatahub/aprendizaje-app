@@ -200,3 +200,32 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Hide scrollbar but keep scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari, Opera */
+}
+
+/* Chat message prose spacing - more space between paragraphs */
+.chat-prose p {
+  margin-bottom: 0.75em;
+}
+.chat-prose p:last-child {
+  margin-bottom: 0;
+}
+.chat-prose h1, .chat-prose h2, .chat-prose h3, .chat-prose h4 {
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+}
+.chat-prose ul, .chat-prose ol {
+  margin-top: 0.5em;
+  margin-bottom: 0.75em;
+  padding-left: 1.25em;
+}
+.chat-prose li {
+  margin-bottom: 0.25em;
+}
