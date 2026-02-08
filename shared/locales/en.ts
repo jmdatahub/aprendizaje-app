@@ -12,6 +12,8 @@ export const en = {
     training_completed: "This month's training completed.",
     days_remaining: "{days} days remaining until the next monthly challenge.",
     pending_reviews: "Pending Reviews",
+    current_streak: "Current streak",
+    yearly_goal: "Annual goal",
     mark_all_completed: "Mark All Completed",
     confirm_mark_all: "Mark all reviews as completed? This will remove them from the list.",
     welcome_title: "Welcome to your learning space!",
@@ -23,7 +25,9 @@ export const en = {
     error_sectors_desc: "There was a problem loading the sectors. Please reload the page.",
     explore_by_topic: "Explore by topic",
     math_games: "🎮 Math Games",
-    learning_paths: "🗺️ Learning Paths"
+    learning_paths: "🗺️ Learning Paths",
+    streak_days: "{days} day streak",
+    year_progress: "{current} of {total} days learned"
   },
   settings: {
     title: "Settings",
@@ -83,6 +87,9 @@ export const en = {
     concise: "Concise",
     detailed: "Detailed",
     normal: "Normal",
+    objective_section: "Learning Goals",
+    streak_goal: "Streak Goal (days)",
+    yearly_goal: "Yearly Learning Goal (days)",
     suggestions: [
       "Ask me anything and I'll teach you",
       "What are you curious about? Let's investigate",

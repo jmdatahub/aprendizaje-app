@@ -46,7 +46,7 @@ export async function GET(request: Request) {
     }
 
     if (!data || data.length === 0) {
-      return NextResponse.json<RepasoResponse>({ success: true, preguntas: [] })
+      return NextResponse.json<ApiResponse<{ preguntas: Pregunta[] }>>({ success: true, data: { preguntas: [] } })
     }
 
     // 4) Generar preguntas stub simples
@@ -80,10 +80,13 @@ export async function GET(request: Request) {
       if (preguntas.length >= limite) break
     }
 
-    return NextResponse.json<RepasoResponse>({ success: true, preguntas })
+    return NextResponse.json<ApiResponse<{ preguntas: Pregunta[] }>>({ 
+      success: true, 
+      data: { preguntas } 
+    })
   } catch (e: any) {
     console.error('[repaso] error inesperado', e)
-    return NextResponse.json<RepasoResponse>({ 
+    return NextResponse.json<ApiResponse>({ 
       success: false,
       error: 'INTERNAL_ERROR',
       message: 'Error generando preguntas de repaso' 

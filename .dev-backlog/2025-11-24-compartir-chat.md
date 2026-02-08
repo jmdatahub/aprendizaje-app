@@ -1,4 +1,4 @@
-# [TODO] Funcionalidad de Compartir Chat
+# [DONE] Funcionalidad de Compartir Chat
 
 **Fecha**: 2025-11-24  
 **Prioridad**: Media  

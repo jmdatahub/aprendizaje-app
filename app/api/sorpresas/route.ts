@@ -21,12 +21,12 @@ function slug(s = '') {
 function normalizaSector(nombre = '') {
   const n = slug(nombre)
   const table = [
+    { key: 'historia', match: [/histori/, /filosof/, /pensam/, /antigu/, /clasico/] },
     { key: 'salud', match: [/salud/, /rendimiento/, /bienestar/, /sueno/, /suenos/, /deporte/, /ejercicio/] },
     { key: 'naturales', match: [/natur/, /biolog/, /ecolog/, /ambient/, /botan/, /zoolog/, /ciencias-naturales/] },
     { key: 'fisicas', match: [/fisic/, /energia/, /fuerza/, /termo/, /mecanica/, /cuant/] },
     { key: 'mates', match: [/mate/, /algebra/, /logica/, /calculo/, /estad/, /probab/] },
-    { key: 'tecnologia', match: [/tecno/, /comput/, /codigo/, /program/, /software/, /ia/, /redes/] },
-    { key: 'historia', match: [/histori/, /filosof/, /pensam/, /antigu/, /clasico/] },
+    { key: 'tecnologia', match: [/tecno/, /comput/, /codigo/, /program/, /software/, /(^|-)ia(-|$)/, /redes/, /inteligencia-artificial/] },
     { key: 'artes', match: [/arte/, /musica/, /pintur/, /escult/, /cine/, /teatro/, /cultura/] },
     { key: 'economia', match: [/econom/, /negocio/, /empresa/, /finanz/, /mercad/] },
     { key: 'sociedad', match: [/socied/, /psicolo/, /comunic/, /lengua/, /idioma/, /gramat/] },
@@ -451,18 +451,20 @@ export async function GET(request: Request) {
     }
 
     // Construir respuesta y setear cookie (1 día)
-    const res = NextResponse.json<SorpresasResponse>({ 
+    const res = NextResponse.json<ApiResponse<{ chiste: string, sorpresa: string, seed: number, sector: string }>>({ 
       success: true,
-      chiste, 
-      sorpresa, 
-      seed: idx, 
-      sector: rawSector 
+      data: {
+        chiste, 
+        sorpresa, 
+        seed: idx, 
+        sector: rawSector 
+      }
     })
     res.cookies.set(cookieKey, String(idx), { path: '/', maxAge: 60 * 60 * 24 })
     return res
   } catch (e: any) {
     const msg = e?.message || 'Error del servidor'
-    return NextResponse.json<SorpresasResponse>({ 
+    return NextResponse.json<ApiResponse>({ 
       success: false,
       error: 'INTERNAL_ERROR',
       message: msg 

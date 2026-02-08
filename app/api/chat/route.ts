@@ -116,12 +116,19 @@ export async function POST(req: Request) {
 
     const respuesta = completion.choices[0]?.message?.content || 'No pude generar una respuesta.'
 
-    return NextResponse.json<ChatResponse>({
+    return NextResponse.json<ApiResponse<{
+      respuesta: string;
+      engine: string;
+      aieState: AIEState;
+      aieAnalysis: any;
+    }>>({
       success: true,
-      respuesta,
-      engine: 'gpt-4o-mini-aie',
-      aieState: nextAIEState,
-      aieAnalysis: analysisResult
+      data: {
+        respuesta,
+        engine: 'gpt-4o-mini-aie',
+        aieState: nextAIEState,
+        aieAnalysis: analysisResult
+      }
     })
 
   } catch (error: any) {

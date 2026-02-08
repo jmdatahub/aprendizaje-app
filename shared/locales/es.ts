@@ -12,6 +12,8 @@ export const es = {
     training_completed: "Entrenamiento de este mes completado.",
     days_remaining: "Faltan {days} días para el próximo reto mensual.",
     pending_reviews: "Pendientes de Repaso",
+    current_streak: "Racha actual",
+    yearly_goal: "Objetivo anual",
     mark_all_completed: "Marcar Todos Completados",
     confirm_mark_all: "¿Marcar todos los repasos como completados? Esto los eliminará de la lista.",
     welcome_title: "¡Bienvenido a tu espacio de aprendizaje!",
@@ -23,7 +25,9 @@ export const es = {
     error_sectors_desc: "Hubo un problema al cargar los sectores. Por favor, recarga la página.",
     explore_by_topic: "Explorar por temas",
     math_games: "🎮 Juegos Matemáticos",
-    learning_paths: "🗺️ Rutas de Aprendizaje"
+    learning_paths: "🗺️ Rutas de Aprendizaje",
+    streak_days: "{days} días seguidos",
+    year_progress: "{current} de {total} días al año"
   },
   settings: {
     title: "Ajustes",
@@ -141,6 +145,9 @@ export const es = {
     concise: "Resumido",
     detailed: "Detallado",
     normal: "Normal",
+    objective_section: "Objetivos de aprendizaje",
+    streak_goal: "Objetivo de racha (días)",
+    yearly_goal: "Días aprendiendo al año",
     suggestions: [
       "Pregúntame lo que quieras y yo te lo enseño",
       "¿Qué te genera curiosidad? Vamos a investigar",

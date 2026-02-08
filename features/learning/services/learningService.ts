@@ -9,6 +9,7 @@ export interface AprendizajeDraftResponse {
   titulo: string;
   resumen: string;
   sector_id: string | number | null;
+  suggested_sections?: number[];
   tags: string[];
 }
 
@@ -24,6 +25,7 @@ interface ApiAprendizajeResponse {
   titulo?: string;
   resumen?: string;
   sector_id?: string | number;
+  suggested_sections?: number[];
   tags?: string[];
   message?: string;
 }
@@ -63,6 +65,7 @@ export const createAprendizajeDraft = async (data: {
       titulo: result.titulo || 'Aprendizaje Nuevo',
       resumen: result.resumen || 'No se pudo generar el resumen.',
       sector_id: result.sector_id || null,
+      suggested_sections: result.suggested_sections || [],
       tags: result.tags || []
     };
   } catch (error) {

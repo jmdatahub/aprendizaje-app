@@ -10,9 +10,12 @@ interface SaveLearningModalProps {
   initialSummary: string;
   initialTitle: string;
   initialSection?: string;
+  initialSections?: number[];
+  suggestedSections?: number[];
   initialTags?: string[];
   onSave: (data: any) => void;
   onExpandSummary: (section: string) => Promise<string>;
+  onEditSummary?: (currentSummary: string, instruction: string) => Promise<string>;
   loading?: boolean;
 }
 
@@ -22,16 +25,19 @@ export function SaveLearningModal({
   initialSummary,
   initialTitle,
   initialSection,
+  initialSections = [],
+  suggestedSections = [],
   initialTags = [],
   onSave,
   onExpandSummary,
+  onEditSummary,
   loading
 }: SaveLearningModalProps) {
   const { t } = useApp();
   
   const [title, setTitle] = useState(initialTitle);
   const [summary, setSummary] = useState(initialSummary);
-  const [selectedSection, setSelectedSection] = useState(initialSection || '');
+  const [selectedSections, setSelectedSections] = useState<number[]>(initialSections);
   const [tags, setTags] = useState<string[]>(initialTags);
   const [isFavorite, setIsFavorite] = useState(false);
   const [reviewLater, setReviewLater] = useState(false);
@@ -41,13 +47,19 @@ export function SaveLearningModal({
   const [status, setStatus] = useState('pendiente');
   const [keepChat, setKeepChat] = useState(false);
   const [personalNote, setPersonalNote] = useState('');
+  
+  // AI Editing State
+  const [showAiEdit, setShowAiEdit] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiEditLoading, setAiEditLoading] = useState(false);
 
   // Reset state when opening
   useEffect(() => {
     if (isOpen) {
       setTitle(initialTitle);
       setSummary(initialSummary);
-      setSelectedSection(initialSection || '');
+      // Pre-select suggested sections
+      setSelectedSections(suggestedSections.length > 0 ? suggestedSections : initialSections);
       setTags(initialTags);
       setIsFavorite(false);
       setReviewLater(false);
@@ -56,8 +68,10 @@ export function SaveLearningModal({
       setStatus('pendiente');
       setKeepChat(false);
       setPersonalNote('');
+      setShowAiEdit(false);
+      setAiPrompt('');
     }
-  }, [isOpen, initialTitle, initialSummary, initialSection, initialTags]);
+  }, [isOpen, initialTitle, initialSummary, initialSection, initialSections, suggestedSections, initialTags]);
 
   const handleAddTag = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && newTag.trim()) {
@@ -72,11 +86,34 @@ export function SaveLearningModal({
     setTags(tags.filter(tag => tag !== tagToRemove));
   };
 
+  const handleToggleSection = (sectionId: number) => {
+    setSelectedSections(prev => 
+      prev.includes(sectionId) 
+        ? prev.filter(s => s !== sectionId) 
+        : [...prev, sectionId]
+    );
+  };
+
+  const handleAiEdit = async () => {
+    if (!aiPrompt.trim() || !onEditSummary || aiEditLoading) return;
+    setAiEditLoading(true);
+    try {
+      const newSummary = await onEditSummary(summary, aiPrompt);
+      setSummary(newSummary);
+      setAiPrompt('');
+    } catch (e) {
+      console.error('AI edit failed', e);
+    } finally {
+      setAiEditLoading(false);
+    }
+  };
+
   const handleSave = () => {
     onSave({
       title,
       summary,
-      section: selectedSection,
+      sections: selectedSections,
+      section: selectedSections[0]?.toString() || '',
       tags,
       isFavorite,
       reviewLater,
@@ -102,15 +139,58 @@ export function SaveLearningModal({
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             className="bg-background w-full max-w-6xl h-[90vh] rounded-2xl shadow-2xl flex overflow-hidden border border-border"
           >
-            {/* Left Side: Canvas */}
-            <div className="flex-1 border-r border-border p-4 bg-muted/10">
-              <LearningCanvas
-                initialContent={summary}
-                onContentChange={setSummary}
-                onExpand={onExpandSummary}
-                onRestore={handleRestore}
-                loading={loading}
-              />
+            {/* Left Side: Canvas + AI Editor */}
+            <div className="flex-1 border-r border-border p-4 bg-muted/10 flex flex-col">
+              <div className="flex-1 min-h-0">
+                <LearningCanvas
+                  initialContent={summary}
+                  onContentChange={setSummary}
+                  onExpand={onExpandSummary}
+                  onRestore={handleRestore}
+                  loading={loading}
+                />
+              </div>
+              
+              {/* Inline AI Editing Chat */}
+              {onEditSummary && (
+                <div className="mt-4 border-t border-border pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowAiEdit(!showAiEdit)}
+                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
+                  >
+                    <span>✨</span>
+                    <span>Editar con IA</span>
+                    <span className="text-xs">{showAiEdit ? '▲' : '▼'}</span>
+                  </button>
+                  
+                  {showAiEdit && (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={aiPrompt}
+                        onChange={(e) => setAiPrompt(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAiEdit()}
+                        placeholder="Ej: Hazlo más corto, Ordénalo por importancia..."
+                        className="flex-1 bg-muted border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                        disabled={aiEditLoading}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAiEdit}
+                        disabled={aiEditLoading || !aiPrompt.trim()}
+                        className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                      >
+                        {aiEditLoading ? (
+                          <span className="animate-spin">⏳</span>
+                        ) : (
+                          <span>Aplicar</span>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Right Side: Metadata & Actions */}
@@ -135,19 +215,32 @@ export function SaveLearningModal({
 
                 {/* Section */}
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">{t('learnings.section_label')}</label>
-                  <select
-                    value={selectedSection}
-                    onChange={(e) => setSelectedSection(e.target.value)}
-                    className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none"
-                  >
-                    <option value="">{t('settings.select_language')}...</option>
-                    {SECTORES_DATA.map(s => (
-                      <option key={s.id} value={s.id}>
-                        {s.icono} {t(`sectors.${s.key}`)}
-                      </option>
-                    ))}
-                  </select>
+                  <label className="text-xs font-semibold uppercase text-muted-foreground">{t('learnings.section_label')} (múltiple)</label>
+                  <div className="flex flex-wrap gap-2">
+                    {SECTORES_DATA.map(s => {
+                      const isSelected = selectedSections.includes(Number(s.id));
+                      const isSuggested = suggestedSections.includes(Number(s.id));
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => handleToggleSection(Number(s.id))}
+                          className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5
+                            ${isSelected 
+                              ? 'bg-primary/20 border-primary text-primary' 
+                              : 'bg-muted border-border text-muted-foreground hover:border-primary/50'}
+                            ${isSuggested && !isSelected ? 'ring-2 ring-primary/30' : ''}`}
+                        >
+                          <span>{s.icono}</span>
+                          <span>{t(`sectors.${s.key}`)}</span>
+                          {isSelected && <span>✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {suggestedSections.length > 0 && (
+                    <p className="text-[10px] text-muted-foreground mt-1">✨ Sugeridas por IA basándose en el contenido</p>
+                  )}
                 </div>
 
                 {/* Type */}
@@ -258,7 +351,7 @@ export function SaveLearningModal({
               <div className="p-6 border-t border-border bg-muted/30 flex flex-col gap-3">
                 <button
                   onClick={handleSave}
-                  disabled={!title || !selectedSection}
+                  disabled={!title || selectedSections.length === 0}
                   className="w-full py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl shadow-lg shadow-primary/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   <span>💾</span> {t('chat.save_learning')}

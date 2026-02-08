@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { chatStorage, Chat, ChatMessage } from "@/features/chat/services/chatStorage";
-import { sendChatMessage } from "@/features/ia/services/openai";
+import { sendChatMessage, generateChatTitle } from "@/features/ia/services/openai";
 import { detectChatSector } from "@/features/chat/utils/sectorUtils";
 
 function createId() {
@@ -15,6 +15,7 @@ interface UseChatLogicOptions {
   initialSector?: string;
   autostart?: boolean;
   linkedLearningId?: string;
+  detailLevel?: 'concise' | 'normal' | 'detailed';
   onPlayMessage?: () => void;
   onPlayError?: () => void;
   onPlaySuccess?: () => void;
@@ -58,6 +59,7 @@ export function useChatLogic(options: UseChatLogicOptions): UseChatLogicReturn {
     initialTopic,
     initialSector,
     linkedLearningId,
+    detailLevel = 'normal',
     onPlayMessage,
     onPlayError,
     onPlaySuccess,
@@ -83,7 +85,7 @@ export function useChatLogic(options: UseChatLogicOptions): UseChatLogicReturn {
   }, []);
 
   const refreshChats = useCallback(() => {
-    setSavedChats(chatStorage.getChats());
+    setSavedChats(chatStorage.getAllChats());
   }, []);
 
   // Process Queue Effect
@@ -102,17 +104,20 @@ export function useChatLogic(options: UseChatLogicOptions): UseChatLogicReturn {
     const lastMsg = currentMessages[currentMessages.length - 1];
     if (lastMsg.role !== 'user') return;
 
-    setLoading(true);
+    // Guard against parallel executions
+    if (isRespondingRef.current) return;
     isRespondingRef.current = true;
+    setLoading(true);
 
     try {
+      // Build full history from currentMessages, not from savedChats
       const fullHistory = currentMessages.map(m => ({
         role: m.role,
         content: m.content
       }));
       
       const context = initialTopic ? `El usuario está interesado en aprender sobre: ${initialTopic}.` : undefined;
-      const config = { verbosity: 'normal' as const };
+      const config = { verbosity: detailLevel };
 
       const res = await sendChatMessage(fullHistory, context, config);
 
@@ -125,20 +130,21 @@ export function useChatLogic(options: UseChatLogicOptions): UseChatLogicReturn {
         animate: true
       };
 
-      setMessages(prev => [...prev, assistantMessage]);
+      // Build the updated messages list from currentMessages
+      const updatedMessages = [...currentMessages, assistantMessage];
+      setMessages(updatedMessages);
 
-      // Save chat
+      // Save chat using the unified updatedMessages
       const currentChat = savedChats.find(c => c.id === activeChatId);
-      const batch = [lastMsg]; 
       
       const updatedChat: Chat = currentChat ? {
         ...currentChat,
-        messages: [...currentChat.messages, ...batch, assistantMessage],
+        messages: updatedMessages,
         updatedAt: Date.now()
       } : {
         id: activeChatId,
         title: initialTopic || "Nuevo Chat",
-        messages: [...batch, assistantMessage],
+        messages: updatedMessages,
         createdAt: Date.now(),
         updatedAt: Date.now(),
         origin: 'aprendizaje',
@@ -147,6 +153,17 @@ export function useChatLogic(options: UseChatLogicOptions): UseChatLogicReturn {
       
       chatStorage.saveChat(updatedChat);
       refreshChats();
+
+      // NEW: Trigger auto-titling if it's the first exchange or title is generic
+      if (updatedChat.messages.length >= 2 && (updatedChat.title === "Nuevo Chat" || updatedChat.title === initialTopic)) {
+        generateChatTitle(updatedChat.messages).then(newTitle => {
+          if (newTitle) {
+            const titledChat = { ...updatedChat, title: newTitle };
+            chatStorage.saveChat(titledChat);
+            refreshChats();
+          }
+        });
+      }
 
       if (autoPlay && onSpeak) {
         onSpeak(assistantText);
@@ -168,7 +185,7 @@ export function useChatLogic(options: UseChatLogicOptions): UseChatLogicReturn {
       setLoading(false);
       isRespondingRef.current = false;
     }
-  }, [activeChatId, autoPlay, initialSector, initialTopic, onPlayError, onPlayMessage, onSpeak, refreshChats, savedChats, t]);
+  }, [activeChatId, autoPlay, detailLevel, initialSector, initialTopic, onPlayError, onPlayMessage, onSpeak, refreshChats, savedChats, t]);
 
   const handleSend = useCallback(async (textOverride?: string) => {
     const textToSend = textOverride || input;
@@ -249,14 +266,25 @@ export function useChatLogic(options: UseChatLogicOptions): UseChatLogicReturn {
     onPlaySuccess?.();
   }, [activeChatId, onPlaySuccess, refreshChats, savedChats]);
 
-  const handleSaveChat = useCallback((customTitle?: string) => {
+  const handleSaveChat = useCallback(async (customTitle?: string) => {
     if (!messages.length) return;
 
     const sectorInfo = detectChatSector(messages);
     
-    const firstUserMsg = messages.find(m => m.role === 'user')?.content || 'Nuevo Chat';
-    const generatedTitle = firstUserMsg.length > 40 ? firstUserMsg.substring(0, 40) + '...' : firstUserMsg;
-    const finalTitle = customTitle || generatedTitle;
+    let finalTitle = customTitle;
+    if (!finalTitle) {
+      // Try to generate a better title via IA if it's still generic
+      const currentChat = savedChats.find(c => c.id === activeChatId);
+      if (currentChat && (currentChat.title === "Nuevo Chat" || currentChat.title === initialTopic)) {
+         const aiTitle = await generateChatTitle(messages);
+         if (aiTitle) finalTitle = aiTitle;
+      }
+
+      if (!finalTitle) {
+        const firstUserMsg = messages.find(m => m.role === 'user')?.content || 'Nuevo Chat';
+        finalTitle = firstUserMsg.length > 40 ? firstUserMsg.substring(0, 40) + '...' : firstUserMsg;
+      }
+    }
 
     const newChat: Chat = {
       id: activeChatId,
@@ -275,7 +303,7 @@ export function useChatLogic(options: UseChatLogicOptions): UseChatLogicReturn {
     chatStorage.saveChat(newChat);
     refreshChats();
     onPlaySuccess?.();
-  }, [activeChatId, linkedLearningId, messages, onPlaySuccess, refreshChats]);
+  }, [activeChatId, initialTopic, linkedLearningId, messages, onPlaySuccess, refreshChats, savedChats]);
 
   const handleEndChat = useCallback(() => {
     setMessages([{ 

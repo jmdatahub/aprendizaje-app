@@ -212,20 +212,32 @@
 
 /* Chat message prose spacing - more space between paragraphs */
 .chat-prose p {
-  margin-bottom: 0.75em;
+  margin-bottom: 1.25em;
+  line-height: 1.7;
 }
 .chat-prose p:last-child {
   margin-bottom: 0;
 }
 .chat-prose h1, .chat-prose h2, .chat-prose h3, .chat-prose h4 {
-  margin-top: 1em;
-  margin-bottom: 0.5em;
+  margin-top: 1.5em;
+  margin-bottom: 0.75em;
+  font-weight: 600;
+}
+.chat-prose h1:first-child, .chat-prose h2:first-child, .chat-prose h3:first-child {
+  margin-top: 0.5em;
 }
 .chat-prose ul, .chat-prose ol {
-  margin-top: 0.5em;
-  margin-bottom: 0.75em;
-  padding-left: 1.25em;
+  margin-top: 0.75em;
+  margin-bottom: 1.25em;
+  padding-left: 1.5em;
 }
 .chat-prose li {
-  margin-bottom: 0.25em;
+  margin-bottom: 0.5em;
+  line-height: 1.6;
+}
+.chat-prose li:last-child {
+  margin-bottom: 0;
+}
+.chat-prose strong {
+  font-weight: 600;
 }

@@ -5,7 +5,9 @@ import { ApiResponse } from '@/shared/types/api'
 export const runtime = 'nodejs'
 
 interface TestMeResponse extends ApiResponse {
-  questions?: string[];
+  data?: {
+    questions?: string[];
+  };
 }
 
 export async function POST(req: Request) {
@@ -26,11 +28,13 @@ export async function POST(req: Request) {
     if (isStub || !openai) {
       return NextResponse.json<TestMeResponse>({ 
         success: true,
-        questions: [
-          "¿Cuál es la idea principal de este texto? (Stub)",
-          "¿Cómo se relaciona esto con tu vida diaria? (Stub)",
-          "¿Qué ejemplo podrías dar para explicar esto? (Stub)"
-        ] 
+        data: {
+          questions: [
+            "¿Cuál es la idea principal de este texto? (Stub)",
+            "¿Cómo se relaciona esto con tu vida diaria? (Stub)",
+            "¿Qué ejemplo podrías dar para explicar esto? (Stub)"
+          ] 
+        }
       })
     }
 
@@ -59,7 +63,10 @@ export async function POST(req: Request) {
     const responseContent = completion.choices[0].message.content
     const parsed = JSON.parse(responseContent || '{"questions": []}')
     
-    return NextResponse.json<TestMeResponse>({ success: true, questions: parsed.questions || [] })
+    return NextResponse.json<TestMeResponse>({ 
+      success: true, 
+      data: { questions: parsed.questions || [] } 
+    })
 
   } catch (error: any) {
     console.error('Error generating questions:', error)

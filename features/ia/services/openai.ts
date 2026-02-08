@@ -4,19 +4,18 @@
  */
 
 import { apiPost } from '@/shared/utils/api';
+import { ApiResponse } from '@/shared/types/api';
 
-interface ChatApiResponse {
-  success: boolean;
-  respuesta?: string;
+interface ChatApiResponseData {
+  respuesta: string;
   engine?: string;
   aieState?: any;
   aieAnalysis?: any;
-  message?: string;
 }
 
-interface RecommendationsApiResponse {
-  relatedTopics?: string[];
-  subtopics?: string[];
+interface RecommendationsApiResponseData {
+  relatedTopics: string[];
+  subtopics: string[];
 }
 
 interface ChatResponse {
@@ -39,22 +38,22 @@ export const sendChatMessage = async (
   config?: any
 ): Promise<ChatResponse> => {
   try {
-    const data = await apiPost<ChatApiResponse>('/api/chat', {
+    const resp = await apiPost<ApiResponse<ChatApiResponseData>>('/api/chat', {
       messages: history,
       context,
       config
     });
     
-    if (!data.success) {
-      throw new Error(data.message || 'Unknown error');
+    if (!resp.success || !resp.data) {
+      throw new Error(resp.message || 'Unknown error');
     }
 
     return {
-      respuesta: data.respuesta || '',
-      content: data.respuesta || '',
-      engine: data.engine,
-      aieState: data.aieState,
-      aieAnalysis: data.aieAnalysis
+      respuesta: resp.data.respuesta || '',
+      content: resp.data.respuesta || '',
+      engine: resp.data.engine,
+      aieState: resp.data.aieState,
+      aieAnalysis: resp.data.aieAnalysis
     };
   } catch (error) {
     console.error('Error calling chat API:', error);
@@ -68,11 +67,11 @@ export const sendChatMessage = async (
 
 export const generateRecommendations = async (history: any[]): Promise<RecommendationsResponse> => {
   try {
-    const data = await apiPost<RecommendationsApiResponse>('/api/recommendations', { history });
+    const resp = await apiPost<ApiResponse<RecommendationsApiResponseData>>('/api/recommendations', { history });
     
     return {
-      relatedTopics: data.relatedTopics || [],
-      subtopics: data.subtopics || []
+      relatedTopics: resp.data?.relatedTopics || [],
+      subtopics: resp.data?.subtopics || []
     };
   } catch (error) {
     console.error('Error fetching recommendations:', error);
@@ -80,5 +79,15 @@ export const generateRecommendations = async (history: any[]): Promise<Recommend
       relatedTopics: [],
       subtopics: []
     };
+  }
+};
+
+export const generateChatTitle = async (history: any[]): Promise<string | null> => {
+  try {
+    const resp = await apiPost<ApiResponse<{ title: string }>>('/api/chat/title', { messages: history });
+    return resp.success ? resp.data?.title || null : null;
+  } catch (error) {
+    console.error('Error fetching chat title:', error);
+    return null;
   }
 };

@@ -148,6 +148,41 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </div>
           </div>
 
+          {/* Sección: Objetivos */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              {t('settings.objective_section')}
+            </h3>
+            
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t('settings.streak_goal')}
+              </label>
+              <input 
+                type="number" 
+                min="1"
+                max="365"
+                value={settings.streakGoal}
+                onChange={(e) => handleChange('streakGoal', parseInt(e.target.value) || 1)}
+                className="w-20 px-3 py-1.5 bg-gray-100 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t('settings.yearly_goal')}
+              </label>
+              <input 
+                type="number" 
+                min="1"
+                max="365"
+                value={settings.yearlyGoal}
+                onChange={(e) => handleChange('yearlyGoal', parseInt(e.target.value) || 1)}
+                className="w-20 px-3 py-1.5 bg-gray-100 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
           {/* Sección: Apariencia */}
           <div className="space-y-4">
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">

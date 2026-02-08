@@ -12,6 +12,8 @@ import { TestPreparationOverlay } from "@/features/test-semanal/components/TestP
 import { UnlockModal } from "@/features/sectores/components/UnlockModal"
 import { SectorWithProgress } from "@/features/sectores/types"
 import { SECTORES_DATA } from "@/shared/constants/sectores"
+import { calculateGamificationStats, GamificationStats } from "@/shared/utils/gamification"
+import { LearningStreak } from "@/features/stats/components/LearningStreak"
 
 export default function Home() {
   const router = useRouter()
@@ -20,13 +22,34 @@ export default function Home() {
   // Settings UI state (modal visibility only)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
-  // Chat state
+  // Rotating headline
+  const headlines = [
+    "Pregúntame lo que quieras y yo te lo enseño",
+    "Tu tutor personal disponible 24/7",
+    "Aprende cualquier tema a tu ritmo",
+    "Convierte tu curiosidad en conocimiento",
+    "Descubre algo nuevo cada día",
+    "El conocimiento está a una pregunta de distancia"
+  ]
+  const [headlineIndex, setHeadlineIndex] = useState(0)
+  const [fadeIn, setFadeIn] = useState(true)
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFadeIn(false)
+      setTimeout(() => {
+        setHeadlineIndex((prev) => (prev + 1) % headlines.length)
+        setFadeIn(true)
+      }, 300)
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [])
 
   const [showTestOverlay, setShowTestOverlay] = useState(false)
   const [selectedLockedSector, setSelectedLockedSector] = useState<SectorWithProgress | null>(null)
   const [pendingItems, setPendingItems] = useState<any[]>([])
   const [sectorCounts, setSectorCounts] = useState<Record<string, number>>({})
+  const [stats, setStats] = useState<GamificationStats>({ currentStreak: 0, uniqueDaysThisYear: 0, isTodayLearned: false })
 
   const handleTestSemanal = () => {
     playClick()
@@ -99,6 +122,24 @@ export default function Home() {
     setPendingItems(allPending);
   }, [t]);
 
+  // Fetch all aprendizajes for stats calculation
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const res = await fetch('/api/aprendizajes')
+        const json = await res.json()
+        if (json.success && json.data?.items && Array.isArray(json.data.items)) {
+          const dates = json.data.items.map((a: any) => a.created_at)
+          const calcStats = calculateGamificationStats(dates)
+          setStats(calcStats)
+        }
+      } catch (err) {
+        console.error("Error fetching stats data:", err)
+      }
+    }
+    fetchStats()
+  }, []);
+
 
   const handleEmpezarAprender = () => {
     playClick()
@@ -106,7 +147,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-8 relative transition-colors duration-500">
+    <div className="min-h-screen bg-background flex flex-col items-center pt-24 p-8 relative transition-colors duration-500">
       {/* Settings Modal */}
       <SettingsModal 
         isOpen={isSettingsOpen}
@@ -114,7 +155,19 @@ export default function Home() {
       />
 
       {/* Top Right Controls */}
-      <div className="fixed top-4 right-4 flex items-center gap-2 z-50">
+      <div className="fixed top-4 right-4 flex items-center gap-3 z-50">
+        {/* History Button */}
+        <Link
+          href="/repaso/historial"
+          onClick={() => playClick()}
+          className="text-muted-foreground hover:text-foreground p-2 rounded-full hover:bg-muted transition-all"
+          title="Ver historial"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </Link>
+
         {/* Settings Button */}
         <button
           onClick={() => {
@@ -137,13 +190,17 @@ export default function Home() {
       </div>
 
       {/* Main Content - Minimalist */}
-      <main className="flex flex-col items-center gap-12 max-w-2xl w-full animate-in fade-in zoom-in duration-700">
+      <main className="flex flex-col items-center gap-6 max-w-4xl w-full animate-in fade-in zoom-in duration-700">
         
         {/* 1. Bloque Principal */}
-        <div className="text-center space-y-8">
-          <h1 className="text-4xl md:text-5xl font-bold text-foreground tracking-tight">
-            {t('chat.empty_state_1')}
-          </h1>
+        <div className="text-center space-y-8 w-full">
+          <div className="h-24 md:h-32 flex items-center justify-center">
+            <h1 
+              className={`text-4xl md:text-5xl font-bold text-foreground tracking-tight text-balance transition-all duration-700 ease-in-out ${fadeIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+            >
+              {headlines[headlineIndex]}
+            </h1>
+          </div>
           
           <Button
             onClick={handleEmpezarAprender}
@@ -154,18 +211,60 @@ export default function Home() {
           </Button>
         </div>
 
+
         {/* 2. Accesos Rápidos */}
-        <div className="flex flex-wrap justify-center gap-3">
-          <Link href={pendingItems.length > 0 ? "/aprendizajes?pending=true" : "/aprendizajes"} onClick={() => playClick()}>
-            <div className="px-4 py-2 bg-card hover:bg-accent rounded-full text-sm font-medium text-muted-foreground hover:text-foreground transition-colors border border-border shadow-sm flex items-center gap-2">
-              {t('home.my_learnings')}
+        <div className="flex flex-nowrap justify-center gap-3">
+          {/* Mi Progreso - Dropdown */}
+          <div className="relative group">
+            <button 
+              onClick={() => playClick()}
+              className="px-4 py-2 bg-card hover:bg-accent rounded-full text-sm font-medium text-muted-foreground hover:text-foreground transition-colors border border-border shadow-sm flex items-center gap-2"
+            >
+              📚 Mi Progreso
               {pendingItems.length > 0 && (
                 <span className="flex items-center gap-1 text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-full">
-                  ⚠️ {pendingItems.length} {pendingItems.length === 1 ? 'pendiente' : 'pendientes'}
+                  ⚠️ {pendingItems.length}
                 </span>
               )}
+              <svg className="w-3 h-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            
+            {/* Dropdown menu */}
+            <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-48 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+              <div className="bg-card rounded-xl border border-border shadow-lg overflow-hidden">
+                <Link 
+                  href={pendingItems.length > 0 ? "/aprendizajes?pending=true" : "/aprendizajes"} 
+                  onClick={() => playClick()}
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors"
+                >
+                  <span className="text-lg">📖</span>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Aprendizajes</p>
+                    <p className="text-xs text-muted-foreground">Conocimientos teóricos</p>
+                  </div>
+                  {pendingItems.length > 0 && (
+                    <span className="ml-auto text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-full">
+                      {pendingItems.length}
+                    </span>
+                  )}
+                </Link>
+                <div className="border-t border-border" />
+                <Link 
+                  href="/habilidades" 
+                  onClick={() => playClick()}
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors"
+                >
+                  <span className="text-lg">🎯</span>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Habilidades</p>
+                    <p className="text-xs text-muted-foreground">Práctica con cronómetro</p>
+                  </div>
+                </Link>
+              </div>
             </div>
-          </Link>
+          </div>
           
           <div onClick={handleTestSemanal} className="cursor-pointer relative group">
             <div className={`px-4 py-2 rounded-full text-sm font-medium transition-all border shadow-sm flex items-center gap-2
@@ -220,8 +319,13 @@ export default function Home() {
           </Link>
         )}
 
+        {/* Learning Achievement / Streak */}
+        <div className="w-full max-w-4xl animate-in slide-in-from-bottom-4 duration-1000">
+          <LearningStreak streak={stats.currentStreak} yearlyCount={stats.uniqueDaysThisYear} />
+        </div>
+
         {/* 3. Secciones (Compactas) */}
-        <div className="mt-12 w-full">
+        <div className="mt-4 w-full">
           <p className="text-center text-xs text-muted-foreground mb-4 uppercase tracking-widest">{t('home.explore_by_topic')}</p>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             {SECTORES_DATA.map((sector) => {

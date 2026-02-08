@@ -18,6 +18,8 @@ export interface AppSettings {
   chatMode: ChatMode;
   darkMode: boolean;
   dateFormat: DateFormat;
+  streakGoal: number;
+  yearlyGoal: number;
 }
 
 interface AppContextType {
@@ -41,7 +43,9 @@ const DEFAULT_SETTINGS: AppSettings = {
   language: 'es',
   chatMode: 'integrated',
   darkMode: false,
-  dateFormat: 'classic'
+  dateFormat: 'classic',
+  streakGoal: 7,
+  yearlyGoal: 100
 };
 
 // Helper for nested keys

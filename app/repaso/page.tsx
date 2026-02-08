@@ -271,6 +271,21 @@ export default function RepasoPage() {
     setResultado({ total: preguntas.length, aciertos });
     setPhase('results');
     
+    // Guardar en el historial (Supabase)
+    try {
+      await fetch('/api/repaso/historial', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          score: aciertos,
+          total_questions: preguntas.length,
+          questions_data: preguntasCorregidas
+        })
+      });
+    } catch (saveError) {
+      console.error("Error saving exam history:", saveError);
+    }
+    
     try {
       const now = new Date()
       const ym = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`

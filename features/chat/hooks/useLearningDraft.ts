@@ -12,6 +12,7 @@ interface LearningDraft {
   title: string;
   summary: string;
   section?: string;
+  sections?: number[];
   tags?: string[];
   sectorId?: string;
 }
@@ -43,6 +44,7 @@ interface UseLearningDraftReturn {
   showSaveLearningModal: boolean;
   setShowSaveLearningModal: (show: boolean) => void;
   learningDraft: LearningDraft | null;
+  suggestedSections: number[];
   
   // Actions
   handleSaveLearning: () => Promise<void>;
@@ -83,6 +85,7 @@ export function useLearningDraft(options: UseLearningDraftOptions): UseLearningD
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
   const [showSaveLearningModal, setShowSaveLearningModal] = useState(false);
   const [learningDraft, setLearningDraft] = useState<LearningDraft | null>(null);
+  const [suggestedSections, setSuggestedSections] = useState<number[]>([]);
 
   const handleSaveLearning = useCallback(async () => {
     if (!messages.length || summaryLoading) return;
@@ -147,10 +150,13 @@ export function useLearningDraft(options: UseLearningDraftOptions): UseLearningD
       }) as any;
 
       if (res) {
+        const sections = res.suggested_sections || (res.sector_id ? [Number(res.sector_id)] : []);
+        setSuggestedSections(sections);
         setLearningDraft({
           title: res.titulo || "Nuevo Aprendizaje",
           summary: res.resumen || "",
-          section: res.sector_id,
+          section: res.sector_id?.toString(),
+          sections: sections,
           tags: res.tags
         });
         setShowSaveLearningModal(true);
@@ -237,6 +243,7 @@ export function useLearningDraft(options: UseLearningDraftOptions): UseLearningD
     showSaveLearningModal,
     setShowSaveLearningModal,
     learningDraft,
+    suggestedSections,
     handleSaveLearning,
     handleOpenSaveLearning,
     handleConfirmSaveLearning,

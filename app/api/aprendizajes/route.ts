@@ -4,10 +4,18 @@
 // - Manejo de errores con status 500
 
 import { NextResponse } from 'next/server'
-import { getSupabaseForRequest } from '@/lib/supabaseRoute'
+import { createClient } from '@supabase/supabase-js'
 import { ApiResponse } from '@/shared/types/api'
 
 export const runtime = 'nodejs'
+
+// Cliente anónimo inline
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!url || !key) throw new Error('Missing Supabase env vars')
+  return createClient(url, key)
+}
 
 interface AprendizajeData {
   id: number;
@@ -30,12 +38,13 @@ interface AprendizajesResponse extends ApiResponse {
 
 export async function GET(request: Request) {
   try {
-    const supabase = getSupabaseForRequest(request)
+    const supabase = getSupabase()
     
-    // Lista completa (para UI que la consuma)
+    // Lista completa (excluir eliminados)
     const { data, error } = await supabase
       .from('aprendizajes')
       .select('id,sector_id,titulo,resumen,created_at')
+      .is('deleted_at', null) // Excluir eliminados
       .order('created_at', { ascending: false })
       
     if (error) {
@@ -72,16 +81,18 @@ export async function GET(request: Request) {
       console.warn('[API /api/aprendizajes] Error in progreso block:', err)
     }
 
-    return NextResponse.json<AprendizajesResponse>({ 
+    return NextResponse.json<ApiResponse<{ items: AprendizajeData[], agregados: Agregado[], progreso: number[] }>>({ 
       success: true,
-      data: data as AprendizajeData[], 
-      agregados, 
-      progreso 
+      data: {
+        items: data as AprendizajeData[], 
+        agregados, 
+        progreso 
+      }
     })
   } catch (e: any) {
     console.error('[API /api/aprendizajes] Fatal error:', e)
     const msg = e?.message || 'Error al obtener aprendizajes'
-    return NextResponse.json<AprendizajesResponse>({ 
+    return NextResponse.json<ApiResponse>({ 
       success: false,
       error: 'INTERNAL_ERROR',
       message: msg 

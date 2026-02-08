@@ -7,16 +7,17 @@ import { SectorWithProgress } from '../types'
 import { playSuccess } from '@/shared/utils/sounds'
 import { useApp } from '@/shared/contexts/AppContext'
 import { apiGet } from '@/shared/utils/api'
+import { ApiResponse } from '@/shared/types/api'
 
 interface UnlockModalProps {
   sector: SectorWithProgress | null
   onClose: () => void
 }
 
-interface SurpriseResponse {
-  chiste?: string;
-  sorpresa?: string;
-}
+interface SurpriseResponse extends ApiResponse<{
+  chiste: string;
+  sorpresa: string;
+}> {}
 
 export function UnlockModal({ sector, onClose }: UnlockModalProps) {
   const router = useRouter()
@@ -29,11 +30,15 @@ export function UnlockModal({ sector, onClose }: UnlockModalProps) {
 
     setLoading(true)
     try {
-      const data = await apiGet<SurpriseResponse>(`/api/sorpresas?sector=${encodeURIComponent(sector.nombre)}`)
-      setSurprise({
-        chiste: data?.chiste || '',
-        sorpresa: data?.sorpresa || '',
-      })
+      const resp = await apiGet<SurpriseResponse>(`/api/sorpresas?sector=${encodeURIComponent(sector.nombre)}`)
+      if (resp.success && resp.data) {
+        setSurprise({
+          chiste: resp.data.chiste || '',
+          sorpresa: resp.data.sorpresa || '',
+        })
+      } else {
+        throw new Error(resp.error || 'Error loading surprise')
+      }
     } catch (error) {
       console.error('Error loading surprise:', error)
       setSurprise({

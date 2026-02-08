@@ -65,11 +65,17 @@ export async function POST(req: Request) {
     const rawContent = completion.choices[0]?.message?.content || '{}'
     const parsed = JSON.parse(rawContent)
 
-    return NextResponse.json<RecommendationsResponse>({
+    return NextResponse.json<ApiResponse<{
+      relatedTopics: string[];
+      subtopics: string[];
+      engine: string;
+    }>>({
       success: true,
-      relatedTopics: parsed.relatedTopics || [],
-      subtopics: parsed.subtopics || [],
-      engine: 'openai-gpt-4o-mini'
+      data: {
+        relatedTopics: parsed.relatedTopics || [],
+        subtopics: parsed.subtopics || [],
+        engine: 'openai-gpt-4o-mini'
+      }
     })
 
   } catch (error: any) {

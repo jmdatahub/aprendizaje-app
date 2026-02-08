@@ -13,6 +13,7 @@ import { playClick } from "@/shared/utils/sounds"
 import { CollapsibleReviewSection } from "@/features/repaso/components/CollapsibleReviewSection"
 import { chatStorage } from "@/features/chat/services/chatStorage"
 import { MiniTimeline } from "@/features/aprendizajes/components/MiniTimeline"
+import { TrashModal } from "@/shared/components/TrashModal"
 import { useApp } from "@/shared/contexts/AppContext"
 
 import { SECTORES_DATA } from "@/shared/constants/sectores"
@@ -78,6 +79,7 @@ function AprendizajesContent() {
   const [questions, setQuestions] = useState<string[]>([])
   const [loadingQuestions, setLoadingQuestions] = useState(false)
   const [chatIdToOpen, setChatIdToOpen] = useState<string | undefined>(undefined)
+  const [showTrashModal, setShowTrashModal] = useState(false)
 
   // Auto-activate pending filter from URL parameter
   useEffect(() => {
@@ -312,8 +314,8 @@ function AprendizajesContent() {
       })
       
       const data = await res.json()
-      if (data.questions && Array.isArray(data.questions)) {
-        setQuestions(data.questions)
+      if (data.success && data.data?.questions && Array.isArray(data.data.questions)) {
+        setQuestions(data.data.questions)
       }
     } catch (error) {
       console.error("Error generating questions:", error)
@@ -412,17 +414,30 @@ function AprendizajesContent() {
             <p className="text-muted-foreground">{t('home.subtitle')}</p>
           </div>
 
-          <Button 
-            onClick={handleDownload}
-            disabled={items.length === 0}
-            variant="outline"
-            className="gap-2 shrink-0"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            {t('learnings.download_all')}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                playClick()
+                setShowTrashModal(true)
+              }}
+              className="gap-1"
+            >
+              🗑️ Papelera
+            </Button>
+            <Button 
+              onClick={handleDownload}
+              disabled={items.length === 0}
+              variant="outline"
+              className="gap-2 shrink-0"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              {t('learnings.download_all')}
+            </Button>
+          </div>
         </motion.div>
 
         {/* Monthly Summary */}
@@ -920,6 +935,33 @@ function AprendizajesContent() {
           )}
         </AnimatePresence>
       </div>
+
+      <TrashModal
+        isOpen={showTrashModal}
+        onClose={() => setShowTrashModal(false)}
+        type="aprendizajes"
+        onRestored={() => {
+          fetch('/api/aprendizajes')
+            .then(res => res.json())
+            .then(data => {
+              if (data.success && data.data?.items) {
+                const mappedItems = data.data.items.map((a: any) => {
+                  const sec = SECTORES_DATA.find(s => s.id === a.sector_id)
+                  return {
+                    id: String(a.id),
+                    title: a.titulo,
+                    summary: a.resumen,
+                    date: a.created_at,
+                    sectorId: String(a.sector_id ?? ''),
+                    sectorName: sec?.key ?? 'Sin sector',
+                    sectorIcon: sec?.icono ?? '📚'
+                  }
+                })
+                setItems(mappedItems)
+              }
+            })
+        }}
+      />
     </div>
   )
 }

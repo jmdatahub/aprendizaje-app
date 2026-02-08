@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { useSpeechRecognition } from "react-speech-recognition";
+import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
 import { motion, AnimatePresence, useAnimation } from "framer-motion";
 import { useTts } from "@/features/voice/hooks/useTts";
 import { useSoundEffects } from "@/features/gamification/hooks/useSoundEffects";
@@ -11,11 +11,13 @@ import { generateRecommendations } from "@/features/ia/services/openai";
 import { SECTORES_DATA } from "@/features/chat/utils/sectorUtils";
 import { useTranslation } from "@/features/i18n/hooks/useTranslation";
 import { SaveLearningModal } from "@/features/learning/components/SaveLearningModal";
+import { ShareChatModal } from "./ShareChatModal";
 
 import { ChatHeader } from "./ChatHeader";
 import { ChatSidebar } from "./ChatSidebar";
 import { ChatMessageList } from "./ChatMessageList";
 import { ChatInput } from "./ChatInput";
+import { DetailLevelSelector, DetailLevel } from "./DetailLevelSelector";
 
 import { useChatLogic } from "../hooks/useChatLogic";
 import { useLearningDraft } from "../hooks/useLearningDraft";
@@ -65,6 +67,8 @@ export function UnifiedTutorChat({
   const [sortBy, setSortBy] = useState<"date" | "title" | "section">("date");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [autoPlay, setAutoPlay] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [detailLevel, setDetailLevel] = useState<DetailLevel>("normal");
   const sendButtonControls = useAnimation();
   
   // Recommendations
@@ -81,6 +85,7 @@ export function UnifiedTutorChat({
     initialTopic: tema || undefined,
     initialSector: sector || undefined,
     linkedLearningId,
+    detailLevel,
     onPlayMessage: playMessage,
     onPlayError: playError,
     onPlaySuccess: playSuccess,
@@ -249,8 +254,16 @@ export function UnifiedTutorChat({
     "Marketing Digital"
   ];
 
+  const mainContainerRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (mainContainerRef.current) {
+      mainContainerRef.current.scrollTop = 0;
+    }
+  }, []);
+
   return (
-    <div className="flex h-full w-full overflow-hidden bg-background text-foreground">
+    <div ref={mainContainerRef} className="flex h-full w-full overflow-hidden bg-background text-foreground">
       {/* Sidebar */}
       <ChatSidebar
         embedded={embedded}
@@ -284,7 +297,13 @@ export function UnifiedTutorChat({
           onSaveChat={() => chatLogic.handleSaveChat()}
           onSaveLearning={learningDraft.handleOpenSaveLearning}
           onGenerateSummary={learningDraft.handleSaveLearning}
+          onShare={() => setIsShareModalOpen(true)}
         />
+
+        {/* Detail Level Selector */}
+        <div className="px-4 py-2 border-b border-border/50 flex items-center justify-center relative z-50 overflow-visible">
+          <DetailLevelSelector value={detailLevel} onChange={setDetailLevel} compact />
+        </div>
 
         <ChatMessageList
           messages={chatLogic.messages}
@@ -430,10 +449,22 @@ export function UnifiedTutorChat({
           initialSummary={learningDraft.learningDraft?.summary || ''}
           initialTitle={learningDraft.learningDraft?.title || ''}
           initialSection={learningDraft.learningDraft?.section}
+          initialSections={learningDraft.learningDraft?.sections || []}
+          suggestedSections={learningDraft.suggestedSections}
           initialTags={learningDraft.learningDraft?.tags}
           onSave={learningDraft.handleConfirmSaveLearning}
           onExpandSummary={learningDraft.handleExpandSummary}
+          onEditSummary={async (summary, instruction) => {
+            const { editSummaryWithAI } = await import('@/features/learning/services/editSummaryService');
+            return editSummaryWithAI(summary, instruction);
+          }}
           loading={learningDraft.summaryLoading}
+        />
+
+        <ShareChatModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          chat={chatStorage.getChat(chatLogic.activeChatId)}
         />
       </div>
     </div>
