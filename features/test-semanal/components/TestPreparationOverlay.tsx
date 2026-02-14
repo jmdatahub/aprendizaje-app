@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 
 interface TestPreparationOverlayProps {
+  isOpen: boolean;
   status: 'idle' | 'generating' | 'ready' | 'in_progress' | 'error';
   error: string | null;
   onRetry: () => void;
@@ -11,7 +12,7 @@ interface TestPreparationOverlayProps {
 
 import { useApp } from "@/shared/contexts/AppContext";
 
-export function TestPreparationOverlay({ status, error, onRetry, onClose }: TestPreparationOverlayProps) {
+export function TestPreparationOverlay({ isOpen, status, error, onRetry, onClose }: TestPreparationOverlayProps) {
   const { t } = useApp();
   const [messageIndex, setMessageIndex] = useState(0);
   
@@ -26,6 +27,7 @@ export function TestPreparationOverlay({ status, error, onRetry, onClose }: Test
     }
   }, [status]);
 
+  if (!isOpen) return null;
   if (status === 'idle' && !error) return null;
   if (status === 'ready') return null;
   if (status === 'in_progress') return null;

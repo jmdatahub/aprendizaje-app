@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { 
   CATEGORIAS_HABILIDADES, 
-  EXPERIENCIA_PREVIA 
+  EXPERIENCIA_PREVIA,
+  NIVELES_HABILIDAD
 } from '@/shared/constants/habilidades'
 import { playClick } from '@/shared/utils/sounds'
 
@@ -18,13 +19,23 @@ interface NewSkillModalProps {
 
 export function NewSkillModal({ isOpen, onClose, onCreated }: NewSkillModalProps) {
   const [nombre, setNombre] = useState('')
-  const [categoria, setCategoria] = useState('')
-  const [categoriaPersonalizada, setCategoriaPersonalizada] = useState('')
+  const [categorias, setCategorias] = useState<string[]>([])
   const [experiencia, setExperiencia] = useState('ninguna')
   const [horasManuales, setHorasManuales] = useState('')
   const [descripcion, setDescripcion] = useState('')
+  const [nivelPercibido, setNivelPercibido] = useState('')
+  const [objetivoSemanal, setObjetivoSemanal] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  const toggleCategoria = (catId: string) => {
+    playClick()
+    setCategorias(prev => 
+      prev.includes(catId) 
+        ? prev.filter(c => c !== catId)
+        : [...prev, catId]
+    )
+  }
 
   const handleSubmit = async () => {
     if (!nombre.trim()) {
@@ -36,17 +47,17 @@ export function NewSkillModal({ isOpen, onClose, onCreated }: NewSkillModalProps
     setError('')
 
     try {
-      const categoriaFinal = categoria === 'otra' ? categoriaPersonalizada : categoria
-
       const res = await fetch('/api/habilidades', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nombre: nombre.trim(),
-          categoria: categoriaFinal || null,
+          categorias: categorias,
           descripcion: descripcion.trim() || null,
           experiencia_previa: experiencia,
-          horas_manuales: horasManuales ? parseFloat(horasManuales) : null
+          horas_manuales: horasManuales ? parseFloat(horasManuales) : 0,
+          nivel_percibido: nivelPercibido || null,
+          objetivo_semanal_minutos: objetivoSemanal ? parseInt(objetivoSemanal) * 60 : null
         })
       })
 
@@ -68,11 +79,11 @@ export function NewSkillModal({ isOpen, onClose, onCreated }: NewSkillModalProps
 
   const handleClose = () => {
     setNombre('')
-    setCategoria('')
-    setCategoriaPersonalizada('')
+    setCategorias([])
     setExperiencia('ninguna')
     setHorasManuales('')
     setDescripcion('')
+    setNivelPercibido('')
     setError('')
     onClose()
   }
@@ -112,38 +123,32 @@ export function NewSkillModal({ isOpen, onClose, onCreated }: NewSkillModalProps
               />
             </div>
 
-            {/* Categoría */}
+            {/* Categorías (multi-select) */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-muted-foreground mb-2">
-                Categoría
+                Categorías (puedes elegir varias)
               </label>
-              <div className="grid grid-cols-3 gap-2">
-                {CATEGORIAS_HABILIDADES.map(cat => (
+              <div className="flex flex-wrap gap-2">
+                {CATEGORIAS_HABILIDADES.filter(c => c.id !== 'otra').map(cat => (
                   <button
                     key={cat.id}
-                    onClick={() => {
-                      playClick()
-                      setCategoria(cat.id)
-                    }}
-                    className={`p-2 rounded-lg border text-sm transition-all ${
-                      categoria === cat.id
+                    type="button"
+                    onClick={() => toggleCategoria(cat.id)}
+                    className={`px-3 py-2 rounded-full border text-sm transition-all flex items-center gap-1.5 ${
+                      categorias.includes(cat.id)
                         ? 'bg-primary text-primary-foreground border-primary'
                         : 'bg-muted/50 hover:bg-muted border-border'
                     }`}
                   >
-                    <span className="text-lg">{cat.icono}</span>
-                    <span className="block text-xs mt-1">{cat.label}</span>
+                    <span>{cat.icono}</span>
+                    <span>{cat.label}</span>
                   </button>
                 ))}
               </div>
-              
-              {categoria === 'otra' && (
-                <Input
-                  value={categoriaPersonalizada}
-                  onChange={e => setCategoriaPersonalizada(e.target.value)}
-                  placeholder="Escribe tu categoría..."
-                  className="mt-2"
-                />
+              {categorias.length > 0 && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Seleccionadas: {categorias.length}
+                </p>
               )}
             </div>
 
@@ -191,6 +196,68 @@ export function NewSkillModal({ isOpen, onClose, onCreated }: NewSkillModalProps
                   <span className="text-sm text-muted-foreground">horas</span>
                 </div>
               </div>
+            </div>
+
+            {/* Nivel percibido (opcional) */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                ¿Cuál es tu nivel real? (opcional)
+              </label>
+              <p className="text-xs text-muted-foreground mb-3">
+                Las horas son una estimación. Aquí puedes indicar cómo te sientes realmente.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    playClick()
+                    setNivelPercibido('')
+                  }}
+                  className={`px-3 py-2 rounded-full border text-sm transition-all ${
+                    nivelPercibido === ''
+                      ? 'bg-muted border-border text-foreground'
+                      : 'bg-muted/30 hover:bg-muted border-border text-muted-foreground'
+                  }`}
+                >
+                  Automático
+                </button>
+                {NIVELES_HABILIDAD.map(nivel => (
+                  <button
+                    key={nivel.id}
+                    type="button"
+                    onClick={() => {
+                      playClick()
+                      setNivelPercibido(nivel.id)
+                    }}
+                    className={`px-3 py-2 rounded-full border text-sm transition-all flex items-center gap-1.5 ${
+                      nivelPercibido === nivel.id
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-muted/30 hover:bg-muted border-border text-muted-foreground'
+                    }`}
+                  >
+                    <span>{nivel.icono}</span>
+                    <span>{nivel.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Objetivo Semanal */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                Meta semanal (horas)
+              </label>
+              <Input
+                type="number"
+                value={objetivoSemanal}
+                onChange={e => setObjetivoSemanal(e.target.value)}
+                placeholder="Ej: 3"
+                min="0"
+                className="w-full"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Opcional. Define cuántas horas quieres practicar a la semana.
+              </p>
             </div>
 
             {/* Descripción opcional */}

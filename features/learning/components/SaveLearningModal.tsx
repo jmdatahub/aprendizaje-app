@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '@/shared/contexts/AppContext';
 import { LearningCanvas } from './LearningCanvas';
-import { SECTORES_DATA } from '@/shared/constants/sectores'; // Assuming this exists or I'll define it locally if needed
+import { SECTORES_DATA } from '@/shared/constants/sectores';
 
 interface SaveLearningModalProps {
   isOpen: boolean;
@@ -52,6 +53,14 @@ export function SaveLearningModal({
   const [showAiEdit, setShowAiEdit] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiEditLoading, setAiEditLoading] = useState(false);
+
+  // Portal State
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
 
   // Reset state when opening
   useEffect(() => {
@@ -129,19 +138,57 @@ export function SaveLearningModal({
     setSummary(initialSummary);
   };
 
-  return (
+  const [activeTab, setActiveTab] = useState<'details' | 'content'>('details');
+
+  const modalContent = (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div 
+          className="fixed inset-0 flex items-center justify-center md:p-4 bg-background/95 md:bg-black/60 md:backdrop-blur-sm safe-area-inset"
+          style={{ 
+            zIndex: 2147483647, 
+            position: 'fixed', 
+            top: '0px', 
+            left: '0px', 
+            right: '0px', 
+            bottom: '0px',
+            height: '100%',
+            width: '100%'
+          }}
+        >
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="bg-background w-full max-w-6xl h-[90vh] rounded-2xl shadow-2xl flex overflow-hidden border border-border"
+            className="bg-background w-full h-full md:h-[90vh] md:max-w-6xl md:rounded-2xl md:shadow-2xl flex flex-col md:flex-row overflow-hidden border-none md:border md:border-border"
           >
-            {/* Left Side: Canvas + AI Editor */}
-            <div className="flex-1 border-r border-border p-4 bg-muted/10 flex flex-col">
-              <div className="flex-1 min-h-0">
+            {/* Mobile Header & Tabs */}
+            <div className="md:hidden flex-none border-b border-border bg-muted/20">
+              <div className="flex items-center justify-between px-4 py-3">
+                <h2 className="text-lg font-bold">{t('chat.save_learning')}</h2>
+                <button onClick={onClose} className="p-2 -mr-2 text-muted-foreground hover:text-foreground">
+                  ✕
+                </button>
+              </div>
+              <div className="flex px-4 pb-0 gap-6">
+                <button
+                  onClick={() => setActiveTab('details')}
+                  className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'details' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}`}
+                >
+                  Detalles
+                </button>
+                <button
+                  onClick={() => setActiveTab('content')}
+                  className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'content' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}`}
+                >
+                  Contenido
+                </button>
+              </div>
+            </div>
+
+            {/* Left Side: Canvas + AI Editor (Desktop: Always visible, Mobile: Only if tab='content') */}
+            <div className={`${activeTab === 'content' ? 'flex' : 'hidden'} md:flex flex-1 md:border-r border-border p-4 w-[95%] mx-auto md:w-full bg-muted/10 flex-col overflow-hidden`}>
+              <div className="flex-1 min-h-0 relative">
                 <LearningCanvas
                   initialContent={summary}
                   onContentChange={setSummary}
@@ -153,7 +200,7 @@ export function SaveLearningModal({
               
               {/* Inline AI Editing Chat */}
               {onEditSummary && (
-                <div className="mt-4 border-t border-border pt-4">
+                <div className="mt-4 border-t border-border pt-4 flex-none">
                   <button
                     type="button"
                     onClick={() => setShowAiEdit(!showAiEdit)}
@@ -166,41 +213,38 @@ export function SaveLearningModal({
                   
                   {showAiEdit && (
                     <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={aiPrompt}
-                        onChange={(e) => setAiPrompt(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleAiEdit()}
-                        placeholder="Ej: Hazlo más corto, Ordénalo por importancia..."
-                        className="flex-1 bg-muted border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                        disabled={aiEditLoading}
-                      />
-                      <button
-                        type="button"
-                        onClick={handleAiEdit}
-                        disabled={aiEditLoading || !aiPrompt.trim()}
-                        className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                      >
-                        {aiEditLoading ? (
-                          <span className="animate-spin">⏳</span>
-                        ) : (
-                          <span>Aplicar</span>
-                        )}
-                      </button>
+                       <input
+                         type="text"
+                         value={aiPrompt}
+                         onChange={(e) => setAiPrompt(e.target.value)}
+                         onKeyDown={(e) => e.key === 'Enter' && handleAiEdit()}
+                         placeholder="Ej: Hazlo más corto..."
+                         className="flex-1 bg-muted border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                         disabled={aiEditLoading}
+                       />
+                       <button
+                         type="button"
+                         onClick={handleAiEdit}
+                         disabled={aiEditLoading || !aiPrompt.trim()}
+                         className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                       >
+                         {aiEditLoading ? <span className="animate-spin">⏳</span> : <span>Aplicar</span>}
+                       </button>
                     </div>
                   )}
                 </div>
               )}
             </div>
 
-            {/* Right Side: Metadata & Actions */}
-            <div className="w-[350px] flex flex-col bg-card">
-              <div className="p-6 flex-1 overflow-y-auto space-y-6">
-                <div>
-                  <h2 className="text-xl font-bold mb-1">{t('chat.save_learning')}</h2>
-                  <p className="text-sm text-muted-foreground">{t('chat.summary_default_desc')}</p>
-                </div>
+            {/* Right Side: Metadata & Actions (Desktop: Always visible, Mobile: Only if tab='details') */}
+            <div className={`${activeTab === 'details' ? 'flex' : 'hidden'} md:flex w-full md:w-[350px] flex-col bg-card overflow-hidden`}>
+              {/* Desktop Header */}
+              <div className="hidden md:block p-6 pb-0">
+                 <h2 className="text-xl font-bold mb-1">{t('chat.save_learning')}</h2>
+                 <p className="text-sm text-muted-foreground">{t('chat.summary_default_desc')}</p>
+              </div>
 
+              <div className="p-4 md:p-6 flex-1 overflow-y-auto space-y-5 md:space-y-6">
                 {/* Title */}
                 <div className="space-y-2">
                   <label className="text-xs font-semibold uppercase text-muted-foreground">{t('learnings.title_label')}</label>
@@ -239,13 +283,13 @@ export function SaveLearningModal({
                     })}
                   </div>
                   {suggestedSections.length > 0 && (
-                    <p className="text-[10px] text-muted-foreground mt-1">✨ Sugeridas por IA basándose en el contenido</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">✨ Sugeridas por IA</p>
                   )}
                 </div>
 
                 {/* Type */}
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">Tipo de aprendizaje</label>
+                  <label className="text-xs font-semibold uppercase text-muted-foreground">Tipo</label>
                   <select
                     value={type}
                     onChange={(e) => setType(e.target.value)}
@@ -310,7 +354,7 @@ export function SaveLearningModal({
 
                 {/* Personal Note */}
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">Nota personal (opcional)</label>
+                  <label className="text-xs font-semibold uppercase text-muted-foreground">Nota personal</label>
                   <textarea
                     value={personalNote}
                     onChange={(e) => setPersonalNote(e.target.value)}
@@ -348,7 +392,7 @@ export function SaveLearningModal({
               </div>
 
               {/* Footer Actions */}
-              <div className="p-6 border-t border-border bg-muted/30 flex flex-col gap-3">
+              <div className="p-4 md:p-6 border-t border-border bg-muted/30 flex flex-col gap-3">
                 <button
                   onClick={handleSave}
                   disabled={!title || selectedSections.length === 0}
@@ -369,4 +413,8 @@ export function SaveLearningModal({
       )}
     </AnimatePresence>
   );
+
+  if (!mounted) return null;
+
+  return createPortal(modalContent, document.body);
 }

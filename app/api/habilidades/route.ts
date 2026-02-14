@@ -72,7 +72,7 @@ export async function POST(request: Request) {
     const supabase = getSupabase()
     const body = await request.json()
     
-    const { nombre, categoria, descripcion, experiencia_previa, horas_manuales } = body
+    const { nombre, categorias, descripcion, experiencia_previa, horas_manuales, nivel_percibido, objetivo_semanal_minutos } = body
 
     if (!nombre?.trim()) {
       return NextResponse.json<ApiResponse>({
@@ -97,11 +97,13 @@ export async function POST(request: Request) {
       .from('habilidades')
       .insert({
         nombre: nombre.trim(),
-        categoria: categoria || null,
+        categorias: Array.isArray(categorias) ? categorias : [],
         descripcion: descripcion?.trim() || null,
-        experiencia_previa: experiencia_previa || 'ninguna',
+        experiencia_previa: experiencia_previa || null,
         tiempo_total_segundos: tiempoInicial,
-        nivel: nivelInicial.id
+        nivel: nivelInicial.id,
+        nivel_percibido: nivel_percibido || null,
+        objetivo_semanal_minutos: objetivo_semanal_minutos || null
       })
       .select()
       .single()

@@ -69,9 +69,9 @@ export function ChatMessageList({
                 isUser ? "ml-auto items-end" : "mr-auto items-start"
               )}
             >
-              {/* Role Label (Optional) */}
+              {/* Role Label (Desktop Only) */}
               <span className={cn(
-                "text-[10px] mb-1 px-1",
+                "text-[10px] mb-1 px-1 hidden md:block",
                 isUser ? "text-primary/60 text-right" : "text-muted-foreground/70"
               )}>
                 {isUser ? "Tú" : "Tutor IA"}
@@ -91,9 +91,22 @@ export function ChatMessageList({
                     {msg.content}
                   </div>
                 ) : (
-                  <div className="prose prose-sm dark:prose-invert max-w-none chat-prose">
-                    <ReactMarkdown>
-                      {msg.content}
+                  <div className="prose prose-sm dark:prose-invert max-w-none chat-prose text-foreground/90">
+                    <ReactMarkdown
+                      components={{
+                        p: ({node, ...props}) => <p className="mb-3 last:mb-0 leading-relaxed" {...props} />,
+                        ul: ({node, ...props}) => <ul className="my-3 list-disc pl-4 space-y-1.5" {...props} />,
+                        ol: ({node, ...props}) => <ol className="my-3 list-decimal pl-4 space-y-1.5" {...props} />,
+                        li: ({node, ...props}) => <li className="pl-1" {...props} />,
+                        h1: ({node, ...props}) => <h1 className="text-lg font-bold mt-4 mb-2" {...props} />,
+                        h2: ({node, ...props}) => <h2 className="text-base font-bold mt-3 mb-2" {...props} />,
+                        h3: ({node, ...props}) => <h3 className="text-sm font-bold mt-3 mb-1" {...props} />,
+                        strong: ({node, ...props}) => <strong className="font-semibold text-foreground" {...props} />,
+                        code: ({node, ...props}) => <code className="bg-muted/50 px-1 py-0.5 rounded text-xs font-mono text-primary" {...props} />,
+                      }}
+                    >
+                      {/* Pre-process: Force double newlines for cleaner spacing if needed, but be careful not to break code blocks */}
+                      {msg.content.includes('\n\n') ? msg.content : msg.content.replace(/\n/g, '\n\n')}
                     </ReactMarkdown>
                   </div>
                 )}

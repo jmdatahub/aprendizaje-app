@@ -128,3 +128,62 @@ export async function DELETE(
     }, { status: 500 })
   }
 }
+
+// PATCH - Editar habilidad
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const supabase = getSupabase()
+    const body = await request.json()
+    
+    const { nombre, categorias, descripcion, nivel_percibido, objetivo_semanal_minutos } = body
+    
+    // Construir objeto de actualización solo con campos proporcionados
+    const updateData: Record<string, any> = {}
+    if (nombre !== undefined) updateData.nombre = nombre.trim()
+    if (categorias !== undefined) updateData.categorias = categorias
+    if (descripcion !== undefined) updateData.descripcion = descripcion?.trim() || null
+    if (nivel_percibido !== undefined) updateData.nivel_percibido = nivel_percibido || null
+    if (objetivo_semanal_minutos !== undefined) updateData.objetivo_semanal_minutos = objetivo_semanal_minutos || null
+    
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: 'INVALID_REQUEST',
+        message: 'No hay campos para actualizar'
+      }, { status: 400 })
+    }
+    
+    const { data, error } = await supabase
+      .from('habilidades')
+      .update(updateData)
+      .eq('id', id)
+      .is('deleted_at', null)
+      .select()
+      .single()
+    
+    if (error) {
+      console.error('[API /api/habilidades/[id]] Update error:', error)
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: 'DB_ERROR',
+        message: error.message
+      }, { status: 500 })
+    }
+
+    return NextResponse.json<ApiResponse>({
+      success: true,
+      data
+    })
+  } catch (e: any) {
+    console.error('[API /api/habilidades/[id]] Fatal error:', e)
+    return NextResponse.json<ApiResponse>({
+      success: false,
+      error: 'INTERNAL_ERROR',
+      message: e?.message || 'Error al actualizar habilidad'
+    }, { status: 500 })
+  }
+}

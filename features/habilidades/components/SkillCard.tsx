@@ -14,9 +14,10 @@ interface SkillCardProps {
   habilidad: {
     id: string
     nombre: string
-    categoria: string | null
+    categorias: string[]
     tiempo_total_segundos: number
     nivel: string
+    created_at: string
   }
   index: number
 }
@@ -24,7 +25,7 @@ interface SkillCardProps {
 export function SkillCard({ habilidad, index }: SkillCardProps) {
   const nivel = calcularNivel(habilidad.tiempo_total_segundos)
   const progreso = calcularProgresoNivel(habilidad.tiempo_total_segundos)
-  const categoria = CATEGORIAS_HABILIDADES.find(c => c.id === habilidad.categoria)
+  const catList = (habilidad.categorias || []).map(cid => CATEGORIAS_HABILIDADES.find(c => c.id === cid)).filter(Boolean)
 
   return (
     <motion.div
@@ -40,13 +41,19 @@ export function SkillCard({ habilidad, index }: SkillCardProps) {
         <div className="group bg-card rounded-2xl p-5 border border-border hover:border-primary/30 transition-all shadow-sm hover:shadow-md h-full flex flex-col">
           {/* Header */}
           <div className="flex items-start justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">
-                {categoria?.icono || '🎯'}
-              </span>
-              <span className="text-xs font-medium text-muted-foreground">
-                {categoria?.label || habilidad.categoria || 'Sin categoría'}
-              </span>
+            <div className="flex items-center gap-1">
+              {catList.length > 0 ? (
+                catList.map(cat => (
+                  <span key={cat!.id} className="text-xl" title={cat!.label}>
+                    {cat!.icono}
+                  </span>
+                ))
+              ) : (
+                <>
+                  <span className="text-2xl">🎯</span>
+                  <span className="text-xs font-medium text-muted-foreground">Sin categoría</span>
+                </>
+              )}
             </div>
             <div className="flex items-center gap-1 px-2 py-1 bg-muted rounded-full">
               <span className="text-sm">{nivel.icono}</span>
@@ -85,6 +92,12 @@ export function SkillCard({ habilidad, index }: SkillCardProps) {
                   transition={{ duration: 0.5, delay: index * 0.05 }}
                 />
               </div>
+            </div>
+
+            {/* Fecha inicio */}
+            <div className="pt-2 mt-2 border-t border-border/50 text-[10px] text-muted-foreground flex justify-between">
+              <span>Iniciado:</span>
+              <span>{new Date(habilidad.created_at).toLocaleDateString('es-ES', { month: 'short', year: 'numeric' })}</span>
             </div>
           </div>
 

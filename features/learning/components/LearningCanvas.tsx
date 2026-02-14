@@ -27,7 +27,7 @@ export function LearningCanvas({ initialContent, onContentChange, onExpand, onRe
   };
 
   return (
-    <div className="flex flex-col h-full bg-card rounded-xl border border-border overflow-hidden">
+    <div className="flex flex-col h-full bg-card md:rounded-xl md:border md:border-border overflow-hidden rounded-none border-none">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <span>📝</span> {t('learnings.canvas_title')}
@@ -55,7 +55,7 @@ export function LearningCanvas({ initialContent, onContentChange, onExpand, onRe
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 relative">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 relative">
         {loading && (
           <div className="absolute inset-0 bg-background/50 backdrop-blur-sm z-10 flex items-center justify-center">
             <div className="flex flex-col items-center gap-3">
@@ -76,10 +76,10 @@ export function LearningCanvas({ initialContent, onContentChange, onExpand, onRe
           <div className="prose prose-sm dark:prose-invert max-w-none">
             <ReactMarkdown
               components={{
-                h1: ({node, ...props}) => <h1 className="text-xl font-bold mb-4 text-primary" {...props} />,
+                h1: ({node, ...props}) => <h1 className="text-xl font-bold mb-4 text-primary break-words" {...props} />,
                 h2: ({node, ...props}) => (
                   <div className="group flex items-center justify-between mt-6 mb-3 pb-2 border-b border-border">
-                    <h2 className="text-lg font-semibold m-0" {...props} />
+                    <h2 className="text-lg font-semibold m-0 break-words" {...props} />
                     <button
                       onClick={() => onExpand(props.children?.toString() || '')}
                       className="opacity-0 group-hover:opacity-100 text-xs bg-primary/10 text-primary px-2 py-1 rounded hover:bg-primary/20 transition-all"
@@ -88,9 +88,9 @@ export function LearningCanvas({ initialContent, onContentChange, onExpand, onRe
                     </button>
                   </div>
                 ),
-                p: ({node, ...props}) => <p className="mb-4 leading-relaxed text-muted-foreground" {...props} />,
+                p: ({node, ...props}) => <p className="mb-4 leading-relaxed text-muted-foreground break-words" {...props} />,
                 ul: ({node, ...props}) => <ul className="list-disc pl-5 mb-4 space-y-1" {...props} />,
-                li: ({node, ...props}) => <li className="text-muted-foreground" {...props} />,
+                li: ({node, ...props}) => <li className="text-muted-foreground break-words" {...props} />,
                 strong: ({node, ...props}) => <strong className="font-semibold text-foreground" {...props} />,
               }}
             >

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useTranslation } from 'react-i18next';
 
 interface EmptyStateBackgroundProps {
   active: boolean;
@@ -15,11 +14,10 @@ export const EmptyStateBackground: React.FC<EmptyStateBackgroundProps> = ({
   customMessages,
   className = ''
 }) => {
-  const { t } = useTranslation();
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
 
-  // Get messages from props or translations
-  const messages = customMessages || t('common.empty_state_messages', { returnObjects: true }) as string[];
+  // Get messages from props or defaults
+  const messages = customMessages || ["No hay contenido aún", "Comienza a explorar", "Crea algo nuevo"];
 
   // Rotate messages
   useEffect(() => {

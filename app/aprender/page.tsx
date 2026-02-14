@@ -30,7 +30,9 @@ export default function AprenderPage() {
 
       <div className="flex-1 min-h-0 px-6 pb-4">
         <div className="w-full h-full max-w-6xl mx-auto rounded-3xl border border-border bg-gradient-to-br from-background/95 via-background/90 to-background/80 shadow-[0_18px_40px_rgba(0,0,0,0.35)] overflow-hidden p-1 sm:p-2">
-          <UnifiedTutorChat />
+          <React.Suspense fallback={<div className="flex items-center justify-center h-full text-muted-foreground">Cargando tutor...</div>}>
+            <UnifiedTutorChat />
+          </React.Suspense>
         </div>
       </div>
     </div>

@@ -71,6 +71,13 @@ export function UnifiedTutorChat({
   const [detailLevel, setDetailLevel] = useState<DetailLevel>("normal");
   const sendButtonControls = useAnimation();
   
+  // Mobile Support: Close sidebar on mount if small screen
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setIsSidebarOpen(false);
+    }
+  }, []);
+  
   // Recommendations
   const [recommendations, setRecommendations] = useState<{ relatedTopics: string[]; subtopics: string[] } | null>(null);
   const [recommendationsLoading, setRecommendationsLoading] = useState(false);
@@ -264,6 +271,19 @@ export function UnifiedTutorChat({
 
   return (
     <div ref={mainContainerRef} className="flex h-full w-full overflow-hidden bg-background text-foreground">
+      {/* Mobile Backdrop */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsSidebarOpen(false)}
+            className="md:hidden absolute inset-0 bg-background/80 backdrop-blur-sm z-30"
+          />
+        )}
+      </AnimatePresence>
+
       {/* Sidebar */}
       <ChatSidebar
         embedded={embedded}
@@ -272,7 +292,10 @@ export function UnifiedTutorChat({
         setSidebarWidth={setSidebarWidth}
         viewMode={viewMode}
         toggleViewMode={toggleViewMode}
-        onNewChat={chatLogic.handleNewChat}
+        onNewChat={() => {
+          chatLogic.handleNewChat();
+          if (window.innerWidth < 768) setIsSidebarOpen(false);
+        }}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         sortBy={sortBy}
@@ -280,7 +303,10 @@ export function UnifiedTutorChat({
         onSortChange={handleSortChange}
         filteredChats={filteredChats}
         activeChatId={chatLogic.activeChatId}
-        onSelectChat={chatLogic.handleSelectChat}
+        onSelectChat={(chat) => {
+          chatLogic.handleSelectChat(chat);
+          if (window.innerWidth < 768) setIsSidebarOpen(false);
+        }}
         onDeleteChat={chatLogic.handleDeleteChat}
         onDuplicateChat={chatLogic.handleDuplicateChat}
       />
@@ -298,6 +324,8 @@ export function UnifiedTutorChat({
           onSaveLearning={learningDraft.handleOpenSaveLearning}
           onGenerateSummary={learningDraft.handleSaveLearning}
           onShare={() => setIsShareModalOpen(true)}
+          onEndChat={handleEndChat}
+          isModalOpen={learningDraft.showSaveLearningModal}
         />
 
         {/* Detail Level Selector */}

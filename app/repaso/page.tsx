@@ -97,20 +97,37 @@ export default function RepasoPage() {
     }
   }, [currentIndex, phase]);
 
-  // Cargar preguntas desde el contexto
   useEffect(() => {
     // If we are already in progress (from global state), load data directly
     if ((testStatus === 'ready' || testStatus === 'in_progress') && testData.length > 0) {
       setPreguntas(testData);
       setDataReady(true);
     } else {
+      // Check if we have a saved session in localStorage before giving up
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+         try {
+            const parsed = JSON.parse(saved);
+            if (parsed.version === TEST_VERSION) {
+               // We found a backup! Don't redirect, let the restore logic handle it
+               return;
+            }
+         } catch (e) {}
+      }
+
       // Si no hay datos o no está listo, redirigir o mostrar error
       if (testStatus === 'idle' || testStatus === 'generating') {
         router.push('/');
       } else if (testStatus === 'ready' && testData.length === 0) {
          // Caso de error: dice que está listo pero no hay datos
-         console.error("Test status is ready but no data found");
-         router.push('/');
+         console.warn("Test status is ready but no data found in context. Checking local storage matches...");
+         // We already checked localStorage above. If we are here, it means no valid backup either.
+         // But let's assume the user MIGHT have just refreshed and lost context but kept the 'ready' status from usage of persist? 
+         // Actually, if 'testStatus' is ready but 'testData' is empty, it's a desync.
+         // We'll redirect to home after a short delay to ensure we didn't miss anything.
+         if (!saved) {
+            router.push('/');
+         }
       }
     }
   }, [testStatus, testData, router]);

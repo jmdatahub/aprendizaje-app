@@ -9,11 +9,18 @@ import { NewSkillModal } from '@/features/habilidades/components/NewSkillModal'
 import { TrashModal } from '@/shared/components/TrashModal'
 import { CATEGORIAS_HABILIDADES } from '@/shared/constants/habilidades'
 import { playClick } from '@/shared/utils/sounds'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 interface Habilidad {
   id: string
   nombre: string
-  categoria: string | null
+  categorias: string[]
   tiempo_total_segundos: number
   nivel: string
   created_at: string
@@ -25,6 +32,7 @@ export default function HabilidadesPage() {
   const [showNewModal, setShowNewModal] = useState(false)
   const [showTrashModal, setShowTrashModal] = useState(false)
   const [filtroCategoria, setFiltroCategoria] = useState<string | null>(null)
+  const [sortBy, setSortBy] = useState<string>('creacion-desc')
 
   useEffect(() => {
     fetchHabilidades()
@@ -49,12 +57,60 @@ export default function HabilidadesPage() {
   }
 
   const filteredHabilidades = filtroCategoria
-    ? habilidades.filter(h => h.categoria === filtroCategoria)
+    ? habilidades.filter(h => (h.categorias || []).includes(filtroCategoria))
     : habilidades
+
+  const sortedHabilidades = [...filteredHabilidades].sort((a, b) => {
+    switch (sortBy) {
+      case 'nombre-asc':
+        return a.nombre.localeCompare(b.nombre)
+      case 'nombre-desc':
+        return b.nombre.localeCompare(a.nombre)
+      case 'tiempo-desc':
+        return b.tiempo_total_segundos - a.tiempo_total_segundos
+      case 'tiempo-asc':
+        return a.tiempo_total_segundos - b.tiempo_total_segundos
+      case 'creacion-asc':
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      case 'creacion-desc':
+      default:
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    }
+  })
 
   // Calcular stats
   const tiempoTotal = habilidades.reduce((acc, h) => acc + h.tiempo_total_segundos, 0)
   const horasTotales = Math.floor(tiempoTotal / 3600)
+
+  const handleExport = () => {
+    const headers = ['Nombre', 'Categorías', 'Nivel', 'Tiempo Total (horas)', 'Fecha Creación']
+    const csvContent = [
+      headers.join(','),
+      ...sortedHabilidades.map(h => {
+        const cats = (h.categorias || []).map(c => 
+          CATEGORIAS_HABILIDADES.find(cat => cat.id === c)?.label || c
+        ).join('; ')
+        const nivelLabel = CATEGORIAS_HABILIDADES.find(c => c.id === h.nivel)?.label || h.nivel
+        
+        return [
+          `"${h.nombre}"`,
+          `"${cats}"`,
+          h.nivel,
+          (h.tiempo_total_segundos / 3600).toFixed(2),
+          new Date(h.created_at).toLocaleDateString()
+        ].join(',')
+      })
+    ].join('\n')
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `habilidades_export_${new Date().toISOString().split('T')[0]}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
 
   return (
     <div className="min-h-screen bg-background p-6 md:p-12">
@@ -160,7 +216,7 @@ export default function HabilidadesPage() {
               Todas
             </button>
             {CATEGORIAS_HABILIDADES.filter(c => c.id !== 'otra').map(cat => {
-              const count = habilidades.filter(h => h.categoria === cat.id).length
+              const count = habilidades.filter(h => (h.categorias || []).includes(cat.id)).length
               if (count === 0) return null
               return (
                 <button
@@ -217,15 +273,54 @@ export default function HabilidadesPage() {
             No tienes habilidades en esta categoría
           </div>
         ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredHabilidades.map((habilidad, index) => (
-              <SkillCard 
-                key={habilidad.id} 
-                habilidad={habilidad} 
-                index={index}
-              />
-            ))}
-          </div>
+          <>
+            {/* Barra de herramientas: Ordenar + Exportar */}
+            {habilidades.length > 0 && (
+              <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Ordenar por:</span>
+                  <Select 
+                    value={sortBy} 
+                    onValueChange={(value) => {
+                      playClick()
+                      setSortBy(value)
+                    }}
+                  >
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Ordenar por" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="creacion-desc">Más recientes</SelectItem>
+                      <SelectItem value="creacion-asc">Más antiguas</SelectItem>
+                      <SelectItem value="tiempo-desc">Más practicadas</SelectItem>
+                      <SelectItem value="tiempo-asc">Menos practicadas</SelectItem>
+                      <SelectItem value="nombre-asc">Nombre (A-Z)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleExport}
+                  className="gap-2"
+                >
+                  <span>📥</span>
+                  Exportar CSV
+                </Button>
+              </div>
+            )}
+
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {sortedHabilidades.map((habilidad, index) => (
+                <SkillCard 
+                  key={habilidad.id}
+                  habilidad={habilidad}
+                  index={index}
+                />
+              ))}
+            </div>
+          </>
         )}
       </div>
 
