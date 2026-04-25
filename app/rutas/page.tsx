@@ -52,21 +52,28 @@ export default function RutasPage() {
 
   const handleStartStep = (step: any) => {
     playClick()
-    
+
     let summary = `Aprendiendo sobre ${step.title}`;
-    
+
     try {
-        const key = `sector_data_${step.sectorName.toLowerCase()}`;
-        const stored = localStorage.getItem(key);
-        if (stored) {
-            const data = JSON.parse(stored);
-            const item = data.items.find((i: any) => i.id === step.learningId);
-            if (item) {
-                summary = item.summary;
-            }
+        // step.sectorName ahora trae el sector id (p.ej. 'health'); fallback al lowercase para datos antiguos.
+        const sectorKey = step.sectorName ?? '';
+        const candidates = [
+          `sector_data_${sectorKey}`,
+          `sector_data_${String(sectorKey).toLowerCase()}`,
+        ];
+        for (const key of candidates) {
+          const stored = localStorage.getItem(key);
+          if (!stored) continue;
+          const data = JSON.parse(stored);
+          const item = data.items?.find((i: any) => i.id === step.learningId);
+          if (item) {
+            summary = item.summary;
+            break;
+          }
         }
     } catch {}
-    
+
     const params = new URLSearchParams();
     if (step.title) params.set('tema', step.title);
     if (summary) params.set('continueContext', summary);

@@ -96,12 +96,19 @@ export async function POST(req: Request) {
     if (isStub || !openai) {
       // Simulación de respuesta con "pensamiento" AIE
       await new Promise(r => setTimeout(r, 800))
-      return NextResponse.json<ChatResponse>({
+      return NextResponse.json<ApiResponse<{
+        respuesta: string;
+        engine: string;
+        aieState: AIEState;
+        aieAnalysis: any;
+      }>>({
         success: true,
-        respuesta: `(Stub AIE Active) He analizado tu pregunta sobre "${context}". \n\nNivel detectado: **${nextAIEState.level}**.\n\nRespuesta simulada a: "${userQuery}"`,
-        engine: 'stub-aie',
-        aieState: nextAIEState,
-        aieAnalysis: analysisResult
+        data: {
+          respuesta: `(Stub AIE Active) He analizado tu pregunta sobre "${context}". \n\nNivel detectado: **${nextAIEState.level}**.\n\nRespuesta simulada a: "${userQuery}"`,
+          engine: 'stub-aie',
+          aieState: nextAIEState,
+          aieAnalysis: analysisResult
+        }
       })
     }
 

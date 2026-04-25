@@ -5,9 +5,9 @@ import { motion } from 'framer-motion'
 import { useApp } from '@/shared/contexts/AppContext'
 import { ActivityHeatmap } from '@/features/stats/components/ActivityHeatmap'
 import { SkillCharts } from '@/features/stats/components/SkillCharts'
-import { Button } from '@/components/ui/button'
-import Link from 'next/link'
 import { WeeklyChart } from "@/features/stats/components/WeeklyChart"
+import Link from 'next/link'
+import { Flame, CalendarDays, Zap, ArrowLeft, BookOpen, TrendingUp } from 'lucide-react'
 
 interface ActivityLogItem {
   date: string
@@ -48,13 +48,11 @@ export default function ProgresoPage() {
     fetchData()
   }, [])
 
-  // Filtrar logs según el estado actual
   const filteredLogs = activityLog.filter(item => {
     if (filter === 'all') return true
     return item.type === filter
   })
 
-  // Calcular resumen basado en logs filtrados
   const statsSummary = React.useMemo(() => {
     const dates = filteredLogs.map(i => i.date.split('T')[0])
     const uniqueDates = new Set(dates)
@@ -65,16 +63,12 @@ export default function ProgresoPage() {
     }
   }, [filteredLogs])
 
-  // Calcular distribución semanal
   const weeklyData = React.useMemo(() => {
     const counts = new Array(7).fill(0)
     filteredLogs.forEach(log => {
       const d = new Date(log.date)
-      if (!isNaN(d.getTime())) {
-        counts[d.getDay()]++
-      }
+      if (!isNaN(d.getTime())) counts[d.getDay()]++
     })
-
     return [
       { day: 'Lun', count: counts[1] },
       { day: 'Mar', count: counts[2] },
@@ -86,29 +80,21 @@ export default function ProgresoPage() {
     ]
   }, [filteredLogs])
 
-  // Helper simple para racha actual
   function calculateStreak(dates: string[]) {
     if (!dates.length) return 0
     const unique = Array.from(new Set(dates)).sort().reverse()
     const today = new Date().toISOString().split('T')[0]
     const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
-    
     let streak = 0
     let current = unique[0] === today ? today : (unique[0] === yesterday ? yesterday : null)
-    
     if (!current) return 0
-    
     let checkDate = new Date(current)
-    streak = 1 // Start with 1 since we found today or yesterday
-    
+    streak = 1
     while (true) {
-        checkDate.setDate(checkDate.getDate() - 1)
-        const checkStr = checkDate.toISOString().split('T')[0]
-        if (unique.includes(checkStr)) {
-            streak++
-        } else {
-            break
-        }
+      checkDate.setDate(checkDate.getDate() - 1)
+      const checkStr = checkDate.toISOString().split('T')[0]
+      if (unique.includes(checkStr)) streak++
+      else break
     }
     return streak
   }
@@ -116,103 +102,170 @@ export default function ProgresoPage() {
   const selectedActivities = filteredLogs.filter(log => log.date.startsWith(selectedDate || ''))
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8 pb-24">
-      <div className="max-w-5xl mx-auto space-y-8">
-        
+    <div className="min-h-screen bg-background pb-24">
+      {/* Accent top bar */}
+      <div className="h-[3px] w-full bg-gradient-to-r from-violet-500 via-indigo-500 to-cyan-400" />
+
+      <div className="max-w-5xl mx-auto px-4 md:px-8 pt-8 space-y-8">
+
         {/* Header */}
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-              📊 Dashboard de Progreso
+          <div className="space-y-1">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-violet-500">
+              <TrendingUp className="w-3.5 h-3.5" />
+              Tu evolución día a día
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">
+              Dashboard de Progreso
             </h1>
-            <p className="text-muted-foreground">Tu evolución día a día</p>
           </div>
-          <div className="flex gap-2">
-             <Link href="/">
-              <Button variant="outline">← Volver</Button>
-            </Link>
-          </div>
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl border border-border bg-card hover:bg-accent transition-colors self-start md:self-auto"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Volver
+          </Link>
         </header>
 
         {loading ? (
           <div className="h-64 flex items-center justify-center">
-            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+            <div className="h-9 w-9 rounded-full border-[3px] border-violet-500/20 border-t-violet-500 animate-spin" />
           </div>
         ) : (
           <>
-            {/* Filtros */}
+            {/* Filter tabs */}
             <div className="flex justify-center">
-              <div className="bg-muted p-1 rounded-lg inline-flex">
-                <button
-                  onClick={() => setFilter('all')}
-                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${filter === 'all' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                >
+              <div className="flex gap-1 p-1 bg-muted/70 rounded-xl border border-border/50">
+                <FilterBtn active={filter === 'all'} onClick={() => setFilter('all')} color="violet">
                   Global
-                </button>
-                <button
-                  onClick={() => setFilter('learning')}
-                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${filter === 'learning' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                >
-                  🧠 Aprendizajes
-                </button>
-                <button
-                  onClick={() => setFilter('practice')}
-                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${filter === 'practice' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                >
-                  ⚡ Habilidades
-                </button>
+                </FilterBtn>
+                <FilterBtn active={filter === 'learning'} onClick={() => setFilter('learning')} color="cyan">
+                  Aprendizajes
+                </FilterBtn>
+                <FilterBtn active={filter === 'practice'} onClick={() => setFilter('practice')} color="amber">
+                  Habilidades
+                </FilterBtn>
               </div>
             </div>
 
-            {/* Metricas Principales */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <StatsCard emoji="🔥" label="Racha Actual" value={`${statsSummary.currentStreak} días`} />
-              <StatsCard emoji="📅" label="Días Activos" value={statsSummary.totalActiveDays} />
-              <StatsCard emoji="🏆" label="Total Actividades" value={statsSummary.totalActivities} />
+            {/* Stats */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Racha */}
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0 }}
+                className="relative overflow-hidden rounded-2xl border border-orange-500/30 bg-card p-5 shadow-sm"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-orange-500/20 to-transparent pointer-events-none" />
+                <div className="relative flex items-start justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-orange-400">Racha Actual</p>
+                  <div className="p-2 rounded-xl bg-orange-500/20">
+                    <Flame className="w-4 h-4 text-orange-400" />
+                  </div>
+                </div>
+                <div className="relative mt-3 flex items-end gap-1.5">
+                  <span className="text-5xl font-bold text-orange-400 leading-none">{statsSummary.currentStreak}</span>
+                  <span className="text-sm text-orange-400/70 mb-1">días</span>
+                </div>
+              </motion.div>
+
+              {/* Días activos */}
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.06 }}
+                className="relative overflow-hidden rounded-2xl border border-indigo-500/30 bg-card p-5 shadow-sm"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/20 to-transparent pointer-events-none" />
+                <div className="relative flex items-start justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Días Activos</p>
+                  <div className="p-2 rounded-xl bg-indigo-500/20">
+                    <CalendarDays className="w-4 h-4 text-indigo-400" />
+                  </div>
+                </div>
+                <div className="relative mt-3">
+                  <span className="text-5xl font-bold text-indigo-400 leading-none">{statsSummary.totalActiveDays}</span>
+                </div>
+              </motion.div>
+
+              {/* Total actividades */}
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.12 }}
+                className="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-card p-5 shadow-sm"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 to-transparent pointer-events-none" />
+                <div className="relative flex items-start justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-emerald-400">Total Actividades</p>
+                  <div className="p-2 rounded-xl bg-emerald-500/20">
+                    <Zap className="w-4 h-4 text-emerald-400" />
+                  </div>
+                </div>
+                <div className="relative mt-3">
+                  <span className="text-5xl font-bold text-emerald-400 leading-none">{statsSummary.totalActivities}</span>
+                </div>
+              </motion.div>
             </div>
 
             {/* Heatmap */}
-            <section className="bg-card border border-border rounded-xl p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-foreground">
-                  Mapa de Constancia {filter !== 'all' && `(${filter === 'learning' ? 'Aprendizajes' : 'Práctica'})`}
-                </h2>
+            <motion.section
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.18 }}
+              className="rounded-2xl border border-border bg-card p-6 shadow-sm"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-base font-semibold text-foreground">Mapa de Constancia</h2>
+                  {filter !== 'all' && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {filter === 'learning' ? 'Solo Aprendizajes' : 'Solo Práctica'}
+                    </p>
+                  )}
+                </div>
                 {selectedDate && (
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedDate(null)}>
-                    Limpiar selección
-                  </Button>
+                  <button
+                    onClick={() => setSelectedDate(null)}
+                    className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg hover:bg-accent transition-colors"
+                  >
+                    Limpiar selección ✕
+                  </button>
                 )}
               </div>
-              
-              <ActivityHeatmap 
-                data={filteredLogs.map(l => ({ date: l.date, count: 1 }))} 
+
+              <ActivityHeatmap
+                data={filteredLogs.map(l => ({ date: l.date, count: 1 }))}
                 selectedDate={selectedDate}
                 onSelectDate={setSelectedDate}
               />
 
-              {/* Detalles de Actividad Seleccionada */}
               {selectedDate && (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
-                  className="mt-6 border-t border-border pt-4"
+                  className="mt-6 border-t border-border pt-5"
                 >
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                    Actividad del {selectedDate}
-                  </h3>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                    {selectedDate}
+                  </p>
                   {selectedActivities.length > 0 ? (
                     <div className="space-y-2">
                       {selectedActivities.map((act, i) => (
-                        <div key={i} className="flex items-center gap-3 p-3 bg-accent/50 rounded-lg">
-                          <span className="text-xl">{act.type === 'learning' ? '🧠' : '⚡'}</span>
+                        <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-accent/40 border border-border/50">
+                          <div className={`p-2 rounded-lg ${act.type === 'learning' ? 'bg-cyan-500/15 text-cyan-400' : 'bg-amber-500/15 text-amber-400'}`}>
+                            {act.type === 'learning' ? <BookOpen className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
+                          </div>
                           <div>
-                            <p className="font-medium text-sm text-foreground">
+                            <p className="text-sm font-medium text-foreground">
                               {act.type === 'learning' ? 'Nuevo Aprendizaje' : 'Sesión de Práctica'}
                             </p>
                             {act.details && (
                               <p className="text-xs text-muted-foreground">
-                                {act.details.skillId ? `Habilidad: ${skillsStats.find(s => s.id === act.details.skillId)?.name || 'General'}` : ''}
-                                {act.details.duration ? ` • ${Math.round(act.details.duration / 60)} min` : ''}
+                                {act.details.skillId ? `${skillsStats.find(s => s.id === act.details.skillId)?.name || 'General'}` : ''}
+                                {act.details.duration ? ` · ${Math.round(act.details.duration / 60)} min` : ''}
                               </p>
                             )}
                           </div>
@@ -220,24 +273,18 @@ export default function ProgresoPage() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground italic">No hay actividad registrada en este día para el filtro actual.</p>
+                    <p className="text-sm text-muted-foreground italic">
+                      Sin actividad registrada en esta fecha para el filtro actual.
+                    </p>
                   )}
                 </motion.div>
               )}
-            </section>
+            </motion.section>
 
-            {/* Gráficos */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Gráfico Semanal - Visible Siempre */}
+            {/* Charts */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-4">
               <WeeklyChart data={weeklyData} />
-              
-              {/* Gráficos de Habilidades - Solo visibles en Global o Práctica */}
-              {filter !== 'learning' && (
-                <div className="flex flex-col gap-6">
-                   <h2 className="text-xl font-semibold text-foreground sr-only">Análisis de Habilidades</h2>
-                   <SkillCharts skillsStats={skillsStats} />
-                </div>
-              )}
+              {filter !== 'learning' && <SkillCharts skillsStats={skillsStats} />}
             </div>
           </>
         )}
@@ -246,14 +293,29 @@ export default function ProgresoPage() {
   )
 }
 
-function StatsCard({ emoji, label, value }: { emoji: string, label: string, value: string | number }) {
+function FilterBtn({
+  children, active, onClick, color
+}: {
+  children: React.ReactNode
+  active: boolean
+  onClick: () => void
+  color: 'violet' | 'cyan' | 'amber'
+}) {
+  const activeClasses = {
+    violet: 'bg-violet-600 text-white shadow-md shadow-violet-500/30',
+    cyan:   'bg-cyan-600 text-white shadow-md shadow-cyan-500/30',
+    amber:  'bg-amber-500 text-white shadow-md shadow-amber-500/30',
+  }
   return (
-    <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow">
-      <div className="text-3xl bg-accent/50 p-3 rounded-full">{emoji}</div>
-      <div>
-        <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold">{label}</p>
-        <p className="text-2xl font-bold text-foreground">{value}</p>
-      </div>
-    </div>
+    <button
+      onClick={onClick}
+      className={`relative px-5 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+        active
+          ? activeClasses[color]
+          : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+      }`}
+    >
+      {children}
+    </button>
   )
 }

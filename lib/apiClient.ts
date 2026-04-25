@@ -88,7 +88,18 @@ export async function sendChatMessage(
   config?: { verbosity?: 'concise' | 'normal' | 'detailed' }
 ): Promise<ChatResponse> {
   try {
-    return await apiPost<ChatResponse>('/api/chat', { messages, context, config })
+    const resp = await apiPost<{ success: boolean; data?: ChatResponse; message?: string }>(
+      '/api/chat',
+      { messages, context, config }
+    )
+    if (!resp.success || !resp.data) {
+      throw new Error(resp.message || 'Unknown error')
+    }
+    return {
+      respuesta: resp.data.respuesta || '',
+      content: resp.data.respuesta || '',
+      engine: resp.data.engine,
+    }
   } catch (error) {
     console.error('Error sending chat message:', error)
     return {
@@ -147,7 +158,18 @@ export async function generateRecommendations(
   messages: { role: string; content: string }[]
 ): Promise<RecommendationsResponse> {
   try {
-    return await apiPost<RecommendationsResponse>('/api/recommendations', { messages })
+    const resp = await apiPost<{ success: boolean; data?: RecommendationsResponse; message?: string }>(
+      '/api/recommendations',
+      { messages }
+    )
+    if (!resp.success || !resp.data) {
+      throw new Error(resp.message || 'Unknown error')
+    }
+    return {
+      relatedTopics: resp.data.relatedTopics || [],
+      subtopics: resp.data.subtopics || [],
+      engine: resp.data.engine,
+    }
   } catch (error) {
     console.error('Error generating recommendations:', error)
     return {

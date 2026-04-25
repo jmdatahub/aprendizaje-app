@@ -37,14 +37,18 @@ export default function Home() {
   const [fadeIn, setFadeIn] = useState(true)
 
   useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
     const interval = setInterval(() => {
       setFadeIn(false)
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         setHeadlineIndex((prev) => (prev + 1) % headlines.length)
         setFadeIn(true)
       }, 300)
     }, 5000)
-    return () => clearInterval(interval)
+    return () => {
+      clearInterval(interval)
+      if (timeoutId) clearTimeout(timeoutId)
+    }
   }, [])
 
   const [showTestOverlay, setShowTestOverlay] = useState(false)
@@ -77,7 +81,13 @@ export default function Home() {
   useEffect(() => {
     const counts: Record<string, number> = {};
     const allPending: any[] = [];
-    const decayedIds = JSON.parse(localStorage.getItem('decayed_items') || '[]');
+    let decayedIds: string[] = [];
+    try {
+      decayedIds = JSON.parse(localStorage.getItem('decayed_items') || '[]');
+      if (!Array.isArray(decayedIds)) decayedIds = [];
+    } catch {
+      decayedIds = [];
+    }
 
     SECTORES_DATA.forEach((sector: any) => {
       try {
@@ -139,6 +149,17 @@ export default function Home() {
     router.push('/focus-timer')
   }
 
+  // Desktop dropdown state
+  const [showDesktopMenu, setShowDesktopMenu] = useState(false)
+
+  useEffect(() => {
+    if (showDesktopMenu) {
+      const handleGlobalClick = () => setShowDesktopMenu(false)
+      document.addEventListener('click', handleGlobalClick)
+      return () => document.removeEventListener('click', handleGlobalClick)
+    }
+  }, [showDesktopMenu])
+
   // Mobile specific state
   const [showMobileMenu, setShowMobileMenu] = useState(false)
 
@@ -153,8 +174,15 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center pt-24 p-8 relative transition-colors duration-500">
+      {/* Background atmospheric glow — dark mode only */}
+      <div className="dark:block hidden fixed inset-0 overflow-hidden pointer-events-none -z-10">
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[600px] rounded-full bg-indigo-600/[0.06] blur-[130px]" />
+        <div className="absolute top-1/3 -right-32 w-[500px] h-[500px] rounded-full bg-violet-600/[0.04] blur-[110px]" />
+        <div className="absolute bottom-0 -left-20 w-[600px] h-[400px] rounded-full bg-sky-600/[0.04] blur-[120px]" />
+      </div>
+
       {/* Settings Modal */}
-      <SettingsModal 
+      <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
       />
@@ -201,25 +229,25 @@ export default function Home() {
         <div className="hidden md:flex flex-col items-center gap-6 max-w-4xl mx-auto">
             {/* 1. Bloque Principal */}
             <div className="text-center space-y-8 w-full">
-              <div className="h-24 md:h-32 flex items-center justify-center">
-                <h1 
-                  className={`text-4xl md:text-5xl font-bold text-foreground tracking-tight text-balance transition-all duration-700 ease-in-out ${fadeIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+              <div className="h-28 md:h-36 flex items-center justify-center">
+                <h1
+                  className={`text-5xl md:text-6xl text-foreground text-balance transition-all duration-700 ease-in-out ${fadeIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
                 >
                   {headlines[headlineIndex]}
                 </h1>
               </div>
-              
+
               <div className="flex items-center justify-center gap-4">
                 <Button
                   onClick={handleEmpezarAprender}
                   size="lg"
-                  className="text-xl px-10 py-7 rounded-full shadow-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all hover:scale-105 hover:shadow-2xl"
+                  className="text-lg px-10 py-7 rounded-full shadow-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all hover:scale-[1.03] hover:shadow-[0_20px_50px_rgba(0,0,0,0.25)] active:scale-[0.98]"
                 >
                   {t('home.start_button')}
                 </Button>
                 <button
                   onClick={handleFocusTimer}
-                  className="flex items-center gap-2 px-6 py-4 rounded-full text-sm font-medium bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 hover:text-indigo-300 border border-indigo-500/30 hover:border-indigo-500/50 transition-all hover:scale-105 backdrop-blur-sm shadow-lg shadow-indigo-500/10"
+                  className="flex items-center gap-2 px-6 py-4 rounded-full text-sm font-medium bg-indigo-500/10 hover:bg-indigo-500/18 text-indigo-400 hover:text-indigo-300 border border-indigo-500/25 hover:border-indigo-500/45 transition-all hover:scale-[1.03] backdrop-blur-sm"
                 >
                   <Timer className="w-4 h-4" />
                   Focus Timer
@@ -230,10 +258,14 @@ export default function Home() {
             {/* 2. Accesos Rápidos */}
             <div className="flex flex-wrap justify-center gap-3 w-full max-w-4xl">
               {/* Mi Progreso */}
-              <div className="relative group">
-                <button 
-                  onClick={() => playClick()}
-                  className="px-4 py-2 bg-card hover:bg-accent rounded-full text-sm font-medium text-muted-foreground hover:text-foreground transition-colors border border-border shadow-sm flex items-center gap-2"
+              <div className="relative">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    playClick()
+                    setShowDesktopMenu(!showDesktopMenu)
+                  }}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors border shadow-sm flex items-center gap-2 ${showDesktopMenu ? 'bg-accent text-foreground border-slate-500' : 'bg-card text-muted-foreground hover:text-foreground hover:bg-accent border-border'}`}
                 >
                   📚 Mi Progreso
                   {pendingItems.length > 0 && (
@@ -241,16 +273,14 @@ export default function Home() {
                       ⚠️ {pendingItems.length}
                     </span>
                   )}
-                  <svg className="w-3 h-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
+                  <ChevronDown className={`w-3 h-3 transition-transform ${showDesktopMenu ? 'rotate-180' : ''}`} />
                 </button>
-                
+
                 {/* Dropdown menu */}
-                <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-48 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                  <div className="bg-card rounded-xl border border-border shadow-lg overflow-hidden">
-                    <Link 
-                      href={pendingItems.length > 0 ? "/aprendizajes?pending=true" : "/aprendizajes"} 
+                {showDesktopMenu && (
+                  <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-48 bg-card rounded-xl border border-border shadow-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200 z-50">
+                    <Link
+                      href={pendingItems.length > 0 ? "/aprendizajes?pending=true" : "/aprendizajes"}
                       onClick={() => playClick()}
                       className="flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors"
                     >
@@ -266,8 +296,8 @@ export default function Home() {
                       )}
                     </Link>
                     <div className="border-t border-border" />
-                    <Link 
-                      href="/habilidades" 
+                    <Link
+                      href="/habilidades"
                       onClick={() => playClick()}
                       className="flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors"
                     >
@@ -278,7 +308,7 @@ export default function Home() {
                       </div>
                     </Link>
                   </div>
-                </div>
+                )}
               </div>
               
               <div onClick={handleTestSemanal} className="cursor-pointer relative group">
@@ -306,13 +336,13 @@ export default function Home() {
               </div>
 
               <Link href="/juegos-matematicos" onClick={() => playClick()}>
-                <div className="px-4 py-2 bg-card hover:bg-accent rounded-full text-sm font-medium text-muted-foreground hover:text-foreground transition-colors border border-border shadow-sm">
+                <div className="px-4 py-2 bg-card hover:bg-accent rounded-full text-sm font-medium text-muted-foreground hover:text-foreground transition-colors border border-border/60 hover:border-border shadow-sm hover:shadow-md">
                   {t('home.math_games')}
                 </div>
               </Link>
 
               <Link href="/rutas" onClick={() => playClick()}>
-                <div className="px-4 py-2 bg-card hover:bg-accent rounded-full text-sm font-medium text-muted-foreground hover:text-foreground transition-colors border border-border shadow-sm">
+                <div className="px-4 py-2 bg-card hover:bg-accent rounded-full text-sm font-medium text-muted-foreground hover:text-foreground transition-colors border border-border/60 hover:border-border shadow-sm hover:shadow-md">
                   {t('home.learning_paths')}
                 </div>
               </Link>
@@ -341,16 +371,16 @@ export default function Home() {
 
             {/* Grid */}
             <div className="mt-4 w-full">
-              <p className="text-center text-xs text-muted-foreground mb-4 uppercase tracking-widest">{t('home.explore_by_topic')}</p>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              <p className="text-center text-xs text-muted-foreground/60 mb-5 uppercase tracking-[0.2em] font-medium">{t('home.explore_by_topic')}</p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
                 {SECTORES_DATA.map((sector: any) => {
                   const count = sectorCounts[sector.id] || 0;
                   const isLocked = count === 0;
                   const sectorName = t(`sectors.${sector.key}`);
 
                   return (
-                    <Link 
-                      key={sector.id} 
+                    <Link
+                      key={sector.id}
                       href={isLocked ? '#' : `/aprendizajes/${sector.id}`}
                       onClick={(e) => {
                         if (isLocked) {
@@ -362,17 +392,21 @@ export default function Home() {
                         }
                       }}
                     >
-                      <div className={`p-3 rounded-xl transition-all flex items-center gap-3 cursor-pointer group relative overflow-hidden border border-transparent ${isLocked ? 'bg-muted/50 opacity-80' : 'hover:bg-accent hover:border-border'}`}>
-                        <span className={`text-xl transition-transform ${isLocked ? 'grayscale opacity-50' : 'group-hover:scale-110'}`}>
+                      <div className={`p-4 rounded-2xl transition-all flex items-center gap-3 cursor-pointer group relative overflow-hidden ${
+                        isLocked
+                          ? 'bg-muted/30 border border-border/30 opacity-55'
+                          : 'bg-card border border-border/50 hover:border-border hover:bg-accent/40 shadow-sm hover:shadow-md'
+                      }`}>
+                        <span className={`text-2xl transition-transform duration-200 ${isLocked ? 'grayscale opacity-40' : 'group-hover:scale-110'}`}>
                           {sector.icono}
                         </span>
-                        <span className={`text-xs font-medium ${isLocked ? 'text-muted-foreground' : 'text-muted-foreground group-hover:text-foreground'}`}>
+                        <span className={`text-sm font-medium leading-tight ${isLocked ? 'text-muted-foreground/50' : 'text-muted-foreground group-hover:text-foreground transition-colors'}`}>
                           {sectorName}
                         </span>
-                        
+
                         {isLocked && (
-                          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/30">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                             </svg>
                           </div>
@@ -392,25 +426,25 @@ export default function Home() {
         <div className="flex md:hidden flex-col items-center gap-6 w-full relative">
              {/* 1. Bloque Principal Mobile */}
             <div className="text-center space-y-6 w-full">
-              <div className="h-20 flex items-center justify-center">
-                <h1 
-                  className={`text-3xl font-bold text-foreground tracking-tight text-balance transition-all duration-700 ease-in-out ${fadeIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+              <div className="h-24 flex items-center justify-center">
+                <h1
+                  className={`text-4xl text-foreground text-balance transition-all duration-700 ease-in-out ${fadeIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
                 >
                   {headlines[headlineIndex]}
                 </h1>
               </div>
-              
+
               <div className="flex items-center justify-center gap-3">
                 <Button
                   onClick={handleEmpezarAprender}
                   size="lg"
-                  className="text-lg px-8 py-6 rounded-full shadow-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all active:scale-95"
+                  className="text-base px-8 py-6 rounded-full shadow-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all active:scale-[0.97]"
                 >
                   {t('home.start_button')}
                 </Button>
                 <button
                   onClick={handleFocusTimer}
-                  className="flex items-center gap-2 px-4 py-3 rounded-full text-xs font-medium bg-indigo-600/10 active:bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 transition-all active:scale-95 backdrop-blur-sm"
+                  className="flex items-center gap-2 px-4 py-3 rounded-full text-xs font-medium bg-indigo-500/10 active:bg-indigo-500/20 text-indigo-400 border border-indigo-500/25 transition-all active:scale-[0.97] backdrop-blur-sm"
                 >
                   <Timer className="w-4 h-4" />
                   Focus
@@ -520,16 +554,16 @@ export default function Home() {
 
             {/* Grid */}
             <div className="mt-4 w-full">
-              <p className="text-center text-xs text-muted-foreground mb-4 uppercase tracking-widest">{t('home.explore_by_topic')}</p>
-              <div className="grid grid-cols-2 gap-2">
+              <p className="text-center text-xs text-muted-foreground/60 mb-5 uppercase tracking-[0.2em] font-medium">{t('home.explore_by_topic')}</p>
+              <div className="grid grid-cols-2 gap-2.5">
                 {SECTORES_DATA.map((sector: any) => {
                   const count = sectorCounts[sector.id] || 0;
                   const isLocked = count === 0;
                   const sectorName = t(`sectors.${sector.key}`);
 
                   return (
-                    <Link 
-                      key={sector.id} 
+                    <Link
+                      key={sector.id}
                       href={isLocked ? '#' : `/aprendizajes/${sector.id}`}
                       onClick={(e) => {
                         if (isLocked) {
@@ -541,17 +575,21 @@ export default function Home() {
                         }
                       }}
                     >
-                      <div className={`p-3 rounded-xl transition-all flex items-center gap-3 cursor-pointer relative overflow-hidden border border-transparent ${isLocked ? 'bg-muted/50 opacity-80' : 'bg-card border-border'}`}>
-                        <span className={`text-xl ${isLocked ? 'grayscale opacity-50' : ''}`}>
+                      <div className={`p-4 rounded-2xl transition-all flex items-center gap-3 cursor-pointer relative overflow-hidden ${
+                        isLocked
+                          ? 'bg-muted/30 border border-border/30 opacity-55'
+                          : 'bg-card border border-border/50 active:bg-accent/50 shadow-sm'
+                      }`}>
+                        <span className={`text-2xl ${isLocked ? 'grayscale opacity-40' : ''}`}>
                           {sector.icono}
                         </span>
-                        <span className={`text-xs font-medium ${isLocked ? 'text-muted-foreground' : 'text-foreground'}`}>
+                        <span className={`text-sm font-medium leading-tight ${isLocked ? 'text-muted-foreground/50' : 'text-foreground/90'}`}>
                           {sectorName}
                         </span>
-                        
+
                         {isLocked && (
-                          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/30">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                             </svg>
                           </div>

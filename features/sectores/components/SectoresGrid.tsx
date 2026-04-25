@@ -47,7 +47,7 @@ export function SectoresGrid({ onUnlock, alerts = {} }: SectoresGridProps) {
           sector={sector}
           index={index}
           onUnlock={onUnlock}
-          hasAlert={alerts[sector.nombre.toLowerCase()]}
+          hasAlert={alerts[String(sector.id)] ?? alerts[sector.nombre?.toLowerCase() ?? ''] ?? 0}
         />
       ))}
     </div>

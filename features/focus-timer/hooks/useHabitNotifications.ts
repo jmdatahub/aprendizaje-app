@@ -44,7 +44,7 @@ export function useHabitNotifications(habits: HabitMinimal[], telegramConfig?: {
     if (result === 'granted') {
        new Notification("¡Notificaciones activadas!", {
           body: "Te avisaremos para cumplir tus hábitos 🚀",
-          icon: '/favicon.ico'
+          icon: '/icon.svg'
        })
     }
   }
@@ -119,7 +119,7 @@ export function useHabitNotifications(habits: HabitMinimal[], telegramConfig?: {
                 try {
                     new Notification(title, {
                         body,
-                        icon: '/favicon.ico',
+                        icon: '/icon.svg',
                         tag: `habit-${habit.id}-${time}`
                     })
                 } catch (e) {
@@ -146,7 +146,7 @@ export function useHabitNotifications(habits: HabitMinimal[], telegramConfig?: {
     if (permission === 'granted') {
       new Notification("Prueba de notificación", {
         body: "¡Si ves esto, las notificaciones funcionan! 🔥",
-        icon: '/favicon.ico'
+        icon: '/icon.svg'
       })
     }
     if (telegramConfig?.token && telegramConfig?.chatId) {

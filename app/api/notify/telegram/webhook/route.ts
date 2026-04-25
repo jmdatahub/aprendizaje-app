@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendTelegramMessage } from '@/lib/telegram-server'
+import { isValidTelegramChatId, escapeLikeWildcards, sanitizeString, LIMITS } from '@/lib/validate'
+import { rateLimit, getClientIp } from '@/lib/rateLimit'
 
-// Keep this endpoint dynamic
 export const dynamic = 'force-dynamic'
 
-// Interfaces
 interface TelegramUpdate {
   update_id: number
   message?: {
@@ -37,181 +37,228 @@ interface TelegramUpdate {
 
 export async function POST(request: Request) {
   try {
+    // 1. Validate Telegram webhook secret token
+    const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET
+    if (webhookSecret) {
+      const incomingSecret = request.headers.get('X-Telegram-Bot-Api-Secret-Token')
+      if (incomingSecret !== webhookSecret) {
+        return NextResponse.json({ ok: false }, { status: 401 })
+      }
+    }
+
+    // 2. Rate limiting per IP
+    const ip = getClientIp(request)
+    const { success: allowed } = rateLimit(`telegram-webhook:${ip}`, 60, 60)
+    if (!allowed) {
+      return NextResponse.json({ ok: false }, { status: 429 })
+    }
+
     const update: TelegramUpdate = await request.json()
     const token = process.env.TELEGRAM_BOT_TOKEN
 
     if (!token) {
-        console.error("Missing TELEGRAM_BOT_TOKEN")
-        return NextResponse.json({ ok: false, error: "Server config error" }, { status: 500 })
+      console.error('[Telegram] Missing TELEGRAM_BOT_TOKEN')
+      return NextResponse.json({ ok: false }, { status: 500 })
     }
 
-    // --- CALLBACK QUERY HANDLING (Buttons) ---
+    // 3. Callback query handling (Buttons)
     if (update.callback_query) {
-       const chatId = update.callback_query.message?.chat.id || update.callback_query.from.id
-       const callbackData = update.callback_query.data
-       
-       if (callbackData.startsWith('done:')) {
-           const habitId = callbackData.split(':')[1]
-           await handleMarkDone(chatId.toString(), habitId, token)
-           
-           // Answer callback to stop loading state in Telegram
-           await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
-               method: 'POST',
-               headers: { 'Content-Type': 'application/json' },
-               body: JSON.stringify({ callback_query_id: update.callback_query.id })
-           })
-       }
-       
-       return NextResponse.json({ ok: true })
-    }
-    
-    // --- MESSAGE HANDLING ---
-    if (!update.message || !update.message.text) {
-        return NextResponse.json({ ok: true }) 
-    }
+      const rawChatId = (update.callback_query.message?.chat.id || update.callback_query.from.id).toString()
 
-    const chatId = update.message.chat.id.toString()
-    const text = update.message.text.trim().toLowerCase()
+      if (!isValidTelegramChatId(rawChatId)) {
+        return NextResponse.json({ ok: false }, { status: 400 })
+      }
 
-    // --- COMMAND ROUTING ---
-    if (text === '/start') {
-        const msg = "👋 ¡Hola! Soy tu asistente de hábitos.\n\n" +
-                  "Usa los botones o comandos para gestionar tu día:\n" +
-                  "• /summary - Ver qué falta hoy\n" +
-                  "• /done - Marcar un hábito rápidamente"
-        
-        await sendTelegramMessage(chatId, msg, token, {
-            reply_markup: {
-                inline_keyboard: [
-                    [{ text: "📊 Ver Resumen", callback_data: "summary" }, { text: "✅ Completar Uno", callback_data: "list_pending" }]
-                ]
-            }
-        })
-    } 
-    
-    else if (text.includes('/summary') || text.includes('/resumen') || text === 'summary') {
+      const chatId = rawChatId
+      const callbackData = update.callback_query.data
+
+      if (callbackData.startsWith('done:')) {
+        const habitId = callbackData.split(':')[1]
+        // Validate UUID format before DB query
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(habitId)) {
+          return NextResponse.json({ ok: false }, { status: 400 })
+        }
+        await handleMarkDone(chatId, habitId, token)
+      } else if (callbackData === 'summary') {
         await handleSummary(chatId, token)
+      } else if (callbackData === 'list_pending') {
+        await handleDoneMenu(chatId, '', token)
+      }
+
+      // Always answer callback to stop loading state in Telegram
+      await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callback_query_id: update.callback_query.id })
+      })
+
+      return NextResponse.json({ ok: true })
     }
 
+    // 4. Message handling
+    if (!update.message || !update.message.text) {
+      return NextResponse.json({ ok: true })
+    }
+
+    const rawChatId = update.message.chat.id.toString()
+    if (!isValidTelegramChatId(rawChatId)) {
+      return NextResponse.json({ ok: false }, { status: 400 })
+    }
+
+    const chatId = rawChatId
+    const rawText = update.message.text.trim()
+
+    // Validate text length
+    if (rawText.length > LIMITS.texto) {
+      return NextResponse.json({ ok: true })
+    }
+
+    const text = rawText.toLowerCase()
+
+    // Command routing
+    if (text === '/start') {
+      const msg = "👋 ¡Hola! Soy tu asistente de hábitos.\n\n" +
+        "Usa los botones o comandos para gestionar tu día:\n" +
+        "• /summary - Ver qué falta hoy\n" +
+        "• /done - Marcar un hábito rápidamente"
+
+      await sendTelegramMessage(chatId, msg, token, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "📊 Ver Resumen", callback_data: "summary" }, { text: "✅ Completar Uno", callback_data: "list_pending" }]
+          ]
+        }
+      })
+    }
+    else if (text.includes('/summary') || text.includes('/resumen') || text === 'summary') {
+      await handleSummary(chatId, token)
+    }
     else if (text.startsWith('/done') || text === 'list_pending') {
-        await handleDoneMenu(chatId, text, token)
+      await handleDoneMenu(chatId, rawText, token)
     }
 
     return NextResponse.json({ ok: true })
 
   } catch (e: any) {
-    console.error("Webhook Error:", e)
-    return NextResponse.json({ ok: false, error: e.message }, { status: 500 })
+    console.error('[Telegram Webhook Error]:', e?.message || 'unknown')
+    return NextResponse.json({ ok: false }, { status: 500 })
   }
 }
 
-// --- HANDLERS ---
-
-async function getSupabase() {
-    return createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
 }
 
 async function handleSummary(chatId: string, token: string) {
-    const supabase = await getSupabase()
-    const todayStr = new Date().toISOString().split('T')[0]
-    
-    const { data: habits } = await supabase
-        .from('habits')
-        .select('id, text, streak, habit_logs(completed_at)')
-        .eq('telegram_chat_id', chatId)
+  const supabase = getSupabase()
+  const todayStr = new Date().toISOString().split('T')[0]
 
-    if (!habits || habits.length === 0) {
-        await sendTelegramMessage(chatId, "No encontré hábitos vinculados a este chat. 🤷‍♂️\nConfigura tu Chat ID en la web.", token)
-        return
-    }
+  const { data: habits } = await supabase
+    .from('habits')
+    .select('id, text, streak, habit_logs(completed_at)')
+    .eq('telegram_chat_id', chatId)
 
-    const pending = habits.filter(h => !h.habit_logs?.some((l: any) => l.completed_at === todayStr))
-    const completed = habits.filter(h => h.habit_logs?.some((l: any) => l.completed_at === todayStr))
+  if (!habits || habits.length === 0) {
+    await sendTelegramMessage(chatId, "No encontré hábitos vinculados a este chat. 🤷‍♂️\nConfigura tu Chat ID en la web.", token)
+    return
+  }
 
-    let msg = `📅 *Estado de hoy*\n\n`
-    
-    if (pending.length > 0) {
-        msg += `*Pendientes (${pending.length}):*\n`
-        pending.forEach(h => msg += `• ${h.text}\n`)
-    } else {
-        msg += `¡Enhorabuena! Has completado todo por hoy. 🎉\n`
-    }
+  const pending = habits.filter(h => !h.habit_logs?.some((l: any) => l.completed_at === todayStr))
+  const completed = habits.filter(h => h.habit_logs?.some((l: any) => l.completed_at === todayStr))
 
-    if (completed.length > 0) {
-        msg += `\n*Completados (${completed.length}):*\n`
-        completed.forEach(h => msg += `✅ ${h.text} (🔥 ${h.streak})\n`)
-    }
+  let msg = `📅 *Estado de hoy*\n\n`
 
-    // Add buttons for pending habits if any
-    const buttons = pending.map(h => ([{ text: `✅ ${h.text}`, callback_data: `done:${h.id}` }]))
+  if (pending.length > 0) {
+    msg += `*Pendientes (${pending.length}):*\n`
+    pending.forEach(h => msg += `• ${h.text}\n`)
+  } else {
+    msg += `¡Enhorabuena! Has completado todo por hoy. 🎉\n`
+  }
 
-    await sendTelegramMessage(chatId, msg, token, {
-        reply_markup: { inline_keyboard: buttons }
-    })
+  if (completed.length > 0) {
+    msg += `\n*Completados (${completed.length}):*\n`
+    completed.forEach(h => msg += `✅ ${h.text} (🔥 ${h.streak})\n`)
+  }
+
+  const buttons = pending.map(h => ([{ text: `✅ ${h.text}`, callback_data: `done:${h.id}` }]))
+
+  await sendTelegramMessage(chatId, msg, token, {
+    reply_markup: { inline_keyboard: buttons }
+  })
 }
 
 async function handleDoneMenu(chatId: string, text: string, token: string) {
-    const args = text.startsWith('/') ? text.split(' ').slice(1).join(' ') : ""
-    const supabase = await getSupabase()
-    const todayStr = new Date().toISOString().split('T')[0]
+  const supabase = getSupabase()
+  const todayStr = new Date().toISOString().split('T')[0]
 
-    // If user provided a name, try to match it directly
-    if (args) {
-        const { data: habits } = await supabase
-            .from('habits')
-            .select('id, text')
-            .eq('telegram_chat_id', chatId)
-            .ilike('text', `%${args}%`)
-        
-        if (habits && habits.length === 1) {
-            await handleMarkDone(chatId, habits[0].id, token)
-            return
-        }
-    }
+  // Extract and sanitize args
+  const rawArgs = text.startsWith('/') ? text.split(' ').slice(1).join(' ') : ""
+  const args = sanitizeString(rawArgs, LIMITS.searchQuery)
 
-    // Show menu of pending habits
+  if (args) {
+    const safeArgs = escapeLikeWildcards(args)
     const { data: habits } = await supabase
-        .from('habits')
-        .select('id, text, habit_logs(completed_at)')
-        .eq('telegram_chat_id', chatId)
+      .from('habits')
+      .select('id, text')
+      .eq('telegram_chat_id', chatId)
+      .ilike('text', `%${safeArgs}%`)
+      .limit(5)
 
-    const pending = habits?.filter(h => !h.habit_logs?.some((l: any) => l.completed_at === todayStr)) || []
-
-    if (pending.length === 0) {
-        await sendTelegramMessage(chatId, "¡No tienes tareas pendientes! 🌟", token)
-        return
+    if (habits && habits.length === 1) {
+      await handleMarkDone(chatId, habits[0].id, token)
+      return
     }
+  }
 
-    const msg = "¿Cuál has completado?"
-    const buttons = pending.map(h => ([{ text: h.text, callback_data: `done:${h.id}` }]))
+  const { data: habits } = await supabase
+    .from('habits')
+    .select('id, text, habit_logs(completed_at)')
+    .eq('telegram_chat_id', chatId)
+    .limit(50)
 
-    await sendTelegramMessage(chatId, msg, token, {
-        reply_markup: { inline_keyboard: buttons }
-    })
+  const pending = habits?.filter(h => !h.habit_logs?.some((l: any) => l.completed_at === todayStr)) || []
+
+  if (pending.length === 0) {
+    await sendTelegramMessage(chatId, "¡No tienes tareas pendientes! 🌟", token)
+    return
+  }
+
+  const msg = "¿Cuál has completado?"
+  const buttons = pending.map(h => ([{ text: h.text, callback_data: `done:${h.id}` }]))
+
+  await sendTelegramMessage(chatId, msg, token, {
+    reply_markup: { inline_keyboard: buttons }
+  })
 }
 
 async function handleMarkDone(chatId: string, habitId: string, token: string) {
-    const supabase = await getSupabase()
-    const todayStr = new Date().toISOString().split('T')[0]
+  const supabase = getSupabase()
+  const todayStr = new Date().toISOString().split('T')[0]
 
-    // 1. Get Habit details
-    const { data: habit } = await supabase.from('habits').select('text, streak').eq('id', habitId).single()
-    if (!habit) return
+  // Ownership check: verify the habit belongs to this chatId before marking
+  const { data: habit } = await supabase
+    .from('habits')
+    .select('text, streak')
+    .eq('id', habitId)
+    .eq('telegram_chat_id', chatId)
+    .single()
 
-    // 2. Insert Log
-    const { error } = await supabase.from('habit_logs').insert({ habit_id: habitId, completed_at: todayStr })
-    
-    if (error) {
-        if (error.code === '23505') { // Unique violation
-            await sendTelegramMessage(chatId, `"${habit.text}" ya estaba completado. ✅`, token)
-        } else {
-            await sendTelegramMessage(chatId, `❌ Error: ${error.message}`, token)
-        }
+  if (!habit) return
+
+  const { error } = await supabase
+    .from('habit_logs')
+    .insert({ habit_id: habitId, completed_at: todayStr })
+
+  if (error) {
+    if (error.code === '23505') {
+      await sendTelegramMessage(chatId, `"${habit.text}" ya estaba completado. ✅`, token)
     } else {
-        // Success confirmation
-        await sendTelegramMessage(chatId, `🚀 *¡Excelente!* Has completado: *${habit.text}*\nTu racha actual es de 🔥 *${habit.streak + 1}* días.`, token)
+      await sendTelegramMessage(chatId, `❌ Error al registrar el hábito.`, token)
     }
+  } else {
+    await sendTelegramMessage(chatId, `🚀 *¡Excelente!* Has completado: *${habit.text}*\nTu racha actual es de 🔥 *${habit.streak + 1}* días.`, token)
+  }
 }

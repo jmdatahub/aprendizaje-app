@@ -34,9 +34,9 @@ export async function POST(req: Request) {
     NO uses comillas ni puntos finales. Responde SOLO con el título.`
 
     if (isStub || !openai) {
-      return NextResponse.json<TitleResponse>({
+      return NextResponse.json<ApiResponse<{ title: string }>>({
         success: true,
-        title: "Chat Formativo IA",
+        data: { title: "Chat Formativo IA" }
       })
     }
 

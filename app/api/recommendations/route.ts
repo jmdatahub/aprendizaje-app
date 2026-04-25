@@ -13,7 +13,7 @@ interface RecommendationsResponse extends ApiResponse {
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}))
-    const { messages } = body
+    const messages = body?.messages ?? body?.history
 
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json<RecommendationsResponse>({ 
@@ -27,11 +27,17 @@ export async function POST(req: Request) {
     const isStub = isStubMode()
 
     if (isStub || !openai) {
-      return NextResponse.json<RecommendationsResponse>({
+      return NextResponse.json<ApiResponse<{
+        relatedTopics: string[];
+        subtopics: string[];
+        engine: string;
+      }>>({
         success: true,
-        relatedTopics: ['Tema Relacionado 1 (Stub)', 'Tema Relacionado 2 (Stub)'],
-        subtopics: ['Subtema A (Stub)', 'Subtema B (Stub)', 'Subtema C (Stub)'],
-        engine: 'stub'
+        data: {
+          relatedTopics: ['Tema Relacionado 1 (Stub)', 'Tema Relacionado 2 (Stub)'],
+          subtopics: ['Subtema A (Stub)', 'Subtema B (Stub)', 'Subtema C (Stub)'],
+          engine: 'stub'
+        }
       })
     }
 

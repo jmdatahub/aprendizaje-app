@@ -10,10 +10,10 @@ interface ChatDetailsResponse extends ApiResponse {
 }
 
 // GET /api/chats/[id] -> { chat, mensajes }
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const supabase = getSupabaseForRequest(request)
-    const id = params?.id
+    const { id } = await params
     if (!id) return NextResponse.json<ChatDetailsResponse>({ success: false, error: 'INVALID_REQUEST', message: 'Falta id' }, { status: 400 })
 
     const { data: chat, error: e1 } = await supabase

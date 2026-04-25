@@ -14,11 +14,9 @@ import { SettingsModal } from "@/components/SettingsModal"
 import { useApp } from "@/shared/contexts/AppContext"
 import { LearningPathsBlock } from "@/features/learning-paths/components/LearningPathsBlock"
 
-const SECTORES_NOMBRES = [
-  'Salud y Rendimiento', 'Ciencias Naturales', 'Ciencias Fisicas', 
-  'Matematicas y Logica', 'Tecnologia y Computacion', 'Historia y Filosofia', 
-  'Artes y Cultura', 'Economia y Negocios', 'Sociedad y Psicologia'
-];
+import { SECTORES_DATA } from "@/shared/constants/sectores"
+
+const SECTOR_IDS = SECTORES_DATA.map(s => s.id);
 
 export default function Mapa() {
   const router = useRouter()
@@ -68,17 +66,17 @@ export default function Mapa() {
       const newAlerts: Record<string, number> = {};
 
       if (decayedIds.length > 0) {
-        SECTORES_NOMBRES.forEach(nombre => {
+        SECTOR_IDS.forEach(sectorId => {
           try {
-            const sectorKey = `sector_data_${nombre.toLowerCase()}`;
+            const sectorKey = `sector_data_${sectorId}`;
             const stored = localStorage.getItem(sectorKey);
             if (stored) {
               const data = JSON.parse(stored);
               if (data && Array.isArray(data.items)) {
                 const sectorPending = data.items.filter((item: any) => decayedIds.includes(item.id));
                 if (sectorPending.length > 0) {
-                  newAlerts[nombre.toLowerCase()] = sectorPending.length;
-                  newPendingItems.push(...sectorPending.map((item: any) => ({ ...item, sectorName: nombre })));
+                  newAlerts[sectorId] = sectorPending.length;
+                  newPendingItems.push(...sectorPending.map((item: any) => ({ ...item, sectorId })));
                 }
               }
             }
@@ -289,10 +287,11 @@ export default function Mapa() {
 
         {/* Learning Paths Section */}
         <ErrorBoundary>
-          <LearningPathsBlock 
+          <LearningPathsBlock
             onStartLearning={(topic, sector, learningId, pathId, stepId) => {
               try {
-                const key = `sector_data_${sector.toLowerCase()}`;
+                // sector here is the sector id/key from SECTORES_DATA
+                const key = `sector_data_${sector}`;
                 const stored = localStorage.getItem(key);
                 if (stored) {
                   const data = JSON.parse(stored);

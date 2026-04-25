@@ -147,7 +147,7 @@ function AprendizajesContent() {
 
     // Update localStorage
     try {
-        const key = `sector_data_${item.sectorName.toLowerCase()}`;
+        const key = `sector_data_${item.sectorId}`;
         const stored = localStorage.getItem(key);
         if (stored) {
             const data = JSON.parse(stored);
@@ -502,13 +502,12 @@ function AprendizajesContent() {
         ) : (
           <>
             {/* Filtros y búsqueda */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
               className="mb-6 space-y-4"
             >
-              <div className="mb-6 space-y-4">
                   <div className="flex flex-col sm:flex-row gap-4 items-center">
                     {/* Buscador */}
                     <div className="relative w-full sm:max-w-xs">

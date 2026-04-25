@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { sendChatMessage } from '@/lib/apiClient';
+import { SECTORES_DATA } from '@/shared/constants/sectores';
 
 // Types
 export type TestStatus = 'idle' | 'generating' | 'ready' | 'in_progress' | 'error';
@@ -28,11 +29,7 @@ interface UseWeeklyTestReturn {
   resetTest: () => void;
 }
 
-const SECTORES_NOMBRES = [
-  'Salud y Rendimiento', 'Ciencias Naturales', 'Ciencias Fisicas', 
-  'Matematicas y Logica', 'Tecnologia y Computacion', 'Historia y Filosofia', 
-  'Artes y Cultura', 'Economia y Negocios', 'Sociedad y Psicologia'
-];
+const SECTOR_IDS = SECTORES_DATA.map(s => s.id);
 
 /**
  * Hook for managing weekly test state and generation
@@ -92,9 +89,9 @@ export function useWeeklyTest(): UseWeeklyTestReturn {
            // Force fallback generation logic (duplicated safety)
            const allItems: any[] = [];
            try {
-             SECTORES_NOMBRES.forEach(nombre => {
+             SECTOR_IDS.forEach(sectorId => {
                try {
-                 const key = `sector_data_${nombre.toLowerCase()}`;
+                 const key = `sector_data_${sectorId}`;
                  const stored = localStorage.getItem(key);
                  if (stored) {
                    const data = JSON.parse(stored);
@@ -152,9 +149,9 @@ export function useWeeklyTest(): UseWeeklyTestReturn {
 
     try {
       // Collect learning items from localStorage
-      SECTORES_NOMBRES.forEach(nombre => {
+      SECTOR_IDS.forEach(sectorId => {
         try {
-          const key = `sector_data_${nombre.toLowerCase()}`;
+          const key = `sector_data_${sectorId}`;
           const stored = localStorage.getItem(key);
           if (stored) {
             const data = JSON.parse(stored);

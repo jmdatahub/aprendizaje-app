@@ -6,10 +6,10 @@ export const runtime = 'nodejs'
 
 // POST /api/chats/[id]/close { aprendizajeId? }
 // - Marca el chat como cerrado y enlaza (opcional) el aprendizaje guardado
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const supabase = getSupabaseForRequest(request)
-    const id = params?.id
+    const { id } = await params
     if (!id) return NextResponse.json<ApiResponse>({ success: false, error: 'INVALID_REQUEST', message: 'Falta id' }, { status: 400 })
     
     const body = await request.json().catch(() => ({}))

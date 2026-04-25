@@ -9,16 +9,20 @@ import { useApp } from '@/shared/contexts/AppContext'
 export function EmptyChatSuggestions() {
   const { t } = useApp()
   const [index, setIndex] = useState(0)
-  
-  const suggestions = (t('chat.suggestions', { returnObjects: true }) as unknown) as string[];
+
+  const rawSuggestions = t('chat.suggestions', { returnObjects: true }) as unknown
+  const suggestions: string[] = Array.isArray(rawSuggestions) ? rawSuggestions : []
 
   useEffect(() => {
+    if (suggestions.length === 0) return
     const interval = setInterval(() => {
       setIndex((prev) => (prev + 1) % suggestions.length)
     }, 4000)
 
     return () => clearInterval(interval)
-  }, [])
+  }, [suggestions.length])
+
+  if (suggestions.length === 0) return null
 
   return (
     <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">

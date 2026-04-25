@@ -50,7 +50,7 @@ export function useSectores(): UseSectoresReturn {
         token = session?.data?.session?.access_token
       } catch {}
 
-      let serverProgress: number[] = []
+      let serverProgress: string[] = []
       try {
         serverProgress = await fetchUnlockedSectors(token)
       } catch (err) {
@@ -65,7 +65,7 @@ export function useSectores(): UseSectoresReturn {
       // Combine data
       const sectoresWithProgress: SectorWithProgress[] = sectoresData.map((sector) => ({
         ...sector,
-        unlocked: unlockedSet.has(sector.id),
+        unlocked: unlockedSet.has(String(sector.id)),
       }))
 
       setSectores(sectoresWithProgress)

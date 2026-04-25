@@ -38,19 +38,25 @@ export async function GET(request: Request) {
     
     console.log(`[Cron] Found ${toSend.length} reminders to send`)
 
+    const recipientEmail = process.env.REMINDER_EMAIL_TO || ''
     const results = []
-    for (const r of toSend) {
-       // @ts-ignore
-       const habilidadNombre = r.habilidades?.nombre || 'Habilidad'
-       
-       // En un caso real, obtendríamos el email del usuario dueño de la habilidad
-       // Por ahora enviamos a un mail de prueba
-       const sent = await EmailService.sendReminderEmail(
-         'usuario@ejemplo.com', 
-         habilidadNombre, 
-         r.hora
-       )
-       results.push({ id: r.id, sent })
+    for (const r of toSend as any[]) {
+      const hab = r?.habilidades
+      const habilidadNombre = (Array.isArray(hab) ? hab[0]?.nombre : hab?.nombre) || 'Habilidad'
+
+      if (!recipientEmail) {
+        // Sin destinatario configurado: solo registra el recordatorio.
+        console.log(`[Cron] Skipping email for ${habilidadNombre} — REMINDER_EMAIL_TO not set`)
+        results.push({ id: r.id, sent: false, skipped: true })
+        continue
+      }
+
+      const sent = await EmailService.sendReminderEmail(
+        recipientEmail,
+        habilidadNombre,
+        r.hora
+      )
+      results.push({ id: r.id, sent })
     }
 
     return NextResponse.json({ 

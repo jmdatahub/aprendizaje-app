@@ -83,10 +83,10 @@ interface ChatMessageResponse extends ApiResponse {
 // - Inserta mensaje del usuario en chat_mensajes
 // - Genera respuesta (STUB u OpenAI) con historial breve del chat
 // - Inserta respuesta de la IA y devuelve ambos
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const supabase = getSupabaseForRequest(request)
-    const id = params?.id
+    const { id } = await params
     if (!id) return NextResponse.json<ChatMessageResponse>({ success: false, error: 'INVALID_REQUEST', message: 'Falta id' }, { status: 400 })
 
     const body = await request.json().catch(() => ({}))

@@ -9,24 +9,24 @@ export async function GET() {
     const { data: aprendizajes, error: errorAprendizajes } = await supabase
       .from('aprendizajes')
       .select('created_at')
-      .eq('user_id', 'user_2rTkX...') // TODO: Usar ID real si hay auth
-    
+      .is('deleted_at', null)
+
     if (errorAprendizajes) throw errorAprendizajes
 
     // 2. Obtener sesiones de práctica (fecha, duracion, habilidad_id)
     // Necesitamos hacer join con habilidades para saber el nombre de la habilidad
     const { data: habilidades, error: errorHabilidades } = await supabase
       .from('habilidades')
-      .select('id, nombre, nivel, sesiones(fecha, duracion_segundos)')
-      .eq('active', true)
+      .select('id, nombre, nivel, sesiones_practica(fecha, duracion_segundos)')
+      .is('deleted_at', null)
 
     if (errorHabilidades) throw errorHabilidades
 
     // 3. Procesar datos para el frontend
     const activityLog: { date: string, type: 'learning' | 'practice', details?: any }[] = []
-    
+
     // Aprendizajes
-    (aprendizajes || []).forEach((a: any) => {
+    ;(aprendizajes || []).forEach((a: any) => {
       activityLog.push({
         date: a.created_at,
         type: 'learning'

@@ -11,11 +11,18 @@ interface SaveLearningModalProps {
   initialSummary: string;
   initialTitle: string;
   initialSection?: string;
-  initialSections?: number[];
-  suggestedSections?: number[];
+  initialSections?: (string | number)[];
+  suggestedSections?: (string | number)[];
   initialTags?: string[];
-  onSave: (data: any) => void;
-  onExpandSummary: (section: string) => Promise<string>;
+  onSave: (data: {
+    title: string;
+    summary: string;
+    section: string | undefined;
+    tags: string[];
+    isFavorite: boolean;
+    keepChat: boolean;
+    personalNote: string;
+  }) => void;
   onEditSummary?: (currentSummary: string, instruction: string) => Promise<string>;
   loading?: boolean;
 }
@@ -30,51 +37,39 @@ export function SaveLearningModal({
   suggestedSections = [],
   initialTags = [],
   onSave,
-  onExpandSummary,
   onEditSummary,
   loading
 }: SaveLearningModalProps) {
   const { t } = useApp();
-  
+
   const [title, setTitle] = useState(initialTitle);
   const [summary, setSummary] = useState(initialSummary);
-  const [selectedSections, setSelectedSections] = useState<number[]>(initialSections);
+  const [selectedSections, setSelectedSections] = useState<string[]>(initialSections.map(String));
   const [tags, setTags] = useState<string[]>(initialTags);
   const [isFavorite, setIsFavorite] = useState(false);
-  const [reviewLater, setReviewLater] = useState(false);
-  const [newTag, setNewTag] = useState('');
-  const [type, setType] = useState('teoria');
-  const [difficulty, setDifficulty] = useState('basico');
-  const [status, setStatus] = useState('pendiente');
   const [keepChat, setKeepChat] = useState(false);
   const [personalNote, setPersonalNote] = useState('');
-  
-  // AI Editing State
+  const [newTag, setNewTag] = useState('');
+
   const [showAiEdit, setShowAiEdit] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiEditLoading, setAiEditLoading] = useState(false);
 
-  // Portal State
   const [mounted, setMounted] = useState(false);
-  
+  const [activeTab, setActiveTab] = useState<'details' | 'content'>('details');
+
   useEffect(() => {
     setMounted(true);
     return () => setMounted(false);
   }, []);
 
-  // Reset state when opening
   useEffect(() => {
     if (isOpen) {
       setTitle(initialTitle);
       setSummary(initialSummary);
-      // Pre-select suggested sections
-      setSelectedSections(suggestedSections.length > 0 ? suggestedSections : initialSections);
+      setSelectedSections((suggestedSections.length > 0 ? suggestedSections : initialSections).map(String));
       setTags(initialTags);
       setIsFavorite(false);
-      setReviewLater(false);
-      setType('teoria');
-      setDifficulty('basico');
-      setStatus('pendiente');
       setKeepChat(false);
       setPersonalNote('');
       setShowAiEdit(false);
@@ -84,22 +79,16 @@ export function SaveLearningModal({
 
   const handleAddTag = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && newTag.trim()) {
-      if (!tags.includes(newTag.trim())) {
-        setTags([...tags, newTag.trim()]);
-      }
+      if (!tags.includes(newTag.trim())) setTags([...tags, newTag.trim()]);
       setNewTag('');
     }
   };
 
-  const removeTag = (tagToRemove: string) => {
-    setTags(tags.filter(tag => tag !== tagToRemove));
-  };
+  const removeTag = (tagToRemove: string) => setTags(tags.filter(t => t !== tagToRemove));
 
-  const handleToggleSection = (sectionId: number) => {
-    setSelectedSections(prev => 
-      prev.includes(sectionId) 
-        ? prev.filter(s => s !== sectionId) 
-        : [...prev, sectionId]
+  const handleToggleSection = (sectionId: string) => {
+    setSelectedSections(prev =>
+      prev.includes(sectionId) ? prev.filter(s => s !== sectionId) : [...prev, sectionId]
     );
   };
 
@@ -121,40 +110,20 @@ export function SaveLearningModal({
     onSave({
       title,
       summary,
-      sections: selectedSections,
-      section: selectedSections[0]?.toString() || '',
+      section: selectedSections[0],
       tags,
       isFavorite,
-      reviewLater,
-      type,
-      difficulty,
-      status,
       keepChat,
-      personalNote
+      personalNote,
     });
   };
-
-  const handleRestore = () => {
-    setSummary(initialSummary);
-  };
-
-  const [activeTab, setActiveTab] = useState<'details' | 'content'>('details');
 
   const modalContent = (
     <AnimatePresence>
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 flex items-center justify-center md:p-4 bg-background/95 md:bg-black/60 md:backdrop-blur-sm safe-area-inset"
-          style={{ 
-            zIndex: 2147483647, 
-            position: 'fixed', 
-            top: '0px', 
-            left: '0px', 
-            right: '0px', 
-            bottom: '0px',
-            height: '100%',
-            width: '100%'
-          }}
+          style={{ zIndex: 2147483647, position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, height: '100%', width: '100%' }}
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -166,9 +135,7 @@ export function SaveLearningModal({
             <div className="md:hidden flex-none border-b border-border bg-muted/20">
               <div className="flex items-center justify-between px-4 py-3">
                 <h2 className="text-lg font-bold">{t('chat.save_learning')}</h2>
-                <button onClick={onClose} className="p-2 -mr-2 text-muted-foreground hover:text-foreground">
-                  ✕
-                </button>
+                <button onClick={onClose} className="p-2 -mr-2 text-muted-foreground hover:text-foreground">✕</button>
               </div>
               <div className="flex px-4 pb-0 gap-6">
                 <button
@@ -186,19 +153,17 @@ export function SaveLearningModal({
               </div>
             </div>
 
-            {/* Left Side: Canvas + AI Editor (Desktop: Always visible, Mobile: Only if tab='content') */}
+            {/* Left: Canvas + AI Editor */}
             <div className={`${activeTab === 'content' ? 'flex' : 'hidden'} md:flex flex-1 md:border-r border-border p-4 w-[95%] mx-auto md:w-full bg-muted/10 flex-col overflow-hidden`}>
               <div className="flex-1 min-h-0 relative">
                 <LearningCanvas
                   initialContent={summary}
                   onContentChange={setSummary}
-                  onExpand={onExpandSummary}
-                  onRestore={handleRestore}
+                  onRestore={() => setSummary(initialSummary)}
                   loading={loading}
                 />
               </div>
-              
-              {/* Inline AI Editing Chat */}
+
               {onEditSummary && (
                 <div className="mt-4 border-t border-border pt-4 flex-none">
                   <button
@@ -210,38 +175,36 @@ export function SaveLearningModal({
                     <span>Editar con IA</span>
                     <span className="text-xs">{showAiEdit ? '▲' : '▼'}</span>
                   </button>
-                  
+
                   {showAiEdit && (
                     <div className="flex gap-2">
-                       <input
-                         type="text"
-                         value={aiPrompt}
-                         onChange={(e) => setAiPrompt(e.target.value)}
-                         onKeyDown={(e) => e.key === 'Enter' && handleAiEdit()}
-                         placeholder="Ej: Hazlo más corto..."
-                         className="flex-1 bg-muted border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                         disabled={aiEditLoading}
-                       />
-                       <button
-                         type="button"
-                         onClick={handleAiEdit}
-                         disabled={aiEditLoading || !aiPrompt.trim()}
-                         className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                       >
-                         {aiEditLoading ? <span className="animate-spin">⏳</span> : <span>Aplicar</span>}
-                       </button>
+                      <input
+                        type="text"
+                        value={aiPrompt}
+                        onChange={(e) => setAiPrompt(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAiEdit()}
+                        placeholder="Ej: Hazlo más corto..."
+                        className="flex-1 bg-muted border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                        disabled={aiEditLoading}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAiEdit}
+                        disabled={aiEditLoading || !aiPrompt.trim()}
+                        className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                      >
+                        {aiEditLoading ? <span className="animate-spin">⏳</span> : <span>Aplicar</span>}
+                      </button>
                     </div>
                   )}
                 </div>
               )}
             </div>
 
-            {/* Right Side: Metadata & Actions (Desktop: Always visible, Mobile: Only if tab='details') */}
+            {/* Right: Metadata & Actions */}
             <div className={`${activeTab === 'details' ? 'flex' : 'hidden'} md:flex w-full md:w-[350px] flex-col bg-card overflow-hidden`}>
-              {/* Desktop Header */}
               <div className="hidden md:block p-6 pb-0">
-                 <h2 className="text-xl font-bold mb-1">{t('chat.save_learning')}</h2>
-                 <p className="text-sm text-muted-foreground">{t('chat.summary_default_desc')}</p>
+                <h2 className="text-xl font-bold mb-1">{t('chat.save_learning')}</h2>
               </div>
 
               <div className="p-4 md:p-6 flex-1 overflow-y-auto space-y-5 md:space-y-6">
@@ -259,19 +222,19 @@ export function SaveLearningModal({
 
                 {/* Section */}
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">{t('learnings.section_label')} (múltiple)</label>
+                  <label className="text-xs font-semibold uppercase text-muted-foreground">{t('learnings.section_label')}</label>
                   <div className="flex flex-wrap gap-2">
                     {SECTORES_DATA.map(s => {
-                      const isSelected = selectedSections.includes(Number(s.id));
-                      const isSuggested = suggestedSections.includes(Number(s.id));
+                      const isSelected = selectedSections.includes(s.id);
+                      const isSuggested = suggestedSections.map(String).includes(s.id);
                       return (
                         <button
                           key={s.id}
                           type="button"
-                          onClick={() => handleToggleSection(Number(s.id))}
+                          onClick={() => handleToggleSection(s.id)}
                           className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5
-                            ${isSelected 
-                              ? 'bg-primary/20 border-primary text-primary' 
+                            ${isSelected
+                              ? 'bg-primary/20 border-primary text-primary'
                               : 'bg-muted border-border text-muted-foreground hover:border-primary/50'}
                             ${isSuggested && !isSelected ? 'ring-2 ring-primary/30' : ''}`}
                         >
@@ -285,50 +248,6 @@ export function SaveLearningModal({
                   {suggestedSections.length > 0 && (
                     <p className="text-[10px] text-muted-foreground mt-1">✨ Sugeridas por IA</p>
                   )}
-                </div>
-
-                {/* Type */}
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">Tipo</label>
-                  <select
-                    value={type}
-                    onChange={(e) => setType(e.target.value)}
-                    className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none"
-                  >
-                    <option value="teoria">Teoría</option>
-                    <option value="ejemplo">Ejemplo práctico</option>
-                    <option value="checklist">Checklist</option>
-                    <option value="plantilla">Plantilla</option>
-                    <option value="conversacion">Conversación guiada</option>
-                  </select>
-                </div>
-
-                {/* Difficulty & Status Row */}
-                <div className="grid grid-cols-2 gap-3">
-                   <div className="space-y-2">
-                    <label className="text-xs font-semibold uppercase text-muted-foreground">Dificultad</label>
-                    <select
-                      value={difficulty}
-                      onChange={(e) => setDifficulty(e.target.value)}
-                      className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none"
-                    >
-                      <option value="basico">Básico</option>
-                      <option value="intermedio">Intermedio</option>
-                      <option value="avanzado">Avanzado</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold uppercase text-muted-foreground">Estado</label>
-                    <select
-                      value={status}
-                      onChange={(e) => setStatus(e.target.value)}
-                      className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none"
-                    >
-                      <option value="pendiente">Pendiente</option>
-                      <option value="en_progreso">En progreso</option>
-                      <option value="aprendido">Aprendido</option>
-                    </select>
-                  </div>
                 </div>
 
                 {/* Tags */}
@@ -363,7 +282,7 @@ export function SaveLearningModal({
                   />
                 </div>
 
-                {/* Flags & Options */}
+                {/* Flags */}
                 <div className="space-y-3 pt-4 border-t border-border">
                   <label className="flex items-center gap-3 cursor-pointer group">
                     <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isFavorite ? 'bg-amber-400 border-amber-400' : 'border-muted-foreground group-hover:border-primary'}`}>
@@ -371,14 +290,6 @@ export function SaveLearningModal({
                     </div>
                     <input type="checkbox" className="hidden" checked={isFavorite} onChange={() => setIsFavorite(!isFavorite)} />
                     <span className="text-sm font-medium">{t('learnings.favorite_label')} ⭐</span>
-                  </label>
-
-                  <label className="flex items-center gap-3 cursor-pointer group">
-                    <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${reviewLater ? 'bg-blue-500 border-blue-500' : 'border-muted-foreground group-hover:border-primary'}`}>
-                      {reviewLater && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path d="M5 13l4 4L19 7" /></svg>}
-                    </div>
-                    <input type="checkbox" className="hidden" checked={reviewLater} onChange={() => setReviewLater(!reviewLater)} />
-                    <span className="text-sm font-medium">{t('learnings.review_label')} ⏰</span>
                   </label>
 
                   <label className="flex items-center gap-3 cursor-pointer group">
@@ -391,7 +302,7 @@ export function SaveLearningModal({
                 </div>
               </div>
 
-              {/* Footer Actions */}
+              {/* Footer */}
               <div className="p-4 md:p-6 border-t border-border bg-muted/30 flex flex-col gap-3">
                 <button
                   onClick={handleSave}
@@ -415,6 +326,5 @@ export function SaveLearningModal({
   );
 
   if (!mounted) return null;
-
   return createPortal(modalContent, document.body);
 }

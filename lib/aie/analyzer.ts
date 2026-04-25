@@ -1,17 +1,13 @@
-import { AIEAnalysis, UnderstandingLevel, CognitiveGap } from './types';
-import OpenAI from 'openai';
-
-// Initialize OpenAI client (reuse env var)
-const apiKey = process.env.OPENAI_API_KEY;
-const client = apiKey ? new OpenAI({ apiKey }) : null;
+import { AIEAnalysis } from './types';
+import { getOpenAIClient, isStubMode } from '@/lib/openai';
 
 export async function analyzeUserMessage(
-  message: string, 
+  message: string,
   history: any[]
 ): Promise<AIEAnalysis> {
   try {
-    // If no API key or client, return default
-    if (!client) {
+    const client = getOpenAIClient();
+    if (!client || isStubMode()) {
       return {
         level: 'medium',
         detectedGaps: [],

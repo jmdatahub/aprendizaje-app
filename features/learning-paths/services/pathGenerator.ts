@@ -1,24 +1,22 @@
 import { sendChatMessage } from '@/lib/apiClient';
 import { LearningPath, PathStep } from '../types';
+import { SECTORES_DATA } from '@/shared/constants/sectores';
 
 // Helper to get all learnings from all sectors
 const getAllLearnings = () => {
-  const SECTORES_NOMBRES = [
-    'Salud y Rendimiento', 'Ciencias Naturales', 'Ciencias Fisicas', 
-    'Matematicas y Logica', 'Tecnologia y Computacion', 'Historia y Filosofia', 
-    'Artes y Cultura', 'Economia y Negocios', 'Sociedad y Psicologia'
-  ];
-
   const allItems: any[] = [];
-  SECTORES_NOMBRES.forEach(nombre => {
+  SECTORES_DATA.forEach(sector => {
     try {
-      const key = `sector_data_${nombre.toLowerCase()}`;
+      const key = `sector_data_${sector.id}`;
       const stored = localStorage.getItem(key);
       if (stored) {
         const data = JSON.parse(stored);
         if (data && Array.isArray(data.items)) {
-            // Add sector name to each item for reference
-            allItems.push(...data.items.map((item: any) => ({ ...item, sectorName: nombre })));
+            allItems.push(...data.items.map((item: any) => ({
+              ...item,
+              sectorId: sector.id,
+              sectorName: sector.key,
+            })));
         }
       }
     } catch {}
@@ -90,17 +88,17 @@ export const generateLearningPath = async (topic: string): Promise<LearningPath>
         const original = allLearnings.find(l => l.id === step.learningId);
         if (!original) return null;
         return {
-            id: Math.random().toString(36).substr(2, 9),
+            id: Math.random().toString(36).slice(2, 11),
             learningId: original.id,
             title: original.title,
             description: step.reasoning || step.description,
             completed: false,
-            sectorName: original.sectorName
+            sectorName: original.sectorId ?? original.sectorName
         };
     }).filter((s:any) => s !== null);
 
     return {
-        id: Math.random().toString(36).substr(2, 9),
+        id: Math.random().toString(36).slice(2, 11),
         title: result.title || `Ruta de ${topic}`,
         sector: topic,
         steps: fullSteps,
