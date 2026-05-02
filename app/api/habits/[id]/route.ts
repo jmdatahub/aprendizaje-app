@@ -1,6 +1,6 @@
-
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { isValidUUID, badRequest } from '@/lib/validate'
 
 export const runtime = 'nodejs'
 
@@ -11,22 +11,29 @@ function getSupabase() {
   return createClient(url, key)
 }
 
-// PATCH: Update habit fields
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
+    if (!isValidUUID(id)) return badRequest('id inválido')
     const supabase = getSupabase()
-    const body = await request.json()
-    
-    // Whitelist allowed fields to update
+    const body = await request.json().catch(() => ({}))
+
     const { text, category, with_notification, notification_times, custom_message } = body
 
-    const updates: any = { updated_at: new Date().toISOString() }
-    if (text !== undefined) updates.text = text
+    // Validate fields
+    if (text !== undefined && (typeof text !== 'string' || text.trim().length === 0 || text.trim().length > 500)) {
+      return NextResponse.json({ success: false, error: 'INVALID_REQUEST', message: 'text inválido (máx. 500)' }, { status: 400 })
+    }
+    if (custom_message !== undefined && custom_message !== null && (typeof custom_message !== 'string' || custom_message.length > 500)) {
+      return NextResponse.json({ success: false, error: 'INVALID_REQUEST', message: 'custom_message demasiado largo' }, { status: 400 })
+    }
+
+    const updates: Record<string, any> = { updated_at: new Date().toISOString() }
+    if (text !== undefined) updates.text = text.trim()
     if (category !== undefined) updates.category = category
-    if (with_notification !== undefined) updates.with_notification = with_notification
-    if (notification_times !== undefined) updates.notification_times = notification_times
-    if (custom_message !== undefined) updates.custom_message = custom_message
+    if (with_notification !== undefined) updates.with_notification = Boolean(with_notification)
+    if (notification_times !== undefined) updates.notification_times = Array.isArray(notification_times) ? notification_times : []
+    if (custom_message !== undefined) updates.custom_message = custom_message || null
 
     const { data, error } = await supabase
       .from('habits')
@@ -39,14 +46,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     return NextResponse.json({ success: true, data })
   } catch (e: any) {
-    return NextResponse.json({ success: false, error: e.message }, { status: 500 })
+    console.error('[habits/[id] PATCH] Error:', e?.message)
+    return NextResponse.json({ success: false, error: 'INTERNAL_ERROR' }, { status: 500 })
   }
 }
 
-// DELETE: Remove habit
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
+    if (!isValidUUID(id)) return badRequest('id inválido')
     const supabase = getSupabase()
 
     const { error } = await supabase
@@ -58,6 +66,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
     return NextResponse.json({ success: true })
   } catch (e: any) {
-    return NextResponse.json({ success: false, error: e.message }, { status: 500 })
+    console.error('[habits/[id] DELETE] Error:', e?.message)
+    return NextResponse.json({ success: false, error: 'INTERNAL_ERROR' }, { status: 500 })
   }
 }

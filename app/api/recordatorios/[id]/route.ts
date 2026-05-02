@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { isValidUUID, badRequest } from '@/lib/validate'
 
 export async function DELETE(
   request: Request,
@@ -7,30 +8,21 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
-    
+    if (!isValidUUID(id)) return badRequest('id inválido')
+
     const { error } = await supabase
       .from('recordatorios')
       .delete()
       .eq('id', id)
 
     if (error) {
-      console.error('[API /api/recordatorios/[id]] Delete error:', error)
-      return NextResponse.json({
-        success: false,
-        error: 'DB_ERROR',
-        message: error.message
-      }, { status: 500 })
+      console.error('[recordatorios/[id] DELETE] DB error:', error?.message)
+      return NextResponse.json({ success: false, error: 'DB_ERROR', message: 'Error al eliminar recordatorio' }, { status: 500 })
     }
 
-    return NextResponse.json({
-      success: true
-    })
+    return NextResponse.json({ success: true })
   } catch (e: any) {
-    console.error('[API /api/recordatorios/[id]] Error:', e)
-    return NextResponse.json({
-      success: false,
-      error: 'INTERNAL_ERROR',
-      message: e?.message || 'Error al eliminar recordatorio'
-    }, { status: 500 })
+    console.error('[recordatorios/[id] DELETE] Error:', e?.message)
+    return NextResponse.json({ success: false, error: 'INTERNAL_ERROR', message: 'Error al eliminar recordatorio' }, { status: 500 })
   }
 }

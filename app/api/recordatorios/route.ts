@@ -1,16 +1,17 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { isValidUUID } from '@/lib/validate'
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const habilidadId = searchParams.get('habilidad_id')
 
-    if (!habilidadId) {
+    if (!habilidadId || !isValidUUID(habilidadId)) {
       return NextResponse.json({
         success: false,
-        error: 'MISSING_PARAM',
-        message: 'Falta el parámetro habilidad_id'
+        error: 'INVALID_PARAM',
+        message: 'Parámetro habilidad_id inválido'
       }, { status: 400 })
     }
 
@@ -24,40 +25,40 @@ export async function GET(request: Request) {
 
     if (error) throw error
 
-    return NextResponse.json({
-      success: true,
-      data
-    })
+    return NextResponse.json({ success: true, data })
   } catch (e: any) {
-    console.error('[API /api/recordatorios] Error:', e)
+    console.error('[recordatorios GET] Error:', e?.message || 'unknown')
     return NextResponse.json({
       success: false,
       error: 'INTERNAL_ERROR',
-      message: e?.message || 'Error al obtener recordatorios'
+      message: 'Error al obtener recordatorios'
     }, { status: 500 })
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
+    const body = await request.json().catch(() => ({}))
     const { habilidad_id, dia_semana, hora } = body
 
-    if (!habilidad_id || dia_semana === undefined || !hora) {
-      return NextResponse.json({
-        success: false,
-        error: 'INVALID_REQUEST',
-        message: 'Faltan campos requeridos'
-      }, { status: 400 })
+    if (!habilidad_id || !isValidUUID(habilidad_id)) {
+      return NextResponse.json({ success: false, error: 'INVALID_REQUEST', message: 'habilidad_id inválido' }, { status: 400 })
     }
-    
-    // Verificar límite? Opcional.
-    
+
+    const diaSemanaNum = Number(dia_semana)
+    if (!Number.isInteger(diaSemanaNum) || diaSemanaNum < 0 || diaSemanaNum > 6) {
+      return NextResponse.json({ success: false, error: 'INVALID_REQUEST', message: 'dia_semana debe ser 0-6' }, { status: 400 })
+    }
+
+    if (!hora || typeof hora !== 'string' || !/^\d{2}:\d{2}(:\d{2})?$/.test(hora)) {
+      return NextResponse.json({ success: false, error: 'INVALID_REQUEST', message: 'Formato de hora inválido (HH:MM)' }, { status: 400 })
+    }
+
     const { data, error } = await supabase
       .from('recordatorios')
       .insert({
         habilidad_id,
-        dia_semana,
+        dia_semana: diaSemanaNum,
         hora,
         email_enabled: true,
         active: true
@@ -67,16 +68,13 @@ export async function POST(request: Request) {
 
     if (error) throw error
 
-    return NextResponse.json({
-      success: true,
-      data
-    })
+    return NextResponse.json({ success: true, data })
   } catch (e: any) {
-    console.error('[API /api/recordatorios] Error:', e)
+    console.error('[recordatorios POST] Error:', e?.message || 'unknown')
     return NextResponse.json({
       success: false,
       error: 'INTERNAL_ERROR',
-      message: e?.message || 'Error al crear recordatorio'
+      message: 'Error al crear recordatorio'
     }, { status: 500 })
   }
 }

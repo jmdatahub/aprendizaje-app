@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server'
 import { getOpenAIClient, isStubMode } from '@/lib/openai'
 import { ApiResponse } from '@/shared/types/api'
+import { rateLimit, getClientIp } from '@/lib/rateLimit'
 
 export const runtime = 'nodejs'
 
@@ -397,9 +398,23 @@ interface SorpresasResponse extends ApiResponse {
 
 export async function GET(request: Request) {
   try {
-    // 2) Leer sector y normalizar a clave
+    // Rate limit: 30 req/min per IP — endpoint may polish text via OpenAI
+    const ip = getClientIp(request)
+    const { success: allowed } = rateLimit(`sorpresas:${ip}`, 30, 60)
+    if (!allowed) {
+      return NextResponse.json<ApiResponse>(
+        { success: false, error: 'RATE_LIMITED', message: 'Too many requests' },
+        { status: 429 }
+      )
+    }
+
+    // 2) Leer y validar sector
     const url = new URL(request.url)
-    const rawSector = url.searchParams.get('sector') || 'General'
+    const rawSectorParam = url.searchParams.get('sector') || 'General'
+    // Limit sector param to safe length and reject anything not in safe charset
+    const rawSector = typeof rawSectorParam === 'string'
+      ? rawSectorParam.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ\s\-&]/g, '').slice(0, 100) || 'General'
+      : 'General'
     const key = normalizaSector(rawSector)
     const cookieKey = `sur_hist_${key}`
 
@@ -463,11 +478,11 @@ export async function GET(request: Request) {
     res.cookies.set(cookieKey, String(idx), { path: '/', maxAge: 60 * 60 * 24 })
     return res
   } catch (e: any) {
-    const msg = e?.message || 'Error del servidor'
-    return NextResponse.json<ApiResponse>({ 
+    console.error('[sorpresas GET] Error:', e?.message)
+    return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',
-      message: msg 
+      message: 'Error del servidor'
     }, { status: 500 })
   }
 }

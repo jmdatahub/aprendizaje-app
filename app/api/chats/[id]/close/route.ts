@@ -24,6 +24,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     return NextResponse.json<ApiResponse>({ success: true })
   } catch (e: any) {
-    return NextResponse.json<ApiResponse>({ success: false, error: 'INTERNAL_ERROR', message: e?.message || 'Error' }, { status: 500 })
+    console.error('[chats/[id]/close] Error:', e?.message)
+    return NextResponse.json<ApiResponse>({ success: false, error: 'INTERNAL_ERROR', message: 'An internal error occurred' }, { status: 500 })
   }
 }

@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { ApiResponse } from '@/shared/types/api'
 import { calcularNivel } from '@/shared/constants/habilidades'
+import { isValidUUID, badRequest } from '@/lib/validate'
 
 export const runtime = 'nodejs'
 
@@ -29,17 +30,22 @@ export async function POST(
 ) {
   try {
     const { id } = await params
+    if (!isValidUUID(id)) return badRequest('id inválido')
     const body = await request.json()
     const supabase = getSupabase()
-    
+
     const { duracion_segundos, resumen } = body
 
-    if (!duracion_segundos || duracion_segundos <= 0) {
+    if (!duracion_segundos || typeof duracion_segundos !== 'number' || !Number.isFinite(duracion_segundos) || duracion_segundos <= 0 || duracion_segundos > 86400) {
       return NextResponse.json<ApiResponse>({
         success: false,
         error: 'INVALID_REQUEST',
-        message: 'La duración debe ser mayor a 0'
+        message: 'La duración debe ser mayor a 0 y menor a 24 horas'
       }, { status: 400 })
+    }
+
+    if (resumen && (typeof resumen !== 'string' || resumen.length > 2000)) {
+      return NextResponse.json<ApiResponse>({ success: false, error: 'INVALID_REQUEST', message: 'Resumen demasiado largo (máx. 2000)' }, { status: 400 })
     }
 
     // Obtener habilidad actual
@@ -60,8 +66,9 @@ export async function POST(
       throw new Error(getError.message)
     }
 
-    // Calcular nuevo tiempo total y nivel
-    const nuevoTiempoTotal = (habilidad.tiempo_total_segundos || 0) + duracion_segundos
+    // Calcular nuevo tiempo total y nivel — cap absurd values to prevent overflow
+    const previo = Number(habilidad.tiempo_total_segundos || 0)
+    const nuevoTiempoTotal = Math.min(previo + duracion_segundos, 1_000_000_000) // ~31 yrs
     const nuevoNivel = calcularNivel(nuevoTiempoTotal)
 
     // Insertar sesión
@@ -76,11 +83,11 @@ export async function POST(
       .single()
 
     if (insertError) {
-      console.error('[API sesiones] Insert error:', insertError)
+      console.error('[sesiones] Insert error:', insertError?.message)
       return NextResponse.json<ApiResponse>({
         success: false,
         error: 'DB_ERROR',
-        message: insertError.message
+        message: 'Error al guardar sesión'
       }, { status: 500 })
     }
 
@@ -110,11 +117,11 @@ export async function POST(
       data: result
     })
   } catch (e: any) {
-    console.error('[API sesiones] Fatal error:', e)
+    console.error('[sesiones] Error:', e?.message)
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',
-      message: e?.message || 'Error al guardar sesión'
+      message: 'Error al guardar sesión'
     }, { status: 500 })
   }
 }

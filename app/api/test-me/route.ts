@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getOpenAIClient, isStubMode } from '@/lib/openai'
 import { ApiResponse } from '@/shared/types/api'
+import { rateLimit, getClientIp } from '@/lib/rateLimit'
 
 export const runtime = 'nodejs'
 
@@ -12,13 +13,24 @@ interface TestMeResponse extends ApiResponse {
 
 export async function POST(req: Request) {
   try {
-    const { content } = await req.json().catch(() => ({}))
+    // Rate limit: 10 req/min per IP — endpoint hits OpenAI
+    const ip = getClientIp(req)
+    const { success: allowed } = rateLimit(`test-me:${ip}`, 10, 60)
+    if (!allowed) {
+      return NextResponse.json<TestMeResponse>(
+        { success: false, error: 'RATE_LIMITED', message: 'Too many requests' },
+        { status: 429 }
+      )
+    }
 
-    if (!content) {
-      return NextResponse.json<TestMeResponse>({ 
+    const body = await req.json().catch(() => ({}))
+    const { content } = body
+
+    if (!content || typeof content !== 'string' || content.length > 10_000) {
+      return NextResponse.json<TestMeResponse>({
         success: false,
         error: 'INVALID_REQUEST',
-        message: 'Content is required' 
+        message: 'Content inválido o demasiado largo (máx. 10000)'
       }, { status: 400 })
     }
 
@@ -69,11 +81,11 @@ export async function POST(req: Request) {
     })
 
   } catch (error: any) {
-    console.error('Error generating questions:', error)
-    return NextResponse.json<TestMeResponse>({ 
+    console.error('[test-me] Error:', error?.message || 'unknown')
+    return NextResponse.json<TestMeResponse>({
       success: false,
       error: 'INTERNAL_ERROR',
-      message: error.message 
+      message: 'An internal error occurred'
     }, { status: 500 })
   }
 }

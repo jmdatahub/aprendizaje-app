@@ -31,11 +31,11 @@ export async function GET() {
       .order('deleted_at', { ascending: false })
     
     if (error) {
-      console.error('[API aprendizajes/trash] Error:', error)
+      console.error('[aprendizajes/trash GET] DB error:', error?.message)
       return NextResponse.json<ApiResponse>({
         success: false,
         error: 'DB_ERROR',
-        message: error.message
+        message: 'Error al obtener papelera'
       }, { status: 500 })
     }
 
@@ -53,11 +53,11 @@ export async function GET() {
       data: { items }
     })
   } catch (e: any) {
-    console.error('[API aprendizajes/trash] Fatal error:', e)
+    console.error('[aprendizajes/trash GET] Error:', e?.message)
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',
-      message: e?.message || 'Error al obtener papelera'
+      message: 'Error al obtener papelera'
     }, { status: 500 })
   }
 }

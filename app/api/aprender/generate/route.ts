@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getOpenAIClient, isStubMode } from '@/lib/openai'
 import { ApiResponse } from '@/shared/types/api'
+import { rateLimit, getClientIp } from '@/lib/rateLimit'
 
 export const runtime = 'nodejs'
 
@@ -15,14 +16,50 @@ interface GenerateResponse {
 
 export async function POST(req: Request) {
   try {
+    // Rate limit: 10 req/min per IP — this endpoint hits OpenAI
+    const ip = getClientIp(req)
+    const { success: allowed } = rateLimit(`aprender-generate:${ip}`, 10, 60)
+    if (!allowed) {
+      return NextResponse.json<ApiResponse>(
+        { success: false, error: 'RATE_LIMITED', message: 'Too many requests' },
+        { status: 429 }
+      )
+    }
+
     const body = await req.json().catch(() => ({} as any))
     const { conversacion } = body || {}
 
-    if (!Array.isArray(conversacion)) {
+    if (!Array.isArray(conversacion) || conversacion.length === 0 || conversacion.length > 200) {
       return NextResponse.json<ApiResponse>(
-        { success: false, error: 'INVALID_REQUEST', message: 'Conversacion invalida: debe ser un array.' },
+        { success: false, error: 'INVALID_REQUEST', message: 'Conversacion inválida: debe ser un array con máx. 200 entradas.' },
         { status: 400 }
       )
+    }
+
+    // Per-entry validation: bound text length to prevent token-cost abuse and
+    // ensure each entry has the expected shape.
+    let totalChars = 0
+    for (const m of conversacion) {
+      if (!m || typeof m !== 'object') {
+        return NextResponse.json<ApiResponse>(
+          { success: false, error: 'INVALID_REQUEST', message: 'Entrada inválida en conversacion' },
+          { status: 400 }
+        )
+      }
+      const texto = (m as any).texto
+      if (texto !== undefined && (typeof texto !== 'string' || texto.length > 4000)) {
+        return NextResponse.json<ApiResponse>(
+          { success: false, error: 'INVALID_REQUEST', message: 'Entrada con texto demasiado largo (máx 4000 caracteres).' },
+          { status: 400 }
+        )
+      }
+      totalChars += typeof texto === 'string' ? texto.length : 0
+      if (totalChars > 100_000) {
+        return NextResponse.json<ApiResponse>(
+          { success: false, error: 'INVALID_REQUEST', message: 'Conversacion total demasiado larga.' },
+          { status: 400 }
+        )
+      }
     }
 
     const openai = getOpenAIClient()
@@ -96,11 +133,11 @@ export async function POST(req: Request) {
     })
 
   } catch (e: any) {
-    console.error('[API /api/aprender/generate] Error:', e)
-    return NextResponse.json<ApiResponse>({ 
-      success: false, 
-      error: 'INTERNAL_ERROR', 
-      message: e?.message || 'Error al generar el resumen' 
+    console.error('[aprender/generate] Error:', e?.message)
+    return NextResponse.json<ApiResponse>({
+      success: false,
+      error: 'INTERNAL_ERROR',
+      message: 'Error al generar el resumen'
     }, { status: 500 })
   }
 }

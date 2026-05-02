@@ -25,10 +25,7 @@ export async function GET() {
     }))
     return NextResponse.json(payload)
   } catch (error) {
-    console.error('[API /sectores] Unexpected error:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
-    )
+    console.error('[sectores GET] Error:', error instanceof Error ? error.message : 'unknown')
+    return NextResponse.json({ error: 'Error al obtener sectores' }, { status: 500 })
   }
 }

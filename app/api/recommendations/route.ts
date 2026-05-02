@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getOpenAIClient, isStubMode } from '@/lib/openai'
 import { ApiResponse } from '@/shared/types/api'
+import { rateLimit, getClientIp } from '@/lib/rateLimit'
 
 export const runtime = 'nodejs'
 
@@ -12,15 +13,26 @@ interface RecommendationsResponse extends ApiResponse {
 
 export async function POST(req: Request) {
   try {
+    // Rate limit: 20 requests per minute per IP
+    const ip = getClientIp(req)
+    const { success: allowed } = rateLimit(`recommendations:${ip}`, 20, 60)
+    if (!allowed) {
+      return NextResponse.json<RecommendationsResponse>({ success: false, error: 'RATE_LIMITED', message: 'Too many requests' }, { status: 429 })
+    }
+
     const body = await req.json().catch(() => ({}))
     const messages = body?.messages ?? body?.history
 
     if (!messages || !Array.isArray(messages)) {
-      return NextResponse.json<RecommendationsResponse>({ 
+      return NextResponse.json<RecommendationsResponse>({
         success: false,
         error: 'INVALID_REQUEST',
-        message: 'Messages array is required' 
+        message: 'Messages array is required'
       }, { status: 400 })
+    }
+
+    if (messages.length > 50) {
+      return NextResponse.json<RecommendationsResponse>({ success: false, error: 'INVALID_REQUEST', message: 'Too many messages' }, { status: 400 })
     }
 
     const openai = getOpenAIClient()
@@ -85,11 +97,11 @@ export async function POST(req: Request) {
     })
 
   } catch (error: any) {
-    console.error('Error generating recommendations:', error)
-    return NextResponse.json<RecommendationsResponse>({ 
+    console.error('[recommendations] Error:', error?.message || 'unknown')
+    return NextResponse.json<RecommendationsResponse>({
       success: false,
       error: 'INTERNAL_ERROR',
-      message: error.message 
+      message: 'An internal error occurred'
     }, { status: 500 })
   }
 }

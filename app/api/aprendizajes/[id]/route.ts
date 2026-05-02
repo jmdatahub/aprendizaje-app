@@ -3,6 +3,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { ApiResponse } from '@/shared/types/api'
+import { isValidRouteId, badRequest } from '@/lib/validate'
 
 export const runtime = 'nodejs'
 
@@ -19,6 +20,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
+    if (!isValidRouteId(id)) return badRequest('id inválido')
     const supabase = getSupabase()
     
     // Soft delete: marcar como eliminado
@@ -29,11 +31,11 @@ export async function DELETE(
       .is('deleted_at', null)
     
     if (error) {
-      console.error('[API aprendizajes] Soft delete error:', error)
+      console.error('[aprendizajes DELETE] DB error:', error?.message)
       return NextResponse.json<ApiResponse>({
         success: false,
         error: 'DB_ERROR',
-        message: error.message
+        message: 'Error al eliminar aprendizaje'
       }, { status: 500 })
     }
 
@@ -42,11 +44,11 @@ export async function DELETE(
       message: 'Aprendizaje movido a papelera (se eliminará en 15 días)'
     })
   } catch (e: any) {
-    console.error('[API aprendizajes] Fatal error:', e)
+    console.error('[aprendizajes DELETE] Error:', e?.message)
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',
-      message: e?.message || 'Error al eliminar aprendizaje'
+      message: 'Error al eliminar aprendizaje'
     }, { status: 500 })
   }
 }

@@ -20,10 +20,12 @@ interface RepasoResponse extends ApiResponse {
 
 export async function GET(request: Request) {
   try {
-    // 1) Leer parámetros opcionales: limite, dias
+    // 1) Leer y validar parámetros opcionales: limite, dias
     const { searchParams } = new URL(request.url)
-    const limite = Number(searchParams.get('limite') || 8)
-    const dias = Number(searchParams.get('dias') || 365)
+    const rawLimite = Number(searchParams.get('limite') || 8)
+    const rawDias = Number(searchParams.get('dias') || 365)
+    const limite = Number.isInteger(rawLimite) && rawLimite > 0 && rawLimite <= 50 ? rawLimite : 8
+    const dias = Number.isInteger(rawDias) && rawDias > 0 && rawDias <= 3650 ? rawDias : 365
 
     // 2) Calcular fecha mínima
     const desde = new Date()

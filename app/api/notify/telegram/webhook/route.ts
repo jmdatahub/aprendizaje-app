@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendTelegramMessage } from '@/lib/telegram-server'
-import { isValidTelegramChatId, escapeLikeWildcards, sanitizeString, LIMITS } from '@/lib/validate'
+import { isValidTelegramChatId, escapeLikeWildcards, sanitizeString, LIMITS, safeEqual } from '@/lib/validate'
 import { rateLimit, getClientIp } from '@/lib/rateLimit'
 
 export const dynamic = 'force-dynamic'
@@ -37,13 +37,15 @@ interface TelegramUpdate {
 
 export async function POST(request: Request) {
   try {
-    // 1. Validate Telegram webhook secret token
+    // 1. Validate Telegram webhook secret token — REQUIRED in all environments
     const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET
-    if (webhookSecret) {
-      const incomingSecret = request.headers.get('X-Telegram-Bot-Api-Secret-Token')
-      if (incomingSecret !== webhookSecret) {
-        return NextResponse.json({ ok: false }, { status: 401 })
-      }
+    if (!webhookSecret) {
+      console.error('[Telegram Webhook] TELEGRAM_WEBHOOK_SECRET not configured — rejecting all requests')
+      return NextResponse.json({ ok: false }, { status: 503 })
+    }
+    const incomingSecret = request.headers.get('X-Telegram-Bot-Api-Secret-Token')
+    if (!safeEqual(incomingSecret, webhookSecret)) {
+      return NextResponse.json({ ok: false }, { status: 401 })
     }
 
     // 2. Rate limiting per IP

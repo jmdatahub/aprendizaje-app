@@ -32,6 +32,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     return NextResponse.json<ChatDetailsResponse>({ success: true, chat, mensajes })
   } catch (e: any) {
-    return NextResponse.json<ChatDetailsResponse>({ success: false, error: 'INTERNAL_ERROR', message: e?.message || 'Error' }, { status: 500 })
+    console.error('[chats/[id] GET] Error:', e?.message)
+    return NextResponse.json<ChatDetailsResponse>({ success: false, error: 'INTERNAL_ERROR', message: 'An internal error occurred' }, { status: 500 })
   }
 }

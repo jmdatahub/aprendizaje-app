@@ -3,6 +3,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { ApiResponse } from '@/shared/types/api'
+import { isValidRouteId, badRequest } from '@/lib/validate'
 
 export const runtime = 'nodejs'
 
@@ -19,8 +20,9 @@ export async function POST(
 ) {
   try {
     const { id } = await params
+    if (!isValidRouteId(id)) return badRequest('id inválido')
     const supabase = getSupabase()
-    
+
     // Restaurar: poner deleted_at a null
     const { data, error } = await supabase
       .from('aprendizajes')
@@ -38,11 +40,11 @@ export async function POST(
           message: 'Aprendizaje no encontrado en papelera'
         }, { status: 404 })
       }
-      console.error('[API restore] Error:', error)
+      console.error('[aprendizajes restore] DB error:', error?.message)
       return NextResponse.json<ApiResponse>({
         success: false,
         error: 'DB_ERROR',
-        message: error.message
+        message: 'Error al restaurar aprendizaje'
       }, { status: 500 })
     }
 
@@ -52,11 +54,11 @@ export async function POST(
       data
     })
   } catch (e: any) {
-    console.error('[API restore] Fatal error:', e)
+    console.error('[aprendizajes restore] Error:', e?.message)
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',
-      message: e?.message || 'Error al restaurar aprendizaje'
+      message: 'Error al restaurar aprendizaje'
     }, { status: 500 })
   }
 }

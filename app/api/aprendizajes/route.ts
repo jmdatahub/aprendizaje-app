@@ -90,12 +90,11 @@ export async function GET(request: Request) {
       }
     })
   } catch (e: any) {
-    console.error('[API /api/aprendizajes] Fatal error:', e)
-    const msg = e?.message || 'Error al obtener aprendizajes'
-    return NextResponse.json<ApiResponse>({ 
+    console.error('[aprendizajes GET] Error:', e?.message)
+    return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',
-      message: msg 
+      message: 'Error al obtener aprendizajes'
     }, { status: 500 })
   }
 }

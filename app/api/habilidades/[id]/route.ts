@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { ApiResponse } from '@/shared/types/api'
+import { isValidUUID, badRequest } from '@/lib/validate'
 
 export const runtime = 'nodejs'
 
@@ -40,8 +41,9 @@ export async function GET(
 ) {
   try {
     const { id } = await params
+    if (!isValidUUID(id)) return badRequest('id inválido')
     const supabase = getSupabase()
-    
+
     // Obtener habilidad (excluir eliminadas)
     const { data: habilidad, error: habilidadError } = await supabase
       .from('habilidades')
@@ -82,11 +84,11 @@ export async function GET(
       data: result
     })
   } catch (e: any) {
-    console.error('[API /api/habilidades/[id]] Fatal error:', e)
+    console.error('[habilidades/[id] GET] Error:', e?.message)
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',
-      message: e?.message || 'Error al obtener habilidad'
+      message: 'Error al obtener habilidad'
     }, { status: 500 })
   }
 }
@@ -97,8 +99,9 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
+    if (!isValidUUID(id)) return badRequest('id inválido')
     const supabase = getSupabase()
-    
+
     // Soft delete: marcar como eliminado en lugar de borrar
     const { error } = await supabase
       .from('habilidades')
@@ -107,11 +110,11 @@ export async function DELETE(
       .is('deleted_at', null) // Solo si no está ya eliminado
     
     if (error) {
-      console.error('[API /api/habilidades/[id]] Soft delete error:', error)
+      console.error('[habilidades/[id] DELETE] DB error:', error?.message)
       return NextResponse.json<ApiResponse>({
         success: false,
         error: 'DB_ERROR',
-        message: error.message
+        message: 'Error al eliminar habilidad'
       }, { status: 500 })
     }
 
@@ -120,11 +123,11 @@ export async function DELETE(
       message: 'Habilidad movida a papelera (se eliminará permanentemente en 15 días)'
     })
   } catch (e: any) {
-    console.error('[API /api/habilidades/[id]] Fatal error:', e)
+    console.error('[habilidades/[id] DELETE] Error:', e?.message)
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',
-      message: e?.message || 'Error al eliminar habilidad'
+      message: 'Error al eliminar habilidad'
     }, { status: 500 })
   }
 }
@@ -136,11 +139,24 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params
+    if (!isValidUUID(id)) return badRequest('id inválido')
     const supabase = getSupabase()
     const body = await request.json()
-    
+
     const { nombre, categorias, descripcion, nivel_percibido, objetivo_semanal_minutos } = body
     
+    // Validate fields
+    if (nombre !== undefined && (typeof nombre !== 'string' || nombre.trim().length === 0 || nombre.trim().length > 255)) {
+      return NextResponse.json<ApiResponse>({ success: false, error: 'INVALID_REQUEST', message: 'Nombre inválido (máx. 255 caracteres)' }, { status: 400 })
+    }
+    if (descripcion !== undefined && descripcion !== null && (typeof descripcion !== 'string' || descripcion.length > 2000)) {
+      return NextResponse.json<ApiResponse>({ success: false, error: 'INVALID_REQUEST', message: 'Descripción demasiado larga (máx. 2000)' }, { status: 400 })
+    }
+    if (objetivo_semanal_minutos !== undefined && objetivo_semanal_minutos !== null &&
+        (typeof objetivo_semanal_minutos !== 'number' || objetivo_semanal_minutos < 0 || objetivo_semanal_minutos > 100000)) {
+      return NextResponse.json<ApiResponse>({ success: false, error: 'INVALID_REQUEST', message: 'Objetivo semanal inválido' }, { status: 400 })
+    }
+
     // Construir objeto de actualización solo con campos proporcionados
     const updateData: Record<string, any> = {}
     if (nombre !== undefined) updateData.nombre = nombre.trim()
@@ -166,11 +182,11 @@ export async function PATCH(
       .single()
     
     if (error) {
-      console.error('[API /api/habilidades/[id]] Update error:', error)
+      console.error('[habilidades/[id] PATCH] DB error:', error?.message)
       return NextResponse.json<ApiResponse>({
         success: false,
         error: 'DB_ERROR',
-        message: error.message
+        message: 'Error al actualizar habilidad'
       }, { status: 500 })
     }
 
@@ -179,11 +195,11 @@ export async function PATCH(
       data
     })
   } catch (e: any) {
-    console.error('[API /api/habilidades/[id]] Fatal error:', e)
+    console.error('[habilidades/[id] PATCH] Error:', e?.message)
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',
-      message: e?.message || 'Error al actualizar habilidad'
+      message: 'Error al actualizar habilidad'
     }, { status: 500 })
   }
 }

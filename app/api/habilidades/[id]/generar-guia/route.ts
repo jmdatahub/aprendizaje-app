@@ -5,6 +5,8 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getOpenAIClient, isStubMode } from '@/lib/openai'
 import { ApiResponse } from '@/shared/types/api'
+import { rateLimit, getClientIp } from '@/lib/rateLimit'
+import { isValidUUID, badRequest } from '@/lib/validate'
 
 export const runtime = 'nodejs'
 
@@ -42,7 +44,18 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Rate limit: 5 req/min per IP — endpoint hits OpenAI with up to 800 tokens
+    const ip = getClientIp(request)
+    const { success: allowed } = rateLimit(`generar-guia:${ip}`, 5, 60)
+    if (!allowed) {
+      return NextResponse.json<ApiResponse>(
+        { success: false, error: 'RATE_LIMITED', message: 'Too many requests' },
+        { status: 429 }
+      )
+    }
+
     const { id } = await params
+    if (!isValidUUID(id)) return badRequest('id inválido')
     const supabase = getSupabase()
     
     // 1. Obtener habilidad
@@ -130,11 +143,11 @@ Sé específico para esta habilidad. Máximo 400 palabras.`
     })
 
   } catch (e: any) {
-    console.error('[API generar-guia] Fatal error:', e)
+    console.error('[API generar-guia] Fatal error:', e?.message)
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',
-      message: e?.message || 'Error al generar guía'
+      message: 'An internal error occurred'
     }, { status: 500 })
   }
 }

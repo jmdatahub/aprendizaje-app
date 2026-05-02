@@ -33,11 +33,11 @@ export async function GET() {
       .order('deleted_at', { ascending: false })
     
     if (error) {
-      console.error('[API /api/habilidades/trash] Error:', error)
+      console.error('[habilidades/trash GET] DB error:', error?.message)
       return NextResponse.json<ApiResponse>({
         success: false,
         error: 'DB_ERROR',
-        message: error.message
+        message: 'Error al obtener papelera'
       }, { status: 500 })
     }
 
@@ -55,11 +55,11 @@ export async function GET() {
       data: { items }
     })
   } catch (e: any) {
-    console.error('[API /api/habilidades/trash] Fatal error:', e)
+    console.error('[habilidades/trash GET] Error:', e?.message)
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',
-      message: e?.message || 'Error al obtener papelera'
+      message: 'Error al obtener papelera'
     }, { status: 500 })
   }
 }
@@ -80,11 +80,11 @@ export async function DELETE() {
       .select('id')
     
     if (error) {
-      console.error('[API /api/habilidades/trash] Delete error:', error)
+      console.error('[habilidades/trash DELETE] DB error:', error?.message)
       return NextResponse.json<ApiResponse>({
         success: false,
         error: 'DB_ERROR',
-        message: error.message
+        message: 'Error al vaciar papelera'
       }, { status: 500 })
     }
 
@@ -94,11 +94,11 @@ export async function DELETE() {
       data: { deleted: data?.length || 0 }
     })
   } catch (e: any) {
-    console.error('[API /api/habilidades/trash] Fatal error:', e)
+    console.error('[habilidades/trash DELETE] Error:', e?.message)
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',
-      message: e?.message || 'Error al vaciar papelera'
+      message: 'Error al vaciar papelera'
     }, { status: 500 })
   }
 }

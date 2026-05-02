@@ -1,21 +1,25 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { EmailService } from '@/lib/email-service'
+import { verifyBearer } from '@/lib/validate'
 
-// Este endpoint debería ser llamado por un Cron Job (ej. cada minuto o cada hora)
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: Request) {
+  // Enforce cron secret — required in all environments (timing-safe comparison)
+  const authHeader = request.headers.get('authorization')
+  if (!verifyBearer(authHeader, process.env.CRON_SECRET)) {
+    return new NextResponse('Unauthorized', { status: 401 })
+  }
+
   try {
     const now = new Date()
-    const diaSemana = now.getDay() // 0-6
+    const diaSemana = now.getDay()
     const hora = now.getHours()
-    const minuto = now.getMinutes()
-    
-    // Formato HH:MM
-    const timePrefix = `${hora.toString().padStart(2, '0')}:${minuto.toString().padStart(2, '0')}`
-    
-    console.log(`[Cron] Checking reminders for Day ${diaSemana} at ${timePrefix}`)
-    
-    // Traer todos los recordatorios del día activo
+    const hourPrefix = `${hora.toString().padStart(2, '0')}:`
+
+    console.log(`[Cron] Checking reminders for Day ${diaSemana} at hour ${hourPrefix}xx`)
+
     const { data: recordatorios, error } = await supabase
       .from('recordatorios')
       .select(`
@@ -27,15 +31,14 @@ export async function GET(request: Request) {
       `)
       .eq('dia_semana', diaSemana)
       .eq('active', true)
-    
+
     if (error) throw error
-    
-    // Filtrar los que coinciden con la hora/minuto actual
-    // La columna 'hora' es type TIME, suele venir como '18:00:00'
-    const toSend = recordatorios?.filter(r => 
-      r.hora && r.hora.startsWith(timePrefix) && r.email_enabled
+
+    // Vercel Hobby cron runs hourly: trigger every reminder scheduled within the current hour.
+    const toSend = recordatorios?.filter(r =>
+      r.hora && r.hora.startsWith(hourPrefix) && r.email_enabled
     ) || []
-    
+
     console.log(`[Cron] Found ${toSend.length} reminders to send`)
 
     const recipientEmail = process.env.REMINDER_EMAIL_TO || ''
@@ -45,32 +48,23 @@ export async function GET(request: Request) {
       const habilidadNombre = (Array.isArray(hab) ? hab[0]?.nombre : hab?.nombre) || 'Habilidad'
 
       if (!recipientEmail) {
-        // Sin destinatario configurado: solo registra el recordatorio.
         console.log(`[Cron] Skipping email for ${habilidadNombre} — REMINDER_EMAIL_TO not set`)
         results.push({ id: r.id, sent: false, skipped: true })
         continue
       }
 
-      const sent = await EmailService.sendReminderEmail(
-        recipientEmail,
-        habilidadNombre,
-        r.hora
-      )
+      const sent = await EmailService.sendReminderEmail(recipientEmail, habilidadNombre, r.hora)
       results.push({ id: r.id, sent })
     }
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       checkedAt: new Date().toISOString(),
       sentCount: results.length,
-      results 
+      results
     })
   } catch (e: any) {
-    console.error('[API /api/cron/check-reminders] Error:', e)
-    return NextResponse.json({
-      success: false,
-      error: 'CRON_ERROR',
-      message: e?.message
-    }, { status: 500 })
+    console.error('[Cron check-reminders] Error:', e?.message || 'unknown')
+    return NextResponse.json({ success: false, error: 'CRON_ERROR' }, { status: 500 })
   }
 }

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { getSupabaseForRequest } from '@/lib/supabaseRoute'
 import { getOpenAIClient, isStubMode } from '@/lib/openai'
 import { ApiResponse } from '@/shared/types/api'
+import { rateLimit, getClientIp } from '@/lib/rateLimit'
+import { isValidUUID } from '@/lib/validate'
 
 export const runtime = 'nodejs'
 
@@ -85,14 +87,37 @@ interface ChatMessageResponse extends ApiResponse {
 // - Inserta respuesta de la IA y devuelve ambos
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    // Rate limit: 30 req/min per IP — endpoint may hit OpenAI
+    const ip = getClientIp(request)
+    const { success: allowed } = rateLimit(`chats-messages:${ip}`, 30, 60)
+    if (!allowed) {
+      return NextResponse.json<ChatMessageResponse>(
+        { success: false, error: 'RATE_LIMITED', message: 'Too many requests' },
+        { status: 429 }
+      )
+    }
+
     const supabase = getSupabaseForRequest(request)
     const { id } = await params
-    if (!id) return NextResponse.json<ChatMessageResponse>({ success: false, error: 'INVALID_REQUEST', message: 'Falta id' }, { status: 400 })
+    if (!isValidUUID(id)) return NextResponse.json<ChatMessageResponse>({ success: false, error: 'INVALID_REQUEST', message: 'Id inválido' }, { status: 400 })
 
     const body = await request.json().catch(() => ({}))
-    const mensaje = (body?.mensaje ?? '').toString()
+    const mensaje = (body?.mensaje ?? '').toString().trim()
     const contexto = Array.isArray(body?.contexto) ? body.contexto : []
     if (!mensaje) return NextResponse.json<ChatMessageResponse>({ success: false, error: 'INVALID_REQUEST', message: 'Falta mensaje' }, { status: 400 })
+    if (mensaje.length > 4000) return NextResponse.json<ChatMessageResponse>({ success: false, error: 'INVALID_REQUEST', message: 'Mensaje demasiado largo' }, { status: 400 })
+    if (contexto.length > 50) return NextResponse.json<ChatMessageResponse>({ success: false, error: 'INVALID_REQUEST', message: 'Contexto demasiado largo' }, { status: 400 })
+
+    // Validate per-entry shape & length (was previously trusted blindly)
+    for (const c of contexto) {
+      if (!c || typeof c !== 'object') {
+        return NextResponse.json<ChatMessageResponse>({ success: false, error: 'INVALID_REQUEST', message: 'Entrada de contexto inválida' }, { status: 400 })
+      }
+      const t = (c as any).texto
+      if (t !== undefined && (typeof t !== 'string' || t.length > 4000)) {
+        return NextResponse.json<ChatMessageResponse>({ success: false, error: 'INVALID_REQUEST', message: 'Entrada de contexto demasiado larga' }, { status: 400 })
+      }
+    }
 
     // 1) Cargar chat (tema, estado)
     const { data: chat, error: eChat } = await supabase
@@ -167,6 +192,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     return NextResponse.json<ChatMessageResponse>({ success: true, usuario: mu, ia: mi, engine })
   } catch (e: any) {
-    return NextResponse.json<ChatMessageResponse>({ success: false, error: 'INTERNAL_ERROR', message: e?.message || 'Error' }, { status: 500 })
+    console.error('[Chat messages API] Error:', e?.message || 'unknown')
+    return NextResponse.json<ChatMessageResponse>({ success: false, error: 'INTERNAL_ERROR', message: 'An internal error occurred' }, { status: 500 })
   }
 }

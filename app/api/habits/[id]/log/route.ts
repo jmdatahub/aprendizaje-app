@@ -1,6 +1,6 @@
-
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { isValidUUID, badRequest } from '@/lib/validate'
 
 export const runtime = 'nodejs'
 
@@ -11,45 +11,50 @@ function getSupabase() {
   return createClient(url, key)
 }
 
-// POST: Toggle habit log (check/uncheck) for a specific date
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: habitId } = await params
+    if (!isValidUUID(habitId)) return badRequest('id inválido')
     const supabase = getSupabase()
-    const body = await request.json()
-    const { date } = body // YYYY-MM-DD
+    const body = await request.json().catch(() => ({}))
+    const { date } = body
 
-    if (!date) return NextResponse.json({ success: false, error: 'Date required' }, { status: 400 })
+    if (!date || typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return NextResponse.json({ success: false, error: 'INVALID_REQUEST', message: 'Formato de fecha inválido (YYYY-MM-DD)' }, { status: 400 })
+    }
 
-    // 1. Check if log exists
+    // Validate that date is reasonable (not too far in the future or past)
+    const dateObj = new Date(date)
+    const now = new Date()
+    const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
+    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+    if (dateObj < oneYearAgo || dateObj >= tomorrow) {
+      return NextResponse.json({ success: false, error: 'INVALID_REQUEST', message: 'Fecha fuera de rango' }, { status: 400 })
+    }
+
     const { data: existingLog, error: fetchError } = await supabase
-        .from('habit_logs')
-        .select('id')
-        .eq('habit_id', habitId)
-        .eq('completed_at', date)
-        .single()
+      .from('habit_logs')
+      .select('id')
+      .eq('habit_id', habitId)
+      .eq('completed_at', date)
+      .single()
 
-    if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 = exists? no
-        throw fetchError
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      throw fetchError
     }
 
     let action = ''
     if (existingLog) {
-        // DELETE (Uncheck)
-        await supabase.from('habit_logs').delete().eq('id', existingLog.id)
-        action = 'unchecked'
+      await supabase.from('habit_logs').delete().eq('id', existingLog.id)
+      action = 'unchecked'
     } else {
-        // INSERT (Check)
-        await supabase.from('habit_logs').insert({
-            habit_id: habitId,
-            completed_at: date
-        })
-        action = 'checked'
+      await supabase.from('habit_logs').insert({ habit_id: habitId, completed_at: date })
+      action = 'checked'
     }
-    
-    return NextResponse.json({ success: true, action })
 
+    return NextResponse.json({ success: true, action })
   } catch (e: any) {
-    return NextResponse.json({ success: false, error: e.message }, { status: 500 })
+    console.error('[habits/[id]/log] Error:', e?.message)
+    return NextResponse.json({ success: false, error: 'INTERNAL_ERROR' }, { status: 500 })
   }
 }

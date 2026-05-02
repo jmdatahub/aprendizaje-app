@@ -45,11 +45,11 @@ export async function GET() {
       .order('updated_at', { ascending: false })
     
     if (error) {
-      console.error('[API /api/habilidades] Supabase error:', error)
+      console.error('[habilidades GET] DB error:', error?.message)
       return NextResponse.json<ApiResponse>({
         success: false,
         error: 'DB_ERROR',
-        message: error.message
+        message: 'Error al obtener habilidades'
       }, { status: 500 })
     }
 
@@ -58,11 +58,11 @@ export async function GET() {
       data: { items: data || [] }
     })
   } catch (e: any) {
-    console.error('[API /api/habilidades] Fatal error:', e?.message, e?.stack)
+    console.error('[habilidades GET] Fatal error:', e?.message)
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',
-      message: e?.message || 'Error al obtener habilidades'
+      message: 'Error al obtener habilidades'
     }, { status: 500 })
   }
 }
@@ -80,6 +80,16 @@ export async function POST(request: Request) {
         error: 'INVALID_REQUEST',
         message: 'El nombre de la habilidad es obligatorio'
       }, { status: 400 })
+    }
+
+    if (typeof nombre !== 'string' || nombre.trim().length > 255) {
+      return NextResponse.json<ApiResponse>({ success: false, error: 'INVALID_REQUEST', message: 'Nombre demasiado largo (máx. 255 caracteres)' }, { status: 400 })
+    }
+    if (descripcion && (typeof descripcion !== 'string' || descripcion.length > 2000)) {
+      return NextResponse.json<ApiResponse>({ success: false, error: 'INVALID_REQUEST', message: 'Descripción demasiado larga (máx. 2000 caracteres)' }, { status: 400 })
+    }
+    if (horas_manuales !== undefined && (typeof horas_manuales !== 'number' || horas_manuales < 0 || horas_manuales > 100000)) {
+      return NextResponse.json<ApiResponse>({ success: false, error: 'INVALID_REQUEST', message: 'Valor de horas inválido' }, { status: 400 })
     }
 
     // Calcular tiempo inicial: priorizar horas manuales, sino usar experiencia previa
@@ -109,11 +119,11 @@ export async function POST(request: Request) {
       .single()
 
     if (error) {
-      console.error('[API /api/habilidades] Insert error:', error)
+      console.error('[habilidades POST] DB error:', error?.message)
       return NextResponse.json<ApiResponse>({
         success: false,
         error: 'DB_ERROR',
-        message: error.message
+        message: 'Error al crear la habilidad'
       }, { status: 500 })
     }
 
@@ -122,11 +132,11 @@ export async function POST(request: Request) {
       data
     })
   } catch (e: any) {
-    console.error('[API /api/habilidades] Fatal error:', e)
+    console.error('[habilidades POST] Fatal error:', e?.message)
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',
-      message: e?.message || 'Error al crear habilidad'
+      message: 'Error al crear habilidad'
     }, { status: 500 })
   }
 }
