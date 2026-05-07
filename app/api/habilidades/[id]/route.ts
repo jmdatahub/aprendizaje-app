@@ -2,18 +2,12 @@
 // DELETE /api/habilidades/[id] - Elimina una habilidad
 
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { ApiResponse } from '@/shared/types/api'
 import { isValidUUID, badRequest } from '@/lib/validate'
+import { getSupabaseAnon } from '@/lib/supabaseAnonClient'
 
 export const runtime = 'nodejs'
 
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !key) throw new Error('Missing Supabase env vars')
-  return createClient(url, key)
-}
 
 interface SesionData {
   id: string
@@ -42,7 +36,7 @@ export async function GET(
   try {
     const { id } = await params
     if (!isValidUUID(id)) return badRequest('id inválido')
-    const supabase = getSupabase()
+    const supabase = getSupabaseAnon()
 
     // Obtener habilidad (excluir eliminadas)
     const { data: habilidad, error: habilidadError } = await supabase
@@ -63,12 +57,13 @@ export async function GET(
       throw new Error(habilidadError.message)
     }
 
-    // Obtener sesiones
+    // Obtener sesiones (acotadas para evitar scans gigantes en habilidades muy practicadas)
     const { data: sesiones, error: sesionesError } = await supabase
       .from('sesiones_practica')
       .select('*')
       .eq('habilidad_id', id)
       .order('fecha', { ascending: false })
+      .limit(1000)
     
     if (sesionesError) {
       console.error('[API /api/habilidades/[id]] Sesiones error:', sesionesError)
@@ -100,7 +95,7 @@ export async function DELETE(
   try {
     const { id } = await params
     if (!isValidUUID(id)) return badRequest('id inválido')
-    const supabase = getSupabase()
+    const supabase = getSupabaseAnon()
 
     // Soft delete: marcar como eliminado en lugar de borrar
     const { error } = await supabase
@@ -140,7 +135,7 @@ export async function PATCH(
   try {
     const { id } = await params
     if (!isValidUUID(id)) return badRequest('id inválido')
-    const supabase = getSupabase()
+    const supabase = getSupabaseAnon()
     const body = await request.json()
 
     const { nombre, categorias, descripcion, nivel_percibido, objetivo_semanal_minutos } = body

@@ -8,6 +8,7 @@ export async function GET() {
     .from('chats')
     .select('id,titulo,created_at')
     .order('created_at', { ascending: false })
+    .limit(500)
 
   if (error) {
     console.error('[chats GET] DB error:', error?.message)

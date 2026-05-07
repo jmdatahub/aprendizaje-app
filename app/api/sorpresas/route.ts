@@ -400,7 +400,7 @@ export async function GET(request: Request) {
   try {
     // Rate limit: 30 req/min per IP — endpoint may polish text via OpenAI
     const ip = getClientIp(request)
-    const { success: allowed } = rateLimit(`sorpresas:${ip}`, 30, 60)
+    const { success: allowed } = await rateLimit(`sorpresas:${ip}`, 30, 60)
     if (!allowed) {
       return NextResponse.json<ApiResponse>(
         { success: false, error: 'RATE_LIMITED', message: 'Too many requests' },

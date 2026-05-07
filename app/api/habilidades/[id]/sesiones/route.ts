@@ -1,19 +1,13 @@
 // POST /api/habilidades/[id]/sesiones - Registra una nueva sesión de práctica
 
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { ApiResponse } from '@/shared/types/api'
 import { calcularNivel } from '@/shared/constants/habilidades'
 import { isValidUUID, badRequest } from '@/lib/validate'
+import { getSupabaseAnon } from '@/lib/supabaseAnonClient'
 
 export const runtime = 'nodejs'
 
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !key) throw new Error('Missing Supabase env vars')
-  return createClient(url, key)
-}
 
 interface SesionCreada {
   id: string
@@ -32,7 +26,7 @@ export async function POST(
     const { id } = await params
     if (!isValidUUID(id)) return badRequest('id inválido')
     const body = await request.json()
-    const supabase = getSupabase()
+    const supabase = getSupabaseAnon()
 
     const { duracion_segundos, resumen } = body
 

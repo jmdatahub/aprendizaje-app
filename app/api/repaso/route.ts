@@ -31,12 +31,13 @@ export async function GET(request: Request) {
     const desde = new Date()
     desde.setDate(desde.getDate() - dias)
 
-    // 3) Obtener aprendizajes recientes
+    // 3) Obtener aprendizajes recientes (acotados por seguridad)
     const { data, error } = await supabase
       .from('aprendizajes')
       .select('id, titulo, resumen, contenido, created_at, sector_id')
       .gte('created_at', desde.toISOString())
       .order('created_at', { ascending: false })
+      .limit(500)
 
     if (error) {
       console.error('[repaso] error supabase', error)

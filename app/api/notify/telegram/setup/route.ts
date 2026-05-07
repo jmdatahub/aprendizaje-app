@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     if (!safeEqual(provided, adminToken)) {
       // Burn time so failed attempts can't be enumerated quickly
       const ip = getClientIp(request)
-      const { success: allowed } = rateLimit(`telegram-setup-fail:${ip}`, 5, 300)
+      const { success: allowed } = await rateLimit(`telegram-setup-fail:${ip}`, 5, 300)
       if (!allowed) {
         return NextResponse.json({ success: false, error: 'Too many attempts' }, { status: 429 })
       }

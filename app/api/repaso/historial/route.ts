@@ -11,6 +11,7 @@ export async function GET(request: Request) {
       .from('exam_history')
       .select('*')
       .order('created_at', { ascending: false })
+      .limit(500)
 
     if (error) {
       console.error('[repaso/historial GET] DB error:', error?.message)

@@ -1,15 +1,9 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { isValidTelegramChatId } from '@/lib/validate'
+import { getSupabaseAnon } from '@/lib/supabaseAnonClient'
 
 export const runtime = 'nodejs'
 
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !key) throw new Error('Missing Supabase env vars')
-  return createClient(url, key)
-}
 
 export async function GET(request: Request) {
   try {
@@ -21,12 +15,13 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: false, error: 'INVALID_PARAM' }, { status: 400 })
     }
 
-    const supabase = getSupabase()
+    const supabase = getSupabaseAnon()
 
     let query = supabase
       .from('habits')
       .select('*, habit_logs(completed_at)')
       .order('created_at', { ascending: true })
+      .limit(500)
 
     if (chatId) {
       query = query.eq('telegram_chat_id', chatId)
@@ -49,7 +44,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const supabase = getSupabase()
+    const supabase = getSupabaseAnon()
     const body = await request.json().catch(() => ({}))
     const { text, category, streak, with_notification, notification_times, custom_message, telegram_chat_id } = body
 
@@ -88,7 +83,7 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const supabase = getSupabase()
+    const supabase = getSupabaseAnon()
     const body = await request.json().catch(() => ({}))
     const { habits } = body
 

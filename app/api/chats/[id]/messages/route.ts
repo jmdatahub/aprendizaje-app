@@ -89,7 +89,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     // Rate limit: 30 req/min per IP — endpoint may hit OpenAI
     const ip = getClientIp(request)
-    const { success: allowed } = rateLimit(`chats-messages:${ip}`, 30, 60)
+    const { success: allowed } = await rateLimit(`chats-messages:${ip}`, 30, 60)
     if (!allowed) {
       return NextResponse.json<ChatMessageResponse>(
         { success: false, error: 'RATE_LIMITED', message: 'Too many requests' },
@@ -138,13 +138,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (eMu) throw new Error(eMu.message)
 
     // 3) Recuperar historial reciente para contexto (ultimos 16)
+    // Use descending order + small limit so we don't scan the whole conversation table.
     const { data: hist, error: eHist } = await supabase
       .from('chat_mensajes')
-      .select('rol,texto')
+      .select('rol,texto,created_at')
       .eq('chat_id', id)
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: false })
+      .limit(16)
     if (eHist) throw new Error(eHist.message)
-    const conversacion = (hist || []).slice(-16).map((m: any) => ({ rol: m.rol, texto: m.texto }))
+    const conversacion = (hist || []).reverse().map((m: any) => ({ rol: m.rol, texto: m.texto }))
 
     // 4) Generar respuesta con STUB u OpenAI (misma politica que /api/chat)
     let respuesta = ''

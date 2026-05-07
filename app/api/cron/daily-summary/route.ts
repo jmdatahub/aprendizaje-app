@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { sendTelegramMessage } from '@/lib/telegram-server'
 import { verifyBearer } from '@/lib/validate'
+import { getSupabaseAdmin } from '@/lib/supabaseAnonClient'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,15 +13,14 @@ export async function GET(request: Request) {
   }
 
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    const supabase = createClient(supabaseUrl, supabaseKey)
+    const supabase = getSupabaseAdmin()
 
     const { data: habits, error } = await supabase
       .from('habits')
       .select('id, text, category, telegram_chat_id, streak')
       .not('telegram_chat_id', 'is', null)
       .order('telegram_chat_id')
+      .limit(5000)
 
     if (error) throw error
 

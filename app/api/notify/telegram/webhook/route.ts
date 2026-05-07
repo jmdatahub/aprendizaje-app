@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { sendTelegramMessage } from '@/lib/telegram-server'
 import { isValidTelegramChatId, escapeLikeWildcards, sanitizeString, LIMITS, safeEqual } from '@/lib/validate'
 import { rateLimit, getClientIp } from '@/lib/rateLimit'
+import { getSupabaseAdmin } from '@/lib/supabaseAnonClient'
 
 export const dynamic = 'force-dynamic'
 
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
 
     // 2. Rate limiting per IP
     const ip = getClientIp(request)
-    const { success: allowed } = rateLimit(`telegram-webhook:${ip}`, 60, 60)
+    const { success: allowed } = await rateLimit(`telegram-webhook:${ip}`, 60, 60)
     if (!allowed) {
       return NextResponse.json({ ok: false }, { status: 429 })
     }
@@ -147,15 +147,8 @@ export async function POST(request: Request) {
   }
 }
 
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-}
-
 async function handleSummary(chatId: string, token: string) {
-  const supabase = getSupabase()
+  const supabase = getSupabaseAdmin()
   const todayStr = new Date().toISOString().split('T')[0]
 
   const { data: habits } = await supabase
@@ -193,7 +186,7 @@ async function handleSummary(chatId: string, token: string) {
 }
 
 async function handleDoneMenu(chatId: string, text: string, token: string) {
-  const supabase = getSupabase()
+  const supabase = getSupabaseAdmin()
   const todayStr = new Date().toISOString().split('T')[0]
 
   // Extract and sanitize args
@@ -237,7 +230,7 @@ async function handleDoneMenu(chatId: string, text: string, token: string) {
 }
 
 async function handleMarkDone(chatId: string, habitId: string, token: string) {
-  const supabase = getSupabase()
+  const supabase = getSupabaseAdmin()
   const todayStr = new Date().toISOString().split('T')[0]
 
   // Ownership check: verify the habit belongs to this chatId before marking

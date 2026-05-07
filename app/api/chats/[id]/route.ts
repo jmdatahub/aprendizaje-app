@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseForRequest } from '@/lib/supabaseRoute'
 import { ApiResponse } from '@/shared/types/api'
+import { isValidUUID, badRequest } from '@/lib/validate'
 
 export const runtime = 'nodejs'
 
@@ -14,7 +15,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   try {
     const supabase = getSupabaseForRequest(request)
     const { id } = await params
-    if (!id) return NextResponse.json<ChatDetailsResponse>({ success: false, error: 'INVALID_REQUEST', message: 'Falta id' }, { status: 400 })
+    if (!isValidUUID(id)) return badRequest('id inválido')
 
     const { data: chat, error: e1 } = await supabase
       .from('chats')
@@ -28,6 +29,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       .select('id,rol,texto,created_at')
       .eq('chat_id', id)
       .order('created_at', { ascending: true })
+      .limit(2000)
     if (e2) throw new Error(e2.message)
 
     return NextResponse.json<ChatDetailsResponse>({ success: true, chat, mensajes })

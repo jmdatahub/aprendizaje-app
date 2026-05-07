@@ -31,6 +31,7 @@ export async function GET(request: Request) {
       `)
       .eq('dia_semana', diaSemana)
       .eq('active', true)
+      .limit(5000)
 
     if (error) throw error
 

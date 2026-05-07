@@ -2,23 +2,13 @@
 // POST /api/habilidades - Crea una nueva habilidad
 
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { ApiResponse } from '@/shared/types/api'
 import { calcularNivel, EXPERIENCIA_PREVIA } from '@/shared/constants/habilidades'
+import { getSupabaseAnon } from '@/lib/supabaseAnonClient'
 
 export const runtime = 'nodejs'
 
 // Crear cliente Supabase inline para evitar problemas de importación
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  
-  if (!url || !key) {
-    throw new Error('Missing Supabase environment variables')
-  }
-  
-  return createClient(url, key)
-}
 
 export interface HabilidadData {
   id: string
@@ -36,13 +26,14 @@ export async function GET() {
   try {
     console.log('[API /api/habilidades] Starting GET request...')
     
-    const supabase = getSupabase()
+    const supabase = getSupabaseAnon()
     
     const { data, error } = await supabase
       .from('habilidades')
       .select('*')
       .is('deleted_at', null) // Excluir eliminadas
       .order('updated_at', { ascending: false })
+      .limit(500)
     
     if (error) {
       console.error('[habilidades GET] DB error:', error?.message)
@@ -69,7 +60,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const supabase = getSupabase()
+    const supabase = getSupabaseAnon()
     const body = await request.json()
     
     const { nombre, categorias, descripcion, experiencia_previa, horas_manuales, nivel_percibido, objetivo_semanal_minutos } = body

@@ -35,7 +35,7 @@ export async function POST(request: Request) {
 
     // Rate limit: 10 req/min per IP
     const ip = getClientIp(request)
-    const { success: allowed } = rateLimit(`notify-telegram:${ip}`, 10, 60)
+    const { success: allowed } = await rateLimit(`notify-telegram:${ip}`, 10, 60)
     if (!allowed) {
       return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
     }

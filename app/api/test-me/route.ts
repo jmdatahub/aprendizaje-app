@@ -15,7 +15,7 @@ export async function POST(req: Request) {
   try {
     // Rate limit: 10 req/min per IP — endpoint hits OpenAI
     const ip = getClientIp(req)
-    const { success: allowed } = rateLimit(`test-me:${ip}`, 10, 60)
+    const { success: allowed } = await rateLimit(`test-me:${ip}`, 10, 60)
     if (!allowed) {
       return NextResponse.json<TestMeResponse>(
         { success: false, error: 'RATE_LIMITED', message: 'Too many requests' },

@@ -1,21 +1,15 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { isValidUUID, badRequest } from '@/lib/validate'
+import { getSupabaseAnon } from '@/lib/supabaseAnonClient'
 
 export const runtime = 'nodejs'
 
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !key) throw new Error('Missing Supabase env vars')
-  return createClient(url, key)
-}
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
     if (!isValidUUID(id)) return badRequest('id inválido')
-    const supabase = getSupabase()
+    const supabase = getSupabaseAnon()
     const body = await request.json().catch(() => ({}))
 
     const { text, category, with_notification, notification_times, custom_message } = body
@@ -55,7 +49,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   try {
     const { id } = await params
     if (!isValidUUID(id)) return badRequest('id inválido')
-    const supabase = getSupabase()
+    const supabase = getSupabaseAnon()
 
     const { error } = await supabase
       .from('habits')

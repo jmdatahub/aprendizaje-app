@@ -22,6 +22,7 @@ export async function GET(request: Request) {
       .eq('active', true)
       .order('dia_semana', { ascending: true })
       .order('hora', { ascending: true })
+      .limit(200)
 
     if (error) throw error
 

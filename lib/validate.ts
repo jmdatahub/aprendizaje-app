@@ -64,9 +64,45 @@ export function sanitizeString(value: unknown, maxLength: number): string | null
   return trimmed
 }
 
+/**
+ * Validates an optional string field within a maxLength bound. Returns:
+ *   - { ok: true, value: trimmed }  if the value is a valid non-empty string
+ *   - { ok: true, value: undefined } if the value is undefined/null (caller decides default)
+ *   - { ok: false } if the value is the wrong type or too long
+ *
+ * Use in PATCH-like routes where fields are optional. For required fields,
+ * use `sanitizeString` and check for null.
+ */
+export type FieldResult<T> = { ok: true; value: T } | { ok: false }
+
+export function validateOptionalString(value: unknown, maxLength: number): FieldResult<string | undefined> {
+  if (value === undefined || value === null) return { ok: true, value: undefined }
+  if (typeof value !== 'string') return { ok: false }
+  const trimmed = value.trim()
+  if (trimmed.length > maxLength) return { ok: false }
+  return { ok: true, value: trimmed }
+}
+
+export function validateRequiredString(value: unknown, maxLength: number): FieldResult<string> {
+  const r = validateOptionalString(value, maxLength)
+  if (!r.ok || r.value === undefined || r.value.length === 0) return { ok: false }
+  return { ok: true, value: r.value }
+}
+
 export function validatePositiveInt(value: unknown, max = 1000): number | null {
   const n = Number(value)
   if (!Number.isInteger(n) || n < 1 || n > max) return null
+  return n
+}
+
+/**
+ * Validates a finite, bounded number (allows decimals and zero by default).
+ * Returns null if invalid.
+ */
+export function validateNumberInRange(value: unknown, min: number, max: number): number | null {
+  const n = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(n)) return null
+  if (n < min || n > max) return null
   return n
 }
 

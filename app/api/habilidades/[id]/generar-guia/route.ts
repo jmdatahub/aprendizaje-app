@@ -2,20 +2,14 @@
 // Genera una guía de aprendizaje personalizada usando IA
 
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { getOpenAIClient, isStubMode } from '@/lib/openai'
 import { ApiResponse } from '@/shared/types/api'
 import { rateLimit, getClientIp } from '@/lib/rateLimit'
 import { isValidUUID, badRequest } from '@/lib/validate'
+import { getSupabaseAnon } from '@/lib/supabaseAnonClient'
 
 export const runtime = 'nodejs'
 
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !key) throw new Error('Missing Supabase env vars')
-  return createClient(url, key)
-}
 
 const STUB_GUIA = `## 🎯 Guía de Aprendizaje
 
@@ -46,7 +40,7 @@ export async function POST(
   try {
     // Rate limit: 5 req/min per IP — endpoint hits OpenAI with up to 800 tokens
     const ip = getClientIp(request)
-    const { success: allowed } = rateLimit(`generar-guia:${ip}`, 5, 60)
+    const { success: allowed } = await rateLimit(`generar-guia:${ip}`, 5, 60)
     if (!allowed) {
       return NextResponse.json<ApiResponse>(
         { success: false, error: 'RATE_LIMITED', message: 'Too many requests' },
@@ -56,7 +50,7 @@ export async function POST(
 
     const { id } = await params
     if (!isValidUUID(id)) return badRequest('id inválido')
-    const supabase = getSupabase()
+    const supabase = getSupabaseAnon()
     
     // 1. Obtener habilidad
     const { data: habilidad, error: habError } = await supabase

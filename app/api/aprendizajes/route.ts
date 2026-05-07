@@ -4,18 +4,12 @@
 // - Manejo de errores con status 500
 
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { ApiResponse } from '@/shared/types/api'
+import { getSupabaseAnon } from '@/lib/supabaseAnonClient'
 
 export const runtime = 'nodejs'
 
 // Cliente anónimo inline
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !key) throw new Error('Missing Supabase env vars')
-  return createClient(url, key)
-}
 
 interface AprendizajeData {
   id: number;
@@ -38,7 +32,7 @@ interface AprendizajesResponse extends ApiResponse {
 
 export async function GET(request: Request) {
   try {
-    const supabase = getSupabase()
+    const supabase = getSupabaseAnon()
     
     // Lista completa (excluir eliminados)
     const { data, error } = await supabase
@@ -46,6 +40,7 @@ export async function GET(request: Request) {
       .select('id,sector_id,titulo,resumen,created_at')
       .is('deleted_at', null) // Excluir eliminados
       .order('created_at', { ascending: false })
+      .limit(500)
       
     if (error) {
       console.error('[API /api/aprendizajes] Supabase error fetching aprendizajes:', error)

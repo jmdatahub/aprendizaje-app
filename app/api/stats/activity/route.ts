@@ -5,11 +5,13 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    // 1. Obtener aprendizajes (created_at)
+    // 1. Obtener aprendizajes (created_at) — bound to keep stats responsive on growth
     const { data: aprendizajes, error: errorAprendizajes } = await supabase
       .from('aprendizajes')
       .select('created_at')
       .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .limit(2000)
 
     if (errorAprendizajes) throw errorAprendizajes
 
@@ -19,6 +21,7 @@ export async function GET() {
       .from('habilidades')
       .select('id, nombre, nivel, sesiones_practica(fecha, duracion_segundos)')
       .is('deleted_at', null)
+      .limit(500)
 
     if (errorHabilidades) throw errorHabilidades
 

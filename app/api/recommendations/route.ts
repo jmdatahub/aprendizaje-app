@@ -15,7 +15,7 @@ export async function POST(req: Request) {
   try {
     // Rate limit: 20 requests per minute per IP
     const ip = getClientIp(req)
-    const { success: allowed } = rateLimit(`recommendations:${ip}`, 20, 60)
+    const { success: allowed } = await rateLimit(`recommendations:${ip}`, 20, 60)
     if (!allowed) {
       return NextResponse.json<RecommendationsResponse>({ success: false, error: 'RATE_LIMITED', message: 'Too many requests' }, { status: 429 })
     }

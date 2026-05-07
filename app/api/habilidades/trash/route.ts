@@ -2,17 +2,11 @@
 // DELETE /api/habilidades/trash - Vacía papelera (elimina permanentemente las > 15 días)
 
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { ApiResponse } from '@/shared/types/api'
+import { getSupabaseAnon } from '@/lib/supabaseAnonClient'
 
 export const runtime = 'nodejs'
 
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !key) throw new Error('Missing Supabase env vars')
-  return createClient(url, key)
-}
 
 interface HabilidadEliminada {
   id: string
@@ -24,13 +18,14 @@ interface HabilidadEliminada {
 
 export async function GET() {
   try {
-    const supabase = getSupabase()
+    const supabase = getSupabaseAnon()
     
     const { data, error } = await supabase
       .from('habilidades')
       .select('id, nombre, categoria, deleted_at')
       .not('deleted_at', 'is', null)
       .order('deleted_at', { ascending: false })
+      .limit(500)
     
     if (error) {
       console.error('[habilidades/trash GET] DB error:', error?.message)
@@ -66,7 +61,7 @@ export async function GET() {
 
 export async function DELETE() {
   try {
-    const supabase = getSupabase()
+    const supabase = getSupabaseAnon()
     
     // Eliminar permanentemente las que llevan más de 15 días
     const fechaLimite = new Date()
