@@ -82,11 +82,11 @@ export function ChatSidebar({
   return (
     <aside
       className={cn(
-        "flex flex-col rounded-3xl border border-border/70 bg-background/95 backdrop-blur-md shadow-xl overflow-hidden transition-all duration-300 z-40",
-        // Mobile styles: absolute, fixed width (85vw), fly-in animation
-        "absolute top-0 bottom-0 left-0 h-full w-[85vw] max-w-[320px]",
-        // Desktop styles: relative, dynamic width, standard positioning
-        "md:relative md:h-full md:w-auto md:m-2 md:shadow-sm md:bg-background/70",
+        "flex flex-col bg-background overflow-hidden transition-all duration-300 z-[70]",
+        // Mobile styles: absolute, fixed width (85vw), fly-in animation, with rounded corners
+        "absolute top-0 bottom-0 left-0 h-full w-[85vw] max-w-[320px] rounded-3xl border border-border shadow-xl",
+        // Desktop styles: relative, dynamic width, flat right border instead of card
+        "md:relative md:h-full md:w-auto md:m-0 md:rounded-none md:border-0 md:border-r md:border-border md:shadow-none",
         // Conditional visibility
         !isSidebarOpen && "md:hidden -translate-x-full md:translate-x-0 opacity-0 md:opacity-100 pointer-events-none md:pointer-events-auto",
         isSidebarOpen && "translate-x-0 opacity-100 pointer-events-auto"
@@ -103,65 +103,67 @@ export function ChatSidebar({
 
       <div className="flex flex-col h-full overflow-hidden">
         {/* Header sidebar */}
-        <div className="px-3 pt-3 pb-2 border-b border-border/60 bg-background/80 backdrop-blur-sm">
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <div className="flex flex-col">
-              <span className="text-xs font-semibold">Conversaciones</span>
-              <span className="text-[11px] text-muted-foreground">
-                Historial de tu tutor
-              </span>
-            </div>
+        <div className="px-3 pt-4 pb-3 bg-background">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <span className="text-sm font-semibold text-foreground">Conversaciones</span>
             <button
               type="button"
               onClick={onNewChat}
-              className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground text-[11px] px-3 py-1 hover:bg-primary/90 shadow-sm"
+              aria-label="Nuevo chat"
+              className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-medium px-3.5 h-9 hover:bg-primary/90 active:scale-95 transition-all"
             >
               + Nuevo
             </button>
           </div>
 
-          <div className="flex items-center justify-between gap-2 mb-2">
+          <div className="flex items-center gap-1.5 mb-2">
             <input
-              type="text"
+              type="search"
+              inputMode="search"
+              enterKeyHint="search"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar..."
-              className="flex-1 rounded-full border border-border bg-muted/50 px-3 py-1.5 text-[11px] outline-none focus:ring-1 focus:ring-primary/40 focus:bg-background transition-all"
+              aria-label="Buscar conversaciones"
+              className="flex-1 rounded-full bg-muted px-3.5 py-2 text-base md:text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:ring-2 focus:ring-primary/30 transition-all"
             />
             <button
               type="button"
               onClick={toggleViewMode}
-              className="text-[11px] text-muted-foreground hover:text-foreground px-2 py-1 rounded-full border border-border/60 bg-muted/30 hover:bg-muted/50 transition-colors"
+              title={viewMode === "compact" ? "Vista amplia" : "Vista compacta"}
+              aria-label="Cambiar vista"
+              className="w-9 h-9 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted active:scale-95 transition-all flex-shrink-0"
             >
-              {viewMode === "compact" ? "Amplia" : "Compacta"}
+              {viewMode === "compact" ? "▤" : "▦"}
             </button>
           </div>
 
           {/* Sort Chips */}
-          <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-muted/30 px-2 py-1 overflow-x-auto max-w-full scrollbar-hide border border-border/30">
-            <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70 mr-1 flex-shrink-0">Ordenar</span>
+          <div className="inline-flex items-center gap-0.5 rounded-full bg-muted/50 p-0.5">
             {(["date", "title", "section"] as const).map((key) => (
               <button
                 key={key}
                 type="button"
                 onClick={() => onSortChange(key)}
+                title={key === "date" ? "Fecha" : key === "title" ? "Título" : "Sección"}
+                aria-label={`Ordenar por ${key === "date" ? "fecha" : key === "title" ? "título" : "sección"}`}
+                aria-pressed={sortBy === key}
                 className={cn(
-                  "px-2.5 py-0.5 rounded-full text-[11px] border border-transparent flex items-center gap-1 transition-all flex-shrink-0",
+                  "px-3 h-9 sm:h-8 rounded-full text-xs flex items-center gap-1 transition-all min-w-[44px] sm:min-w-[40px] justify-center",
                   sortBy === key
-                    ? "bg-background text-foreground border-border shadow-sm scale-105 font-medium"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    ? "bg-background text-foreground shadow-sm font-medium ring-1 ring-border/40"
+                    : "text-muted-foreground hover:text-foreground active:bg-background/60"
                 )}
               >
                 <span>
                   {key === "date" ? "📅" : key === "title" ? "🔤" : "🗂️"}
                 </span>
-                {viewMode === "expanded" && (
-                  <span className="capitalize">
-                    {key === "date" ? "Fecha" : key === "title" ? "Título" : "Sección"}
-                  </span>
-                )}
                 {sortBy === key && (
-                  <span className="text-[10px] ml-0.5">
+                  <span className="text-[10px]">
                     {sortDirection === "asc" ? "↑" : "↓"}
                   </span>
                 )}
@@ -176,7 +178,11 @@ export function ChatSidebar({
             <div className="mt-8 text-center text-muted-foreground flex flex-col items-center gap-2 px-6">
               <span className="text-2xl opacity-50">💭</span>
               <p className="text-xs">No tienes conversaciones guardadas todavía.</p>
-              <button onClick={onNewChat} className="text-xs text-primary underline mt-2">
+              <button
+                type="button"
+                onClick={onNewChat}
+                className="text-sm text-primary underline mt-2 px-3 py-2 rounded-lg active:bg-primary/10"
+              >
                 Empieza una nueva
               </button>
             </div>
@@ -188,36 +194,36 @@ export function ChatSidebar({
               type="button"
               onClick={() => onSelectChat(chat)}
               className={cn(
-                "w-full text-left border border-transparent hover:border-border/50 hover:bg-muted/50 group transition-all duration-200",
-                activeChatId === chat.id 
-                  ? "bg-muted border-border shadow-sm scale-[1.02]" 
-                  : "opacity-80 hover:opacity-100",
-                viewMode === "compact" 
-                   ? "flex items-center gap-3 px-3 py-2 rounded-2xl"
-                   : "rounded-xl px-3 py-3 text-[12px] flex flex-col gap-1.5"
+                "w-full text-left group transition-colors duration-150",
+                activeChatId === chat.id
+                  ? "bg-muted"
+                  : "hover:bg-muted/60",
+                viewMode === "compact"
+                   ? "flex items-center gap-3 px-2.5 py-2 rounded-xl"
+                   : "rounded-xl px-3 py-2.5 text-[12px] flex flex-col gap-1.5"
               )}
             >
               {viewMode === "compact" ? (
                 // COMPACT MODE
                 <>
                   <div className={cn(
-                    "w-8 h-8 rounded-full flex items-center justify-center text-base flex-shrink-0 shadow-sm border border-border/30",
-                    activeChatId === chat.id ? "bg-background" : "bg-muted"
+                    "w-9 h-9 rounded-full flex items-center justify-center text-base flex-shrink-0",
+                    activeChatId === chat.id ? "bg-background" : "bg-muted/70"
                   )}>
                     {chat.emoji || "💭"}
                   </div>
                   <div className="flex flex-col min-w-0 flex-1">
                     <span className={cn(
-                      "text-xs font-medium truncate transition-colors",
-                      activeChatId === chat.id ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
+                      "text-[13px] font-medium truncate",
+                      activeChatId === chat.id ? "text-foreground" : "text-foreground/85"
                     )}>
                       {chat.title || "Chat sin título"}
                     </span>
-                    <span className="text-[10px] text-muted-foreground/70 truncate">
+                    <span className="text-[11px] text-muted-foreground truncate">
                        {formatDate(chat.updatedAt || chat.createdAt)} • {chat.section || "General"}
                     </span>
                   </div>
-                  <div className="ml-auto inline-flex items-center gap-1 text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="ml-auto inline-flex items-center gap-0.5 text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
                      <span onClick={(e) => { e.stopPropagation(); onDuplicateChat(chat); }} className="hover:text-primary cursor-pointer p-1.5 hover:bg-background rounded-full transition-colors" title="Duplicar">⧉</span>
                      <span onClick={(e) => { e.stopPropagation(); onDeleteChat(chat.id); }} className="hover:text-red-500 cursor-pointer p-1.5 hover:bg-background rounded-full transition-colors" title="Eliminar">×</span>
                   </div>
@@ -228,7 +234,7 @@ export function ChatSidebar({
                   <div className="flex items-center justify-between gap-2">
                     <span className={cn(
                       "truncate font-medium text-sm",
-                      activeChatId === chat.id ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
+                      activeChatId === chat.id ? "text-foreground" : "text-foreground/85"
                     )}>
                       {chat.title || "Chat sin título"}
                     </span>

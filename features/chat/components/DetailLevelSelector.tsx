@@ -40,8 +40,7 @@ export function DetailLevelSelector({ value, onChange, compact = false }: Detail
 
   if (compact) {
     return (
-      <div className="relative inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-1">
-        <span className="text-[10px] text-muted-foreground mr-1">Detalle:</span>
+      <div className="relative inline-flex items-center gap-0.5 rounded-full bg-muted/40 p-0.5">
         {LEVELS.map((level) => (
           <button
             key={level.key}
@@ -49,24 +48,24 @@ export function DetailLevelSelector({ value, onChange, compact = false }: Detail
             onClick={() => onChange(level.key)}
             onMouseEnter={() => setHoveredLevel(level.key)}
             onMouseLeave={() => setHoveredLevel(null)}
+            aria-label={`Detalle: ${level.label}`}
+            aria-pressed={value === level.key}
+            title={level.tooltip}
             className={cn(
-              "relative px-2 py-0.5 rounded-full text-[11px] transition-colors",
+              "relative min-w-[40px] h-9 sm:h-8 px-2.5 rounded-full text-xs flex items-center justify-center transition-all active:scale-95",
               value === level.key
-                ? "bg-background text-foreground shadow-sm border border-border"
-                : "text-muted-foreground hover:text-foreground"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground/80 hover:text-foreground"
             )}
           >
             {level.emoji}
-            
-            {/* Tooltip */}
+
+            {/* Tooltip — desktop only (mobile uses the native title attribute) */}
             {hoveredLevel === level.key && (
-              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-[999] pointer-events-none">
+              <div className="hidden md:block absolute top-full right-0 mt-2 z-[999] pointer-events-none">
                 <div className="bg-popover text-popover-foreground border border-border rounded-lg shadow-2xl px-3 py-2 text-[11px] w-48 text-center ring-1 ring-black/10">
                   <div className="font-semibold mb-1 text-foreground">{level.emoji} {level.label}</div>
                   <div className="text-muted-foreground leading-tight">{level.tooltip}</div>
-                </div>
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 -mb-1">
-                  <div className="border-[6px] border-transparent border-b-popover" />
                 </div>
               </div>
             )}

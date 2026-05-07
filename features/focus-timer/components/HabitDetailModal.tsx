@@ -168,8 +168,8 @@ export function HabitDetailModal({ habit, onClose, onDelete, onToggleToday, onUp
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-8 bg-slate-950/80 backdrop-blur-sm animate-fade-in text-slate-200">
-      <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl animate-scale-in flex flex-col max-h-[70vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-8 bg-slate-950/80 backdrop-blur-sm animate-fade-in text-slate-200">
+      <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl animate-scale-in flex flex-col max-h-[92vh] sm:max-h-[80vh]">
         
         {/* Header */}
         <div className="relative p-5 border-b border-slate-800/50 bg-slate-900/50 shrink-0">
@@ -292,22 +292,22 @@ export function HabitDetailModal({ habit, onClose, onDelete, onToggleToday, onUp
           {/* RECENT VIEW */}
           {viewMode === 'recent' && (
             <div className="animate-fade-in space-y-4">
-               <div className="grid grid-cols-7 gap-2">
+               <div className="grid grid-cols-7 gap-1 sm:gap-2">
                  {recentDays.map((day) => {
                    const status = getDayStatus(day)
                    return (
-                     <div key={day.toISOString()} className="flex flex-col items-center gap-1">
+                     <div key={day.toISOString()} className="flex flex-col items-center gap-1 min-w-0">
                         <span className="text-[9px] text-slate-600 font-mono">{format(day, "d")}</span>
-                        <div 
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
+                        <div
+                          className={`w-full aspect-square max-w-[36px] rounded-lg flex items-center justify-center transition-all ${
                             status === "success" ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20" :
                             status === "missed" ? "bg-red-500/10 border border-red-500/20 text-red-500" :
                             status === "neutral" ? "bg-slate-800/50 border border-slate-700/30 opacity-50" :
                             "bg-transparent border border-slate-800 opacity-20"
                           }`}
                         >
-                           {status === "success" && <CheckCircle2 className="w-4 h-4" />}
-                           {status === "missed" && <XCircle className="w-4 h-4" />}
+                           {status === "success" && <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                           {status === "missed" && <XCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
                         </div>
                      </div>
                    )
@@ -334,7 +334,7 @@ export function HabitDetailModal({ habit, onClose, onDelete, onToggleToday, onUp
                </div>
 
                {/* 12 Month Grid */}
-               <div className="grid grid-cols-3 gap-2">
+               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {Array.from({ length: 12 }).map((_, i) => renderMonth(i))}
                </div>
                
@@ -370,11 +370,11 @@ export function HabitDetailModal({ habit, onClose, onDelete, onToggleToday, onUp
            
            <button
              onClick={onDelete}
-             className="px-4 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl transition-all"
+             className="px-4 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl transition-all min-w-[44px]"
+             aria-label="Eliminar"
            >
              <div className="w-5 h-5 flex items-center justify-center">
-               <span className="sr-only">Eliminar</span>
-               <Trash2 className="w-4.5 h-4.5" />
+               <Trash2 className="w-4 h-4" />
              </div>
            </button>
         </div>

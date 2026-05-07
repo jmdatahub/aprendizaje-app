@@ -62,9 +62,9 @@ export function LearningPathsBlock({ onStartLearning }: LearningPathsBlockProps)
   return (
     <section className="mb-8 animate-in slide-in-from-bottom-4 duration-700">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+        <h2 className="text-lg sm:text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2 flex-wrap">
           🗺️ Rutas de Aprendizaje
-          <span className="text-xs font-normal bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Beta</span>
+          <span className="text-[10px] sm:text-xs font-normal bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Beta</span>
         </h2>
       </div>
 
@@ -76,24 +76,24 @@ export function LearningPathsBlock({ onStartLearning }: LearningPathsBlockProps)
             </svg>
           </div>
           
-          <CardContent className="p-6 relative z-10">
-            <div className="flex justify-between items-center">
-              <div>
-                <div className="text-indigo-200 text-sm font-medium mb-1 uppercase tracking-wider">Ruta Activa</div>
-                <h3 className="text-2xl font-bold mb-2">{activePath.title}</h3>
-                <div className="flex items-center gap-4 text-sm text-indigo-100">
-                  <span>{activePath.steps.filter(s => s.completed).length} / {activePath.steps.length} pasos</span>
-                  <div className="w-32 h-2 bg-indigo-900/30 rounded-full overflow-hidden">
-                    <div 
+          <CardContent className="p-4 sm:p-6 relative z-10">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+              <div className="min-w-0 flex-1">
+                <div className="text-indigo-200 text-xs sm:text-sm font-medium mb-1 uppercase tracking-wider">Ruta Activa</div>
+                <h3 className="text-lg sm:text-2xl font-bold mb-2 break-words">{activePath.title}</h3>
+                <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm text-indigo-100">
+                  <span className="shrink-0">{activePath.steps.filter(s => s.completed).length} / {activePath.steps.length} pasos</span>
+                  <div className="flex-1 sm:w-32 sm:flex-none h-2 bg-indigo-900/30 rounded-full overflow-hidden min-w-0">
+                    <div
                       className="h-full bg-white/90 transition-all duration-500"
                       style={{ width: `${(activePath.steps.filter(s => s.completed).length / activePath.steps.length) * 100}%` }}
                     />
                   </div>
                 </div>
               </div>
-              <Button 
+              <Button
                 onClick={() => { playClick(); setShowModal(true); }}
-                className="bg-white text-indigo-600 hover:bg-indigo-50 font-bold shadow-lg"
+                className="bg-white text-indigo-600 hover:bg-indigo-50 font-bold shadow-lg w-full sm:w-auto"
                 size="lg"
               >
                 Continuar Ruta

@@ -416,7 +416,7 @@ export function HabitTracker() {
   const last7Days = getLast7Days()
 
   return (
-    <div className="w-full max-w-[320px] bg-slate-800/10 backdrop-blur-md rounded-3xl border border-slate-700/20 p-4 animate-fade-in mx-auto relative group/container min-h-[400px] flex flex-col flex-1">
+    <div className="w-full max-w-md bg-slate-800/10 backdrop-blur-md rounded-3xl border border-slate-700/20 p-4 animate-fade-in mx-auto relative group/container min-h-[400px] flex flex-col flex-1">
       
       {/* Settings Overlay - Full Cover */}
       {showSettings && (
@@ -677,27 +677,33 @@ export function HabitTracker() {
              <div className="flex items-center gap-2 border-t border-slate-800/50 pt-2">
                 <div className="flex-1 flex items-center gap-2 px-2 py-1 bg-slate-950/50 rounded-lg border border-slate-800">
                    <Flame className="w-3 h-3 text-orange-500" />
-                   <input 
-                     type="number" 
+                   <input
+                     type="number"
+                     inputMode="numeric"
+                     pattern="[0-9]*"
                      min="0"
                      max="999"
                      placeholder="Racha"
                      value={streakInput}
                      onChange={(e) => setStreakInput(e.target.value)}
-                     className="w-full bg-transparent text-[10px] text-white placeholder:text-slate-600 focus:outline-none font-mono"
+                     aria-label="Racha actual en días"
+                     className="w-full bg-transparent text-base md:text-[10px] text-white placeholder:text-slate-600 focus:outline-none font-mono"
                    />
                 </div>
                 
                 <div className="flex-1 flex items-center gap-2 px-2 py-1 bg-slate-950/50 rounded-lg border border-slate-800">
                    <Calendar className="w-3 h-3 text-slate-500" />
-                   <input 
-                     type="number" 
+                   <input
+                     type="number"
+                     inputMode="numeric"
+                     pattern="[0-9]*"
                      min="0"
                      max="999"
                      placeholder="Días Total"
                      value={totalDaysInput}
                      onChange={(e) => setTotalDaysInput(e.target.value)}
-                     className="w-full bg-transparent text-[10px] text-white placeholder:text-slate-600 focus:outline-none font-mono"
+                     aria-label="Días totales acumulados"
+                     className="w-full bg-transparent text-base md:text-[10px] text-white placeholder:text-slate-600 focus:outline-none font-mono"
                    />
                 </div>
              </div>

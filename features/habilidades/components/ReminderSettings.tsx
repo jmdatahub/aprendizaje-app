@@ -110,36 +110,39 @@ export function ReminderSettings({ habilidadId }: { habilidadId: string }) {
       <div className="mb-6 p-4 bg-muted/30 rounded-xl border border-border/50">
         <label className="block text-sm font-medium mb-3">Nuevo recordatorio:</label>
         
-        <div className="flex flex-wrap gap-2 mb-4">
+        <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-4">
           {DIAS.map(dia => (
             <button
               key={dia.id}
               onClick={() => toggleDay(dia.id)}
               className={`
-                w-8 h-8 rounded-full text-xs font-bold transition-all
+                w-11 h-11 sm:w-9 sm:h-9 rounded-full text-sm sm:text-xs font-bold transition-all
                 ${selectedDays.includes(dia.id)
                   ? 'bg-primary text-primary-foreground scale-110 shadow-md'
                   : 'bg-muted text-muted-foreground hover:bg-muted/80'
                 }
               `}
               title={dia.name}
+              aria-label={dia.name}
+              aria-pressed={selectedDays.includes(dia.id)}
             >
               {dia.label}
             </button>
           ))}
         </div>
-        
-        <div className="flex gap-2">
-          <Input 
-            type="time" 
+
+        <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+          <Input
+            type="time"
             value={time}
             onChange={e => setTime(e.target.value)}
-            className="w-32"
+            className="w-full sm:w-32"
           />
-          <Button 
+          <Button
             onClick={handleAdd}
             disabled={adding || selectedDays.length === 0}
             size="sm"
+            className="w-full sm:w-auto"
           >
             {adding ? 'Guardando...' : 'Añadir'}
           </Button>
@@ -171,8 +174,9 @@ export function ReminderSettings({ habilidadId }: { habilidadId: string }) {
                 </div>
                 <button
                   onClick={() => handleDelete(reminder.id)}
-                  className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                  className="text-muted-foreground hover:text-destructive p-2 -mr-1 sm:opacity-60 sm:group-hover:opacity-100 transition-opacity min-w-[36px] min-h-[36px] flex items-center justify-center"
                   title="Eliminar"
+                  aria-label="Eliminar recordatorio"
                 >
                   ✕
                 </button>

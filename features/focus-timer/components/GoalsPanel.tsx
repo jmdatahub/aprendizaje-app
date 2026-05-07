@@ -84,16 +84,22 @@ export function GoalsPanel() {
             value={newGoal.text}
             onChange={(e) => setNewGoal({ ...newGoal, text: e.target.value })}
             placeholder="Título del objetivo..."
-            className="w-full px-4 py-2 bg-slate-900/60 border border-slate-700/50 rounded-lg text-white text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+            autoCapitalize="sentences"
+            enterKeyHint="next"
+            aria-label="Título del objetivo"
+            className="w-full px-4 py-2 bg-slate-900/60 border border-slate-700/50 rounded-lg text-white text-base md:text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
           />
           <div className="flex items-center gap-3">
             <div className="flex-1">
               <label className="text-[10px] text-slate-500 uppercase mb-1 block tracking-wider">Meta (ej: 10 horas)</label>
               <input
                 type="number"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={newGoal.target}
                 onChange={(e) => setNewGoal({ ...newGoal, target: parseInt(e.target.value) || 0 })}
-                className="w-full px-4 py-2 bg-slate-900/60 border border-slate-700/50 rounded-lg text-white text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                aria-label="Meta numérica"
+                className="w-full px-4 py-2 bg-slate-900/60 border border-slate-700/50 rounded-lg text-white text-base md:text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
               />
             </div>
           </div>
@@ -151,13 +157,15 @@ export function GoalsPanel() {
                 <div className="flex justify-end gap-2 mt-3">
                   <button
                     onClick={() => updateProgress(goal.id, -1)}
-                    className="px-2 py-1 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded text-[10px] font-bold transition-all"
+                    className="min-w-[40px] min-h-[36px] px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded text-xs font-bold transition-all"
+                    aria-label="Restar uno"
                   >
                     -1
                   </button>
                   <button
                     onClick={() => updateProgress(goal.id, 1)}
-                    className="px-2 py-1 bg-indigo-600/40 hover:bg-indigo-600/60 text-indigo-200 rounded text-[10px] font-bold transition-all"
+                    className="min-w-[40px] min-h-[36px] px-3 py-1.5 bg-indigo-600/40 hover:bg-indigo-600/60 text-indigo-200 rounded text-xs font-bold transition-all"
+                    aria-label="Sumar uno"
                   >
                     +1
                   </button>

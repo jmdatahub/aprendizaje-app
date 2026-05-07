@@ -264,7 +264,7 @@ export function FocusTimerPage() {
   }, [timer, sessionTaskLog])
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-white flex flex-col relative overflow-x-hidden">
+    <div className="min-h-screen bg-[#0f172a] text-white flex flex-col relative overflow-x-hidden pb-mobile-nav">
       {/* Estimation Modal */}
       {showEstimationModal && pendingTask && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-xl animate-fade-in">
@@ -285,10 +285,14 @@ export function FocusTimerPage() {
             <div className="bg-slate-800/40 p-6 rounded-3xl border border-slate-700/30 space-y-4 text-center">
               <label className="text-[9px] font-black uppercase tracking-widest text-indigo-400">¿Cuántos minutos estimas?</label>
               <div className="flex items-center justify-center gap-4">
-                <input 
+                <input
                   autoFocus
                   type="number"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  enterKeyHint="go"
                   placeholder="25"
+                  aria-label="Minutos estimados"
                   className="w-24 bg-transparent text-center text-5xl font-mono font-black text-white outline-none appearance-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
@@ -385,10 +389,12 @@ export function FocusTimerPage() {
         <div className="w-20"> {/* Spacer for symmetry */}
           {!isTimerActive && (
             <button
+              type="button"
               onClick={() => router.push("/")}
-              className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm animate-fade-in"
+              aria-label="Volver al inicio"
+              className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm animate-fade-in min-w-[40px] min-h-[40px] -ml-2 px-2 py-2 rounded-lg active:bg-slate-800/50 active:scale-95"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-5 h-5" />
               <span className="hidden sm:inline">Inicio</span>
             </button>
           )}
@@ -422,28 +428,34 @@ export function FocusTimerPage() {
               <div className="w-full max-w-sm flex items-center gap-2 animate-fade-in">
                 <div className="flex items-center gap-1 bg-slate-800/80 rounded-xl p-1 backdrop-blur-sm border border-slate-700/50 flex-none">
                   <button
+                    type="button"
                     onClick={handleSwitchToFocus}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                    aria-label="Modo Focus"
+                    aria-pressed={!isBreakMode}
+                    className={`w-10 h-9 sm:h-9 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center active:scale-95 ${
                       !isBreakMode
                         ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
                         : "text-slate-400 hover:text-white"
                     }`}
                   >
-                    <Target className="w-3 h-3" />
+                    <Target className="w-4 h-4" />
                   </button>
                   <button
+                    type="button"
                     onClick={handleSwitchToBreak}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                    aria-label="Modo Descanso"
+                    aria-pressed={isBreakMode}
+                    className={`w-10 h-9 sm:h-9 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center active:scale-95 ${
                       isBreakMode
                         ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/20"
                         : "text-slate-400 hover:text-white"
                     }`}
                   >
-                    <Coffee className="w-3 h-3" />
+                    <Coffee className="w-4 h-4" />
                   </button>
                 </div>
 
-                <div className="relative flex-1 group">
+                <div className="relative flex-1 group min-w-0">
                   <input
                     type="text"
                     value={goal}
@@ -453,9 +465,12 @@ export function FocusTimerPage() {
                     }}
                     onClick={() => setActiveTab("todos")}
                     placeholder="¿Cuál es tu objetivo?"
-                    className="w-full px-4 py-2 bg-slate-800/40 border border-slate-700/20 rounded-xl text-white text-[11px] placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 transition-all cursor-pointer"
+                    aria-label="Objetivo de la sesión"
+                    autoCapitalize="sentences"
+                    enterKeyHint="done"
+                    className="w-full px-4 py-2 min-h-[36px] bg-slate-800/40 border border-slate-700/20 rounded-xl text-white text-base sm:text-[11px] placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 transition-all cursor-pointer"
                   />
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-20 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-20 group-hover:opacity-100 transition-opacity pointer-events-none">
                     <Plus className="w-3 h-3 text-slate-400" />
                   </div>
                 </div>
@@ -539,20 +554,21 @@ export function FocusTimerPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5 w-full">
+                  <div className="grid grid-cols-3 gap-1.5 w-full">
                     {[
                       { label: "Focus", val: focusDuration.m, set: (v: number) => setFocusDuration({ m: v, s: 0 }) },
                       { label: "Break", val: breakDuration.m, set: (v: number) => setBreakDuration({ m: v, s: 0 }) },
                       { label: "Total (h)", val: totalTargetDuration / 60, set: (v: number) => setTotalTargetDuration(v * 60) }
                     ].map((item) => (
-                      <div key={item.label} className="flex-1 flex items-center justify-between px-2 py-1 bg-slate-900/30 border border-slate-700/10 rounded-lg">
-                        <label className="text-[7px] text-slate-500 uppercase font-black truncate">{item.label}</label>
-                        <input 
-                          type="number" 
+                      <div key={item.label} className="min-w-0 flex flex-col items-center gap-1 px-2 py-2 bg-slate-900/30 border border-slate-700/10 rounded-lg">
+                        <label className="text-[8px] text-slate-500 uppercase font-black truncate w-full text-center">{item.label}</label>
+                        <input
+                          type="number"
+                          inputMode="numeric"
                           step={item.label.includes('h') ? "0.5" : "1"}
                           value={item.val}
                           onChange={(e) => item.set(parseFloat(e.target.value) || 0)}
-                          className="w-8 bg-transparent text-right text-[10px] text-indigo-400 font-mono font-bold outline-none leading-none appearance-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          className="w-full min-w-0 bg-transparent text-center text-sm text-indigo-400 font-mono font-bold outline-none leading-none appearance-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                       </div>
                     ))}
@@ -595,7 +611,7 @@ export function FocusTimerPage() {
                       timer.startSequence(seq, totalMin)
                       setIsBreakMode(false); setIsCustomTime(false)
                     }}
-                    className="w-full py-1.5 bg-indigo-600 text-white rounded-lg text-[8px] font-black uppercase tracking-[0.2em] shadow-lg shadow-indigo-600/10 hover:bg-indigo-500 active:scale-95 transition-all"
+                    className="w-full py-3 sm:py-2.5 bg-indigo-600 text-white rounded-lg text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] shadow-lg shadow-indigo-600/10 hover:bg-indigo-500 active:scale-95 transition-all"
                   >
                     🚀 Iniciar {Math.floor(totalTargetDuration/60)}h{totalTargetDuration%60 > 0 ? `${totalTargetDuration%60}m` : ""}
                   </button>
@@ -634,6 +650,7 @@ export function FocusTimerPage() {
                   <div className="flex items-center gap-2 animate-scale-in bg-slate-800/20 px-4 py-2 rounded-2xl border border-slate-700/20">
                     <input
                       type="number"
+                      inputMode="numeric"
                       value={timer.minutes}
                       onChange={(e) => {
                         const val = parseInt(e.target.value)
@@ -643,11 +660,12 @@ export function FocusTimerPage() {
                           else setBreakDuration(prev => ({ ...prev, m: val }))
                         }
                       }}
-                      className="w-10 bg-transparent text-center text-sm font-mono text-white outline-none"
+                      className="w-12 bg-transparent text-center text-base font-mono text-white outline-none"
                     />
                     <span className="text-slate-700 text-xs">:</span>
                     <input
                       type="number"
+                      inputMode="numeric"
                       value={timer.seconds}
                       onChange={(e) => {
                         const val = parseInt(e.target.value)
@@ -657,7 +675,7 @@ export function FocusTimerPage() {
                           else setBreakDuration(prev => ({ ...prev, s: val }))
                         }
                       }}
-                      className="w-10 bg-transparent text-center text-sm font-mono text-white outline-none"
+                      className="w-12 bg-transparent text-center text-base font-mono text-white outline-none"
                     />
                   </div>
                 )}

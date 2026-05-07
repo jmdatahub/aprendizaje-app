@@ -102,15 +102,31 @@ export function EditSkillModal({ isOpen, onClose, onUpdated, habilidad }: EditSk
           onClick={onClose}
         >
           <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            className="bg-card rounded-2xl shadow-xl max-w-md w-full p-6 max-h-[85vh] overflow-y-auto"
+            initial={{ scale: 0.96, y: 20, opacity: 0 }}
+            animate={{ scale: 1, y: 0, opacity: 1 }}
+            exit={{ scale: 0.96, y: 20, opacity: 0 }}
+            className="bg-card rounded-2xl shadow-xl max-w-md w-full max-h-[92vh] flex flex-col overflow-hidden"
             onClick={e => e.stopPropagation()}
           >
-            <h2 className="text-xl font-bold text-foreground mb-6 flex items-center gap-2">
-              ✏️ Editar Habilidad
-            </h2>
+            {/* Header sticky */}
+            <div className="px-5 sm:px-6 pt-5 pb-3 border-b border-border/60 shrink-0 flex items-center justify-between gap-2">
+              <h2 className="text-lg sm:text-xl font-bold text-foreground flex items-center gap-2">
+                ✏️ Editar Habilidad
+              </h2>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Cerrar"
+                className="-mr-2 p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent active:scale-95 min-w-[40px] min-h-[40px] flex items-center justify-center transition-all"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Body scrollable */}
+            <div className="px-5 sm:px-6 py-5 overflow-y-auto flex-1 overscroll-contain">
 
             {/* Nombre */}
             <div className="mb-4">
@@ -197,11 +213,14 @@ export function EditSkillModal({ isOpen, onClose, onUpdated, habilidad }: EditSk
               </label>
               <Input
                 type="number"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={objetivoSemanal}
                 onChange={e => setObjetivoSemanal(e.target.value)}
                 placeholder="Ej: 3"
                 min="0"
                 className="w-full"
+                aria-label="Meta semanal en horas"
               />
               <p className="text-xs text-muted-foreground mt-1">
                 Opcional. Define cuántas horas quieres practicar a la semana.
@@ -222,27 +241,32 @@ export function EditSkillModal({ isOpen, onClose, onUpdated, habilidad }: EditSk
               />
             </div>
 
-            {/* Error */}
-            {error && (
-              <p className="text-red-500 text-sm mb-4">{error}</p>
-            )}
+            </div>
 
-            {/* Buttons */}
-            <div className="flex gap-3">
-              <Button 
-                variant="outline" 
-                onClick={onClose}
-                className="flex-1"
-              >
-                Cancelar
-              </Button>
-              <Button 
-                onClick={handleSubmit}
-                disabled={loading || !nombre.trim()}
-                className="flex-1"
-              >
-                {loading ? 'Guardando...' : 'Guardar cambios'}
-              </Button>
+            {/* Footer sticky with buttons + safe-area */}
+            <div
+              className="px-5 sm:px-6 py-3 border-t border-border/60 bg-card shrink-0 space-y-2"
+              style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
+            >
+              {error && (
+                <p role="alert" className="text-red-500 text-sm">{error}</p>
+              )}
+              <div className="flex gap-2 sm:gap-3">
+                <Button
+                  variant="outline"
+                  onClick={onClose}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleSubmit}
+                  disabled={loading || !nombre.trim()}
+                  className="flex-1"
+                >
+                  {loading ? 'Guardando…' : 'Guardar cambios'}
+                </Button>
+              </div>
             </div>
           </motion.div>
         </motion.div>

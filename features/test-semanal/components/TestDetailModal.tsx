@@ -40,19 +40,19 @@ export function TestDetailModal({ isOpen, onClose, exam }: TestDetailModalProps)
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
           {/* Result Summary */}
-          <div className="flex items-center justify-center gap-8 py-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl">
-            <div className="text-center">
-              <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">Puntuación</p>
-              <div className="text-3xl font-black text-gray-900 dark:text-white">
-                {exam.score} <span className="text-lg font-normal text-gray-400">/ {exam.total_questions}</span>
+          <div className="flex items-center justify-center gap-4 sm:gap-8 py-4 px-2 bg-blue-50 dark:bg-blue-900/20 rounded-2xl">
+            <div className="text-center min-w-0">
+              <p className="text-[10px] sm:text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">Puntuación</p>
+              <div className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white">
+                {exam.score} <span className="text-sm sm:text-lg font-normal text-gray-400">/ {exam.total_questions}</span>
               </div>
             </div>
-            <div className="w-px h-12 bg-blue-200 dark:bg-blue-800" />
-            <div className="text-center">
-              <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">Resultado</p>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">
+            <div className="w-px h-10 sm:h-12 bg-blue-200 dark:bg-blue-800 shrink-0" />
+            <div className="text-center min-w-0">
+              <p className="text-[10px] sm:text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">Resultado</p>
+              <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
                 {((exam.score / exam.total_questions) * 100).toFixed(0)}%
               </div>
             </div>

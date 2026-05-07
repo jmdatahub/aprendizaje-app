@@ -67,7 +67,7 @@ export function ActivityHeatmap({ data, onSelectDate, selectedDate }: ActivityHe
         {/* Month labels */}
         <div className="flex gap-[3px] h-5 text-[11px] text-muted-foreground mb-0.5 font-medium">
           {monthLabels.map((label, i) => (
-            <div key={i} className="w-[14px] flex overflow-visible">
+            <div key={i} className="w-[16px] sm:w-[14px] flex overflow-visible">
               {label && <span className="transform -translate-x-1 capitalize">{label}</span>}
             </div>
           ))}
@@ -88,7 +88,7 @@ export function ActivityHeatmap({ data, onSelectDate, selectedDate }: ActivityHe
                     onClick={() => onSelectDate?.(dateKey)}
                     title={`${format(day, 'PPP', { locale: es })}: ${count} actividad${count !== 1 ? 'es' : ''}`}
                     className={cn(
-                      'w-[14px] h-[14px] rounded-sm transition-all duration-150 cursor-pointer',
+                      'w-[16px] h-[16px] sm:w-[14px] sm:h-[14px] rounded-sm transition-all duration-150 cursor-pointer',
                       getColorClass(count, isSelected)
                     )}
                   />
@@ -103,10 +103,10 @@ export function ActivityHeatmap({ data, onSelectDate, selectedDate }: ActivityHe
       <div className="mt-4 flex items-center justify-end gap-2 text-[11px] text-muted-foreground">
         <span>Menos</span>
         <div className="flex gap-[3px] items-center">
-          <div className="w-[14px] h-[14px] rounded-sm bg-muted/60" />
-          <div className="w-[14px] h-[14px] rounded-sm bg-violet-300/60 dark:bg-violet-900/60" />
-          <div className="w-[14px] h-[14px] rounded-sm bg-violet-400 dark:bg-violet-700" />
-          <div className="w-[14px] h-[14px] rounded-sm bg-violet-600 dark:bg-violet-500" />
+          <div className="w-[16px] h-[16px] sm:w-[14px] sm:h-[14px] rounded-sm bg-muted/60" />
+          <div className="w-[16px] h-[16px] sm:w-[14px] sm:h-[14px] rounded-sm bg-violet-300/60 dark:bg-violet-900/60" />
+          <div className="w-[16px] h-[16px] sm:w-[14px] sm:h-[14px] rounded-sm bg-violet-400 dark:bg-violet-700" />
+          <div className="w-[16px] h-[16px] sm:w-[14px] sm:h-[14px] rounded-sm bg-violet-600 dark:bg-violet-500" />
         </div>
         <span>Más</span>
       </div>

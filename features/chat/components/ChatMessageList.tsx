@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import { ChatMessage } from "@/features/chat/services/chatStorage";
@@ -32,11 +32,22 @@ export function ChatMessageList({
 }: ChatMessageListProps) {
   const { t } = useTranslation();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Auto-scroll to bottom
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, loading, recommendations, pendingQueue]);
+
+  const handleCopy = async (id: string, content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 1500);
+    } catch {
+      // Silently fail; clipboard may not be available in some contexts
+    }
+  };
 
   const showSuggestedTopics = messages.length <= 1 && !loading && suggestedTopics && suggestedTopics.length > 0;
 
@@ -65,7 +76,7 @@ export function ChatMessageList({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.3, ease: "easeOut" }}
               className={cn(
-                "flex flex-col max-w-[60ch] w-full",
+                "flex flex-col max-w-[88%] sm:max-w-[60ch] w-full",
                 isUser ? "ml-auto items-end" : "mr-auto items-start"
               )}
             >
@@ -80,10 +91,10 @@ export function ChatMessageList({
               {/* Bubble */}
               <div
                 className={cn(
-                  "relative px-4 py-2.5 text-sm leading-relaxed shadow-sm rounded-3xl",
+                  "relative px-4 py-3 text-sm leading-relaxed rounded-3xl",
                   isUser
-                    ? "bg-primary text-primary-foreground rounded-tr-sm"
-                    : "bg-muted/80 text-foreground border border-border/70 rounded-tl-sm"
+                    ? "bg-primary text-primary-foreground rounded-tr-sm shadow-sm"
+                    : "bg-muted text-foreground rounded-tl-sm"
                 )}
               >
                 {isUser ? (
@@ -91,7 +102,7 @@ export function ChatMessageList({
                     {msg.content}
                   </div>
                 ) : (
-                  <div className="prose prose-sm dark:prose-invert max-w-none chat-prose text-foreground/90">
+                  <div className="prose prose-sm dark:prose-invert max-w-none chat-prose text-foreground">
                     <ReactMarkdown
                       components={{
                         p: ({node, ...props}) => <p className="mb-3 last:mb-0 leading-relaxed" {...props} />,
@@ -111,15 +122,28 @@ export function ChatMessageList({
                   </div>
                 )}
 
-                {/* Assistant Actions (Speaker) */}
+                {/* Assistant Actions (Speaker + Copy) — always visible on mobile, hover on desktop */}
                 {!isUser && (
-                  <div className="mt-2 flex items-center gap-2 opacity-70 hover:opacity-100 transition-opacity">
+                  <div className="mt-2 flex items-center gap-1 opacity-100 md:opacity-60 md:hover:opacity-100 transition-opacity">
                     <button
+                      type="button"
                       onClick={() => onSpeak(msg.content)}
-                      className="p-1 rounded-full hover:bg-background/50 text-muted-foreground hover:text-foreground transition-colors"
-                      title="Escuchar"
+                      aria-label="Escuchar respuesta"
+                      className="min-w-[36px] min-h-[36px] p-2 rounded-full hover:bg-background/50 active:bg-background/70 active:scale-95 text-muted-foreground hover:text-foreground transition-all"
                     >
-                      🔊
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><path d="M15.54 8.46a5 5 0 0 1 0 7.07" /></svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(msg.id, msg.content)}
+                      aria-label={copiedId === msg.id ? "Copiado" : "Copiar respuesta"}
+                      className="min-w-[36px] min-h-[36px] p-2 rounded-full hover:bg-background/50 active:bg-background/70 active:scale-95 text-muted-foreground hover:text-foreground transition-all"
+                    >
+                      {copiedId === msg.id ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-emerald-500"><polyline points="20 6 9 17 4 12" /></svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                      )}
                     </button>
                   </div>
                 )}
@@ -135,23 +159,23 @@ export function ChatMessageList({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 max-w-3xl mx-auto"
+            className="mt-8 max-w-3xl mx-auto w-full"
          >
-            {suggestedTopics!.map((topic, idx) => (
-               <button
-                  key={idx}
-                  onClick={() => onTopicClick(topic)}
-                  className="text-left rounded-2xl border border-border bg-muted/60 hover:bg-muted/90 p-3 text-sm flex flex-col gap-1 transition-colors group"
-               >
-                  <span className="font-medium flex items-center gap-2 text-foreground">
-                     <span>💡</span>
-                     <span className="truncate">{topic}</span>
-                  </span>
-                  <span className="text-xs text-muted-foreground group-hover:text-foreground/80 transition-colors">
-                     Explorar "{topic}"
-                  </span>
-               </button>
-            ))}
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-3 px-1">
+               Sugerencias para empezar
+            </p>
+            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+               {suggestedTopics!.map((topic, idx) => (
+                  <button
+                     key={idx}
+                     onClick={() => onTopicClick(topic)}
+                     className="text-left rounded-2xl bg-muted hover:bg-muted/70 hover:-translate-y-0.5 p-3.5 text-sm flex items-center gap-2.5 transition-all group"
+                  >
+                     <span className="text-lg flex-shrink-0">💡</span>
+                     <span className="font-medium text-foreground truncate">{topic}</span>
+                  </button>
+               ))}
+            </div>
          </motion.div>
       )}
 
@@ -165,7 +189,7 @@ export function ChatMessageList({
           <span className="text-[10px] text-muted-foreground/70 mb-1 px-1">
             Tutor IA
           </span>
-          <div className="bg-muted/50 border border-border/50 px-4 py-3 rounded-3xl rounded-tl-sm flex items-center gap-2">
+          <div className="bg-muted px-4 py-3 rounded-3xl rounded-tl-sm flex items-center gap-2">
             <span className="flex gap-1">
               <span className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce [animation-delay:-0.3s]" />
               <span className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce [animation-delay:-0.15s]" />

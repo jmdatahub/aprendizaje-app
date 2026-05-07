@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { useApp } from '@/shared/contexts/AppContext';
 import ReactMarkdown from 'react-markdown';
 
 interface LearningCanvasProps {
   initialContent: string;
   onContentChange: (content: string) => void;
-  onExpand: (section: string) => Promise<string>;
   onRestore?: () => void;
   loading?: boolean;
 }
 
-export function LearningCanvas({ initialContent, onContentChange, onExpand, onRestore, loading }: LearningCanvasProps) {
+export function LearningCanvas({ initialContent, onContentChange, onRestore, loading }: LearningCanvasProps) {
   const { t } = useApp();
   const [content, setContent] = useState(initialContent);
   const [isEditing, setIsEditing] = useState(false);
@@ -78,15 +76,7 @@ export function LearningCanvas({ initialContent, onContentChange, onExpand, onRe
               components={{
                 h1: ({node, ...props}) => <h1 className="text-xl font-bold mb-4 text-primary break-words" {...props} />,
                 h2: ({node, ...props}) => (
-                  <div className="group flex items-center justify-between mt-6 mb-3 pb-2 border-b border-border">
-                    <h2 className="text-lg font-semibold m-0 break-words" {...props} />
-                    <button
-                      onClick={() => onExpand(props.children?.toString() || '')}
-                      className="opacity-0 group-hover:opacity-100 text-xs bg-primary/10 text-primary px-2 py-1 rounded hover:bg-primary/20 transition-all"
-                    >
-                      ✨ {t('learnings.expand')}
-                    </button>
-                  </div>
+                  <h2 className="text-lg font-semibold mt-6 mb-3 pb-2 border-b border-border break-words" {...props} />
                 ),
                 p: ({node, ...props}) => <p className="mb-4 leading-relaxed text-muted-foreground break-words" {...props} />,
                 ul: ({node, ...props}) => <ul className="list-disc pl-5 mb-4 space-y-1" {...props} />,

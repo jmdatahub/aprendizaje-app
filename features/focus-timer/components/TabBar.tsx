@@ -18,8 +18,8 @@ export function TabBar({ activeTab, onTabChange }: TabBarProps) {
   ] as const
 
   return (
-    <div className="flex items-center justify-center w-full px-4 mb-8">
-      <div className="flex items-center gap-1 bg-slate-800/40 p-1 rounded-2xl border border-slate-700/50 backdrop-blur-md">
+    <div className="flex items-center justify-center w-full px-3 sm:px-4 mb-6 sm:mb-8">
+      <div className="flex items-center gap-1 bg-slate-800/40 p-1 rounded-2xl border border-slate-700/50 backdrop-blur-md w-full sm:w-auto max-w-md">
         {tabs.map((tab) => {
           const Icon = tab.icon
           const isActive = activeTab === tab.id
@@ -27,7 +27,7 @@ export function TabBar({ activeTab, onTabChange }: TabBarProps) {
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all duration-300 min-w-20 ${
+              className={`flex flex-col items-center gap-1 px-2 sm:px-4 py-2 rounded-xl transition-all duration-300 flex-1 sm:flex-none sm:min-w-20 min-w-0 ${
                 isActive
                   ? "bg-slate-700 shadow-lg text-white"
                   : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/30"

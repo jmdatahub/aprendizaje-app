@@ -10,6 +10,7 @@ import {
   generateFilename,
 } from "@/features/chat/utils/chatExport";
 import { cn } from "@/lib/utils";
+import { Sheet } from "@/shared/components";
 
 interface ShareChatModalProps {
   isOpen: boolean;
@@ -20,7 +21,7 @@ interface ShareChatModalProps {
 export function ShareChatModal({ isOpen, onClose, chat }: ShareChatModalProps) {
   const [copied, setCopied] = useState(false);
 
-  if (!isOpen || !chat) return null;
+  if (!chat) return null;
 
   const handleCopy = async () => {
     const text = formatChatAsText(chat);
@@ -44,27 +45,8 @@ export function ShareChatModal({ isOpen, onClose, chat }: ShareChatModalProps) {
   };
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fade-in"
-      onClick={onClose}
-    >
-      <div
-        className="bg-card rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl transform animate-scale-in border border-border"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-foreground">
-            Exportar conversación
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground text-xl leading-none"
-          >
-            ×
-          </button>
-        </div>
-
+    <Sheet open={isOpen} onClose={onClose} title="Exportar conversación" desktopMaxWidth="max-w-sm">
+      <div className="p-4 sm:p-6">
         {/* Chat info */}
         <div className="mb-4 p-3 rounded-xl bg-muted/50 border border-border/50">
           <p className="text-sm font-medium text-foreground truncate">
@@ -78,12 +60,14 @@ export function ShareChatModal({ isOpen, onClose, chat }: ShareChatModalProps) {
         {/* Export options */}
         <div className="space-y-2">
           <button
+            type="button"
             onClick={handleCopy}
+            aria-live="polite"
             className={cn(
-              "w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all",
+              "w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all min-h-[60px] active:scale-[0.98]",
               copied
                 ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-600"
-                : "bg-muted/30 border-border hover:bg-muted/60"
+                : "bg-muted/30 border-border hover:bg-muted/60 active:bg-muted/80"
             )}
           >
             <span className="text-xl">{copied ? "✓" : "📋"}</span>
@@ -98,8 +82,9 @@ export function ShareChatModal({ isOpen, onClose, chat }: ShareChatModalProps) {
           </button>
 
           <button
+            type="button"
             onClick={handleDownloadMarkdown}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-muted/30 hover:bg-muted/60 transition-all"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-muted/30 hover:bg-muted/60 active:bg-muted/80 active:scale-[0.98] transition-all min-h-[60px]"
           >
             <span className="text-xl">📝</span>
             <div className="text-left">
@@ -111,8 +96,9 @@ export function ShareChatModal({ isOpen, onClose, chat }: ShareChatModalProps) {
           </button>
 
           <button
+            type="button"
             onClick={handleDownloadText}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-muted/30 hover:bg-muted/60 transition-all"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-muted/30 hover:bg-muted/60 active:bg-muted/80 active:scale-[0.98] transition-all min-h-[60px]"
           >
             <span className="text-xl">📄</span>
             <div className="text-left">
@@ -129,6 +115,6 @@ export function ShareChatModal({ isOpen, onClose, chat }: ShareChatModalProps) {
           Pronto: compartir por enlace público
         </p>
       </div>
-    </div>
+    </Sheet>
   );
 }

@@ -14,10 +14,9 @@ interface ChatHeaderProps {
   summaryLoading: boolean;
   onSaveChat: () => void;
   onSaveLearning: () => void;
-  onGenerateSummary?: () => void;
   onShare?: () => void;
   onEndChat?: () => void;
-  isModalOpen?: boolean; // New prop
+  isModalOpen?: boolean;
 }
 
 export function ChatHeader({
@@ -29,7 +28,6 @@ export function ChatHeader({
   summaryLoading,
   onSaveChat,
   onSaveLearning,
-  onGenerateSummary,
   onShare,
   onEndChat,
   isModalOpen = false
@@ -57,10 +55,11 @@ export function ChatHeader({
             <button
               type="button"
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-2 -ml-2 rounded-full text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
-              aria-label="Menú"
+              aria-label={isSidebarOpen ? "Cerrar conversaciones" : "Abrir conversaciones"}
+              aria-expanded={isSidebarOpen}
+              className="min-w-[40px] min-h-[40px] -ml-2 rounded-full text-muted-foreground hover:bg-muted/50 hover:text-foreground active:bg-muted active:scale-95 transition-all flex items-center justify-center"
             >
-              <span className="text-xl">☰</span>
+              <span className="text-xl leading-none">☰</span>
             </button>
           )}
         </div>
@@ -80,10 +79,13 @@ export function ChatHeader({
         {/* 3. Right: New Chat + Menu */}
         <div className="flex items-center justify-end w-10 relative" ref={menuRef}>
           <button
+            type="button"
             onClick={() => setShowMenu(!showMenu)}
-            className="p-2 -mr-2 rounded-full text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+            aria-label="Más opciones"
+            aria-expanded={showMenu}
+            className="min-w-[40px] min-h-[40px] -mr-2 rounded-full text-muted-foreground hover:bg-muted/50 hover:text-foreground active:bg-muted active:scale-95 transition-all flex items-center justify-center"
           >
-            <span className="text-xl">⋮</span>
+            <span className="text-xl leading-none">⋮</span>
           </button>
 
           {/* Dropdown Menu (Portal) */}
@@ -111,14 +113,6 @@ export function ChatHeader({
                   >
                     <span className="text-lg">🎓</span> 
                     <span className="font-medium">Guardar Aprendizaje</span>
-                  </button>
-                  <button
-                      onClick={() => { onGenerateSummary(); setShowMenu(false); }}
-                      disabled={!hasMessages || summaryLoading}
-                      className="w-full text-left px-4 py-3 text-sm text-foreground hover:bg-muted/50 flex items-center gap-3 disabled:opacity-50"
-                  >
-                    <span className="text-lg">{summaryLoading ? "⏳" : "✨"}</span>
-                    <span className="font-medium">Generar Resumen</span>
                   </button>
                   <div className="h-px bg-border/50 my-1 mx-2" />
                   <button
@@ -155,63 +149,48 @@ export function ChatHeader({
       </header>
 
       {/* --- DESKTOP HEADER (hidden md:flex) --- */}
-      <header className="hidden md:flex w-full border-b border-border bg-background/80 backdrop-blur-sm px-4 py-3 items-center justify-between gap-2">
+      <header className="hidden md:flex w-full bg-background px-5 py-3 items-center justify-between gap-3">
         {/* IZQUIERDA */}
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        <div className="flex items-center gap-3 min-w-0">
           {!embedded && (
             <button
               type="button"
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border bg-muted text-xs text-muted-foreground hover:bg-muted/80"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               aria-label={isSidebarOpen ? "Cerrar panel" : "Abrir panel"}
             >
               {isSidebarOpen ? "←" : "☰"}
             </button>
           )}
 
-          <div className="flex flex-col">
-            <span className="text-xs font-semibold leading-tight whitespace-nowrap">
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm font-semibold leading-tight text-foreground whitespace-nowrap">
               Tutor IA
             </span>
-            <span className="text-[11px] text-muted-foreground leading-tight whitespace-nowrap hidden sm:block">
-              Chat de aprendizaje personalizado
-            </span>
-          </div>
-        </div>
-
-        {/* CENTRO */}
-        <div className="hidden lg:flex flex-1 items-center justify-center min-w-0">
-          <div className="inline-flex items-center gap-3 rounded-full bg-muted/60 px-3 py-1">
-            {sector && (
-              <span className="text-[11px] text-muted-foreground truncate max-w-[160px]">
-                <span className="font-medium text-foreground">Sector:</span>{" "}
+            {sector ? (
+              <span className="text-[11px] text-muted-foreground leading-tight truncate max-w-[220px]">
                 {sector}
               </span>
-            )}
-            <span className="h-3 w-px bg-border" />
-            <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-              Mensajes:{" "}
-              <span className="font-medium text-foreground">
-                {messagesLength}
+            ) : (
+              <span className="text-[11px] text-muted-foreground leading-tight whitespace-nowrap hidden lg:block">
+                Chat de aprendizaje personalizado
               </span>
-            </span>
+            )}
           </div>
         </div>
 
         {/* DERECHA */}
-        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 ml-auto">
+        <div className="flex items-center gap-1 flex-shrink-0">
           {onShare && (
             <button
               type="button"
               onClick={onShare}
               disabled={!hasMessages}
               title="Compartir chat"
-              className={cn(
-                "inline-flex items-center justify-center gap-1 rounded-full w-8 h-8 sm:w-auto sm:h-auto sm:px-3 sm:py-1 text-[11px] border border-border bg-muted/70 hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap transition-colors"
-              )}
+              aria-label="Compartir"
+              className="inline-flex items-center justify-center w-9 h-9 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors"
             >
-              <span>🔗</span>
-              <span className="hidden sm:inline">Compartir</span>
+              <span className="text-base">🔗</span>
             </button>
           )}
 
@@ -220,42 +199,23 @@ export function ChatHeader({
             onClick={onSaveChat}
             disabled={!hasMessages}
             title="Guardar chat"
-            className={cn(
-              "inline-flex items-center justify-center gap-1 rounded-full w-8 h-8 sm:w-auto sm:h-auto sm:px-3 sm:py-1 text-[11px] border border-border bg-muted/70 hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap transition-colors"
-            )}
+            aria-label="Guardar"
+            className="inline-flex items-center justify-center w-9 h-9 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors"
           >
-            <span>💾</span>
-            <span className="hidden sm:inline">Guardar</span>
+            <span className="text-base">💾</span>
           </button>
+
+          <div className="w-px h-5 bg-border/60 mx-1" />
 
           <button
             type="button"
             onClick={onSaveLearning}
             disabled={!hasMessages}
             title="Guardar aprendizaje"
-            className={cn(
-              "inline-flex items-center justify-center gap-1 rounded-full w-8 h-8 sm:w-auto sm:h-auto sm:px-3 sm:py-1 text-[11px] bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap transition-colors shadow-sm"
-            )}
+            className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap transition-colors shadow-sm"
           >
             <span>🎓</span>
-            <span className="hidden sm:inline">Aprendizaje</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onGenerateSummary}
-            disabled={!hasMessages || summaryLoading}
-            title="Generar resumen"
-            className={cn(
-              "inline-flex items-center justify-center gap-1 rounded-full w-8 h-8 sm:w-auto sm:h-auto sm:px-3 sm:py-1 text-[11px] bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap transition-colors shadow-sm"
-            )}
-          >
-            {summaryLoading ? (
-              <span className="h-3 w-3 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <span>✨</span>
-            )}
-            <span className="hidden sm:inline">Resumen</span>
+            <span>Aprendizaje</span>
           </button>
         </div>
       </header>
