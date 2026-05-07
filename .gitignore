@@ -48,3 +48,7 @@ build-*.txt
 final-build.txt
 *.log
 api_audit*.md
+
+# Claude Code workspace + audit artifacts (not committed)
+/.claude/
+/screenshots/
