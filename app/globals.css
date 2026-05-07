@@ -223,13 +223,73 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    /* Avoid iOS text size auto-inflation in landscape */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
   body {
     @apply bg-background text-foreground;
+    /* Prevent accidental horizontal scrolling on mobile */
+    overflow-x: hidden;
   }
   h1 {
     font-family: var(--font-display, var(--font-sans));
     letter-spacing: -0.03em;
     font-weight: 700;
+  }
+  /* Improve mobile tap responsiveness without removing focus rings */
+  button, a, [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* Inputs should be at least 16px on iOS to prevent zoom on focus */
+  @media (max-width: 767px) {
+    input:not([type="checkbox"]):not([type="radio"]),
+    textarea,
+    select {
+      font-size: 16px;
+    }
+  }
+}
+
+/* Utilities for safe areas (iOS notch / Android gesture bar) */
+.pt-safe { padding-top: env(safe-area-inset-top); }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+.pl-safe { padding-left: env(safe-area-inset-left); }
+.pr-safe { padding-right: env(safe-area-inset-right); }
+.px-safe {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+.py-safe {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.bottom-safe { bottom: env(safe-area-inset-bottom); }
+
+/* Mobile-friendly touch target helper (min 44x44 on mobile, native size on desktop) */
+@media (max-width: 767px) {
+  .touch-target {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* Spacer utility class to reserve bottom-nav height on mobile pages that scroll. */
+.pb-mobile-nav {
+  padding-bottom: calc(56px + env(safe-area-inset-bottom));
+}
+@media (min-width: 768px) {
+  .pb-mobile-nav { padding-bottom: 0; }
+}
+
+/* Honor user's reduced motion preference (system-level). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

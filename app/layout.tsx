@@ -2,6 +2,7 @@ import './globals.css'
 import { Metadata } from 'next'
 import { Plus_Jakarta_Sans } from 'next/font/google'
 import { AppProvider } from '@/shared/contexts/AppContext'
+import { MobileBottomNav } from '@/shared/components/MobileBottomNav'
 
 const jakartaSans = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -12,7 +13,29 @@ const jakartaSans = Plus_Jakarta_Sans({
 
 export const metadata: Metadata = {
   title: 'Mi App de Aprendizaje',
-  description: 'Aprende y consolida conocimientos',
+  description: 'Aprende y consolida conocimientos con tu tutor personal IA',
+  applicationName: 'Aprende',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Aprende',
+  },
+  formatDetection: {
+    telephone: false,
+    email: false,
+    address: false,
+  },
+}
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: 'cover' as const,
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#0c1022' },
+  ],
 }
 
 // Inline script to apply dark mode before hydration (avoids FOUC).
@@ -41,6 +64,7 @@ export default function RootLayout({
       <body className={jakartaSans.variable}>
         <AppProvider>
           {children}
+          <MobileBottomNav />
         </AppProvider>
       </body>
     </html>
