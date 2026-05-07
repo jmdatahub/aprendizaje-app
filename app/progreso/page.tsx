@@ -102,7 +102,7 @@ export default function ProgresoPage() {
   const selectedActivities = filteredLogs.filter(log => log.date.startsWith(selectedDate || ''))
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-24 pb-mobile-nav">
       {/* Accent top bar */}
       <div className="h-[3px] w-full bg-gradient-to-r from-violet-500 via-indigo-500 to-cyan-400" />
 

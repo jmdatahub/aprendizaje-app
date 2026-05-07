@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { SkillCard } from '@/features/habilidades/components/SkillCard'
 import { NewSkillModal } from '@/features/habilidades/components/NewSkillModal'
 import { TrashModal } from '@/shared/components/TrashModal'
+import { SkeletonCard } from '@/shared/components'
 import { CATEGORIAS_HABILIDADES } from '@/shared/constants/habilidades'
 import { playClick } from '@/shared/utils/sounds'
 import {
@@ -113,7 +114,7 @@ export default function HabilidadesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6 md:p-12">
+    <div className="min-h-screen bg-background p-3 sm:p-6 md:p-12 pb-mobile-nav">
       <div className="mx-auto max-w-6xl">
         {/* Back Button */}
         <motion.div
@@ -132,38 +133,39 @@ export default function HabilidadesPage() {
         </motion.div>
 
         {/* Header */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4"
+          className="mb-6 sm:mb-8 flex flex-col md:flex-row md:items-end justify-between gap-3 md:gap-4"
         >
           <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2 flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-1 sm:mb-2 flex items-center gap-2 sm:gap-3">
               🎯 Mis Habilidades
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-sm sm:text-base text-muted-foreground">
               Practica y mide tu progreso en habilidades prácticas
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Button 
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
               variant="outline"
               size="sm"
               onClick={() => {
                 playClick()
                 setShowTrashModal(true)
               }}
-              className="gap-1"
+              className="gap-1 flex-1 sm:flex-none"
             >
               🗑️ Papelera
             </Button>
-            <Button 
+            <Button
+              size="sm"
               onClick={() => {
                 playClick()
                 setShowNewModal(true)
               }}
-              className="gap-2 shrink-0"
+              className="gap-2 flex-1 sm:flex-none"
             >
               <span>+</span>
               Nueva habilidad
@@ -197,17 +199,17 @@ export default function HabilidadesPage() {
 
         {/* Filtros por categoría */}
         {habilidades.length > 0 && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="mb-6 flex flex-wrap gap-2"
+            className="mb-6 -mx-3 sm:mx-0 px-3 sm:px-0 flex gap-2 overflow-x-auto sm:flex-wrap scrollbar-hide pb-1 sm:pb-0"
           >
             <button
               onClick={() => {
                 playClick()
                 setFiltroCategoria(null)
               }}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+              className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
                 !filtroCategoria
                   ? 'bg-primary text-primary-foreground'
                   : 'bg-muted hover:bg-muted/80 text-muted-foreground'
@@ -225,7 +227,7 @@ export default function HabilidadesPage() {
                     playClick()
                     setFiltroCategoria(cat.id)
                   }}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all flex items-center gap-1 ${
+                  className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-sm font-medium transition-all flex items-center gap-1 ${
                     filtroCategoria === cat.id
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-muted hover:bg-muted/80 text-muted-foreground'
@@ -242,9 +244,11 @@ export default function HabilidadesPage() {
 
         {/* Content */}
         {loading ? (
-          <div className="text-center py-20">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" />
-            <p className="text-muted-foreground">Cargando...</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4" aria-busy="true" aria-live="polite">
+            <span className="sr-only">Cargando habilidades</span>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
           </div>
         ) : habilidades.length === 0 ? (
           <motion.div 
@@ -276,17 +280,17 @@ export default function HabilidadesPage() {
           <>
             {/* Barra de herramientas: Ordenar + Exportar */}
             {habilidades.length > 0 && (
-              <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Ordenar por:</span>
-                  <Select 
-                    value={sortBy} 
+              <div className="flex flex-col sm:flex-row sm:flex-wrap sm:justify-between sm:items-center mb-6 gap-3 sm:gap-4">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="hidden sm:inline text-sm text-muted-foreground shrink-0">Ordenar por:</span>
+                  <Select
+                    value={sortBy}
                     onValueChange={(value) => {
                       playClick()
                       setSortBy(value)
                     }}
                   >
-                    <SelectTrigger className="w-[180px]">
+                    <SelectTrigger className="w-full sm:w-[180px]">
                       <SelectValue placeholder="Ordenar por" />
                     </SelectTrigger>
                     <SelectContent>
@@ -299,11 +303,11 @@ export default function HabilidadesPage() {
                   </Select>
                 </div>
 
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={handleExport}
-                  className="gap-2"
+                  className="gap-2 w-full sm:w-auto"
                 >
                   <span>📥</span>
                   Exportar CSV
@@ -311,7 +315,7 @@ export default function HabilidadesPage() {
               </div>
             )}
 
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               {sortedHabilidades.map((habilidad, index) => (
                 <SkillCard 
                   key={habilidad.id}

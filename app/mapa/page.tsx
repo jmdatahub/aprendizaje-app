@@ -145,7 +145,7 @@ export default function Mapa() {
   const buttonState = getButtonState();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8 relative dark:from-slate-900 dark:to-slate-800 transition-colors duration-500">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6 md:p-8 pb-mobile-nav relative dark:from-slate-900 dark:to-slate-800 transition-colors duration-500">
       {/* Settings Modal */}
       <SettingsModal 
         isOpen={isSettingsOpen}
@@ -155,43 +155,47 @@ export default function Mapa() {
 
 
       {/* Top Right Controls */}
-      <div className="fixed top-2 right-2 flex items-center gap-2 z-50">
+      <div
+        className="fixed top-2 right-2 flex items-center gap-2 z-50"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
         {/* Settings Button */}
         <button
+          type="button"
           onClick={() => {
             playClick()
             setIsSettingsOpen(true)
           }}
-          className="bg-white/80 backdrop-blur-sm text-gray-700 hover:text-gray-900 p-1.5 rounded-full shadow-sm hover:bg-white transition-all hover:rotate-90 duration-500"
-          title={t('settings.title')}
+          aria-label={t('settings.title')}
+          className="bg-white/85 backdrop-blur-sm text-gray-700 hover:text-gray-900 p-2.5 sm:p-2 rounded-full shadow-sm hover:bg-white active:scale-95 transition-all min-w-[40px] min-h-[40px] flex items-center justify-center"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
         </button>
 
         {/* Version badge */}
-        <div className="bg-gray-100/80 backdrop-blur-sm text-gray-700 text-[10px] px-2 py-1.5 rounded shadow-sm select-none">
+        <div className="hidden sm:block bg-gray-100/80 backdrop-blur-sm text-gray-700 text-[10px] px-2 py-1.5 rounded shadow-sm select-none">
           {APP_VERSION}
         </div>
       </div>
 
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <header className="mb-8">
-          <h1 className="text-5xl font-bold text-gray-800 mb-2 dark:text-white transition-colors">{t('home.title')}</h1>
-          <p className="text-xl text-gray-600 mb-6 dark:text-gray-300 transition-colors">
+        <header className="mb-8 mt-12 sm:mt-0">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-800 mb-2 dark:text-white transition-colors text-balance">{t('home.title')}</h1>
+          <p className="text-base sm:text-lg md:text-xl text-gray-600 mb-6 dark:text-gray-300 transition-colors">
             {t('home.subtitle')}
           </p>
 
           {/* Action buttons */}
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
             <Button
               onClick={handleEmpezarAprender}
               variant={repasoRequired ? "secondary" : "default"}
               size="lg"
-              className={repasoRequired ? "cursor-pointer" : ""}
+              className={`w-full sm:w-auto ${repasoRequired ? "cursor-pointer" : ""}`}
               title={repasoRequired ? t('home.training_day') : ''}
               disabled={buttonState === 'countdown' || buttonState === 'generating'}
             >
@@ -199,18 +203,18 @@ export default function Mapa() {
             </Button>
 
             <ErrorBoundary>
-              <Button 
-                variant={buttonState === 'ready' ? "default" : "outline"} 
+              <Button
+                variant={buttonState === 'ready' ? "default" : "outline"}
                 size="lg"
                 onClick={handleTestSemanalClick}
                 disabled={buttonState === 'countdown' || buttonState === 'generating'}
-                className={`transition-all duration-500 relative overflow-hidden ${
+                className={`transition-all duration-500 relative overflow-hidden w-full sm:w-56 ${
                   buttonState === 'generating'
-                    ? 'bg-indigo-50 border-indigo-300 text-indigo-700 w-56' 
+                    ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
                     : buttonState === 'ready'
-                      ? 'bg-green-600 hover:bg-green-700 text-white border-green-600 w-56 shadow-lg hover:shadow-green-200'
+                      ? 'bg-green-600 hover:bg-green-700 text-white border-green-600 shadow-lg hover:shadow-green-200'
                       : buttonState === 'countdown'
-                        ? 'bg-indigo-50 border-indigo-200 text-indigo-600 w-56'
+                        ? 'bg-indigo-50 border-indigo-200 text-indigo-600'
                         : buttonState === 'error'
                           ? 'bg-red-50 border-red-300 text-red-700 hover:bg-red-100'
                           : 'hover:bg-indigo-50 hover:text-indigo-600'
@@ -263,8 +267,8 @@ export default function Mapa() {
             </ErrorBoundary>
 
             <ErrorBoundary>
-              <Link href="/aprendizajes" onClick={() => playClick()}>
-                <Button variant="outline" size="lg">
+              <Link href="/aprendizajes" onClick={() => playClick()} className="w-full sm:w-auto">
+                <Button variant="outline" size="lg" className="w-full sm:w-auto">
                   {t('home.my_learnings')}
                 </Button>
               </Link>
@@ -412,12 +416,12 @@ export default function Mapa() {
         {/* Welcome section - Compact */}
         <ErrorBoundary>
           <Card className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 dark:from-slate-800 dark:to-slate-700 dark:border-slate-600">
-            <CardContent className="p-6">
-              <div className="flex items-start gap-4">
-                <div className="text-4xl">👋</div>
-                <div className="flex-1">
-                  <h2 className="text-lg font-semibold text-gray-800 mb-2 dark:text-white">{t('home.welcome_title')}</h2>
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-gray-600 dark:text-gray-300">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-start gap-3 sm:gap-4">
+                <div className="text-3xl sm:text-4xl shrink-0">👋</div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-base sm:text-lg font-semibold text-gray-800 mb-2 dark:text-white">{t('home.welcome_title')}</h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm text-gray-600 dark:text-gray-300">
                     <div className="flex items-center gap-2">
                       <span className="text-blue-500">💬</span>
                       <span>{t('home.feature_ai')}</span>

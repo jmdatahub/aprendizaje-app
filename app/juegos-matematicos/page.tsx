@@ -264,7 +264,7 @@ export default function JuegosMatematicos() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 md:p-8 dark:from-slate-900 dark:to-slate-800 transition-colors duration-500">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 md:p-8 pb-mobile-nav dark:from-slate-900 dark:to-slate-800 transition-colors duration-500">
       <div className="max-w-4xl mx-auto">
         {/* Header Navigation */}
         <div className="flex justify-between items-center mb-6">
@@ -311,7 +311,8 @@ export default function JuegosMatematicos() {
                 </div>
               </div>
               
-              <div className="overflow-x-auto">
+              {/* DESKTOP: Tabla completa (md+) */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-sm text-left">
                   <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-slate-700 dark:text-gray-300">
                     <tr>
@@ -357,20 +358,70 @@ export default function JuegosMatematicos() {
                   </tbody>
                 </table>
               </div>
+
+              {/* MOBILE: Cards apilables (< md) */}
+              <div className="md:hidden space-y-2.5">
+                {history
+                  .filter(game => historyFilterProfile === 'all' || game.profileId === historyFilterProfile)
+                  .map((game) => {
+                    const profile = profiles.find(p => p.id === game.profileId);
+                    const modeLabel = game.mode === 'timed' ? t('math_games.mode_timed') : game.mode === 'smart' ? t('math_games.mode_smart') : t('math_games.mode_free');
+                    return (
+                      <div key={game.id} className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-3">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-slate-600 rounded-full text-xs truncate max-w-[60%]">
+                            {profile?.emoji || '👤'} {profile?.name || 'Desconocido'}
+                          </span>
+                          <span className="text-base font-bold text-indigo-600 dark:text-indigo-400 shrink-0">
+                            {game.accuracyPercentage.toFixed(0)}%
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-gray-500 dark:text-gray-400 mb-2">
+                          {new Date(game.timestamp).toLocaleDateString()} · {new Date(game.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        </div>
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Modo:</span>
+                            <span className="font-medium text-gray-700 dark:text-gray-200 truncate ml-1">{modeLabel}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Op:</span>
+                            <span className="font-medium text-gray-700 dark:text-gray-200 truncate ml-1">{getOpName(game.operation)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Nivel:</span>
+                            <span className="font-medium capitalize text-gray-700 dark:text-gray-200 truncate ml-1">{game.level}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Aciertos:</span>
+                            <span className="font-medium text-gray-700 dark:text-gray-200 ml-1">{game.correctCount}/{game.totalAttempts}</span>
+                          </div>
+                          <div className="flex justify-between col-span-2">
+                            <span className="text-gray-500">Ops/s:</span>
+                            <span className="font-medium text-gray-700 dark:text-gray-200 ml-1">{game.opsPerSecond.toFixed(2)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                {history.filter(game => historyFilterProfile === 'all' || game.profileId === historyFilterProfile).length === 0 && (
+                  <div className="text-center py-6 text-gray-500 text-sm">{t('math_games.history_empty')}</div>
+                )}
+              </div>
             </CardContent>
           </Card>
         )}
 
         <Card className="bg-white/80 backdrop-blur-sm border-indigo-200 dark:bg-slate-800/80 dark:border-slate-600 shadow-xl">
-          <CardContent className="p-6 md:p-8">
+          <CardContent className="p-4 sm:p-6 md:p-8">
             {/* Title */}
-            <div className="flex items-center gap-4 mb-6">
-              <div className="text-5xl md:text-6xl">🎮</div>
-              <div>
-                <h1 className="text-3xl md:text-4xl font-bold text-gray-800 dark:text-white">
+            <div className="flex items-center gap-3 sm:gap-4 mb-5 sm:mb-6">
+              <div className="text-4xl sm:text-5xl md:text-6xl shrink-0">🎮</div>
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-gray-800 dark:text-white leading-tight break-words">
                   {t('math_games.title')}
                 </h1>
-                <p className="text-gray-600 dark:text-gray-300 mt-1">
+                <p className="text-xs sm:text-base text-gray-600 dark:text-gray-300 mt-0.5 sm:mt-1">
                   {t('math_games.subtitle')}
                 </p>
               </div>
@@ -467,7 +518,7 @@ export default function JuegosMatematicos() {
                 {/* Mode Selector */}
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Modo de Juego</label>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                     <button
                       onClick={() => setSelectedMode('timed')}
                       className={`p-4 rounded-xl border-2 transition-all ${selectedMode === 'timed' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-slate-700 hover:border-indigo-300'}`}
@@ -494,11 +545,14 @@ export default function JuegosMatematicos() {
                         <div className="text-xs text-gray-500">{t('math_games.mode_smart_desc')}</div>
                       </button>
                       <button
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation()
                           setShowSmartInfo(!showSmartInfo)
                         }}
-                        className="absolute top-2 right-2 w-6 h-6 rounded-full bg-gray-200 dark:bg-slate-600 text-gray-600 dark:text-gray-300 text-xs flex items-center justify-center hover:bg-gray-300 dark:hover:bg-slate-500"
+                        aria-label="Información sobre modo Smart"
+                        aria-expanded={showSmartInfo}
+                        className="absolute top-1.5 right-1.5 w-9 h-9 rounded-full bg-gray-200 dark:bg-slate-600 text-gray-600 dark:text-gray-300 text-xs font-bold flex items-center justify-center hover:bg-gray-300 dark:hover:bg-slate-500 active:scale-95 transition-transform"
                       >
                         i
                       </button>
@@ -548,10 +602,13 @@ export default function JuegosMatematicos() {
                       <div className="flex items-center gap-2 mt-2">
                         <Input
                           type="number"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
                           value={customTimeInput}
                           onChange={(e) => setCustomTimeInput(e.target.value)}
                           className="w-32"
                           placeholder="Segundos"
+                          aria-label="Tiempo personalizado en segundos"
                         />
                         <span className="text-sm text-gray-500">{t('math_games.seconds')}</span>
                       </div>
@@ -684,11 +741,15 @@ export default function JuegosMatematicos() {
                   <div className="max-w-xs mx-auto space-y-4">
                     <input
                       type="number"
+                      inputMode="numeric"
+                      pattern="[0-9-]*"
+                      enterKeyHint="send"
                       value={userAnswer}
                       onChange={(e) => setUserAnswer(e.target.value)}
                       onKeyDown={handleKeyDown}
                       className="w-full text-center text-4xl p-4 rounded-xl border-2 border-indigo-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none dark:bg-slate-800 dark:border-slate-600 dark:text-white transition-all shadow-inner"
                       placeholder="?"
+                      aria-label="Tu respuesta"
                       autoFocus
                     />
                     <Button 

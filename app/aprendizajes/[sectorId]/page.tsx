@@ -210,7 +210,7 @@ export default function SectorAprendizajesPage() {
   const themeClass = COLOR_CLASSES[sectorInfo.color] || 'bg-gray-50 text-gray-900';
 
   return (
-    <div className="min-h-screen bg-gray-50/50 p-6 md:p-12">
+    <div className="min-h-screen bg-gray-50/50 p-3 sm:p-6 md:p-12 pb-mobile-nav">
       <div className="mx-auto max-w-7xl"> {/* Increased max-width */}
         {/* Back Button */}
         <motion.div
@@ -229,29 +229,29 @@ export default function SectorAprendizajesPage() {
         </motion.div>
 
         {/* Header */}
-        <motion.header 
+        <motion.header
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className={`mb-10 rounded-3xl p-8 shadow-sm border ${themeClass}`}
+          className={`mb-6 sm:mb-10 rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 shadow-sm border ${themeClass}`}
         >
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-            <div className="flex items-center gap-6">
-              <div className="text-6xl bg-white/50 p-4 rounded-2xl shadow-sm backdrop-blur-sm">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 md:gap-6">
+            <div className="flex items-center gap-3 sm:gap-6 min-w-0 w-full">
+              <div className="text-4xl sm:text-5xl md:text-6xl bg-white/50 p-2 sm:p-3 md:p-4 rounded-xl sm:rounded-2xl shadow-sm backdrop-blur-sm shrink-0">
                 {sectorInfo.icono}
               </div>
-              <div>
-                <h1 className="text-3xl font-bold mb-2">{t(`sectors.${sectorInfo.key}`)}</h1>
-                <p className="opacity-80 text-sm max-w-md">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-1 sm:mb-2 leading-tight break-words">{t(`sectors.${sectorInfo.key}`)}</h1>
+                <p className="opacity-80 text-xs sm:text-sm max-w-md">
                   Tu colección de conocimientos sobre este tema.
                 </p>
               </div>
             </div>
-            
-            <div>
-              <Button 
-                variant="outline" 
-                size="lg" 
-                className="bg-white/80 hover:bg-white"
+
+            <div className="w-full md:w-auto">
+              <Button
+                variant="outline"
+                size="lg"
+                className="bg-white/80 hover:bg-white w-full md:w-auto"
                 onClick={() => {
                   const params = new URLSearchParams();
                   if (sectorInfo.key) params.set('tema', t(`sectors.${sectorInfo.key}`));
@@ -289,10 +289,17 @@ export default function SectorAprendizajesPage() {
                     <div className="flex-1 relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
                       <Input
-                        type="text"
+                        type="search"
+                        inputMode="search"
+                        enterKeyHint="search"
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="off"
+                        spellCheck={false}
                         placeholder="Buscar por título o contenido..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
+                        aria-label="Buscar conocimientos"
                         className="pl-10"
                       />
                     </div>
@@ -532,46 +539,48 @@ export default function SectorAprendizajesPage() {
               className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" 
               onClick={handleCloseModal}
             >
-              <motion.div 
+              <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.9, opacity: 0 }}
                 transition={{ type: "spring", duration: 0.3 }}
-                className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] overflow-hidden flex flex-col"
+                className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-4xl h-[92vh] sm:h-[85vh] overflow-hidden flex flex-col"
                 onClick={e => e.stopPropagation()}
               >
                 {/* Header del Modal */}
-                <div className="p-6 md:p-8 border-b border-gray-100 flex justify-between items-start bg-gray-50/50">
-                  <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-2xl">{sectorInfo.icono}</span>
-                      <span className={`text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-md ${themeClass.split(' ')[0]} ${themeClass.split(' ')[1]}`}>
+                <div className="p-4 sm:p-6 md:p-8 border-b border-gray-100 flex justify-between items-start gap-2 bg-gray-50/50">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-2 sm:mb-3 flex-wrap">
+                      <span className="text-xl sm:text-2xl">{sectorInfo.icono}</span>
+                      <span className={`text-[10px] sm:text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-md ${themeClass.split(' ')[0]} ${themeClass.split(' ')[1]}`}>
                         {t(`sectors.${sectorInfo.key}`)}
                       </span>
                     </div>
-                    <h2 className="text-2xl md:text-3xl font-bold text-gray-800 leading-tight">{seleccionado.title}</h2>
-                    <p className="text-sm text-gray-500 mt-2 flex items-center gap-2">
+                    <h2 className="text-lg sm:text-2xl md:text-3xl font-bold text-gray-800 leading-tight break-words">{seleccionado.title}</h2>
+                    <p className="text-xs sm:text-sm text-gray-500 mt-1 sm:mt-2 flex items-center gap-2">
                       <span>📅 {formatDate(seleccionado.date)}</span>
                     </p>
                   </div>
-                  <button 
+                  <button
                     onClick={handleCloseModal}
-                    className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors"
+                    aria-label="Cerrar"
+                    className="text-gray-400 hover:text-gray-600 p-2 -mr-1 rounded-full hover:bg-gray-100 transition-colors shrink-0 min-w-[40px] min-h-[40px] flex items-center justify-center"
                   >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                   </button>
                 </div>
-                
+
                 {/* Contenido del Modal */}
-                <div className="p-8 md:p-10 overflow-y-auto prose prose-lg prose-slate max-w-none flex-1 text-gray-800">
+                <div className="p-4 sm:p-8 md:p-10 overflow-y-auto prose prose-sm sm:prose-base md:prose-lg prose-slate max-w-none flex-1 text-gray-800">
                   <ReactMarkdown>{seleccionado.summary}</ReactMarkdown>
                 </div>
-                
+
                 {/* Footer del Modal con Acciones */}
-                <div className="p-6 border-t border-gray-100 bg-gray-50 flex flex-col sm:flex-row justify-end gap-3">
-                  <Button 
+                <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3">
+                  <Button
                     variant="outline"
                     onClick={handleCloseModal}
+                    className="w-full sm:w-auto"
                   >
                     Cerrar
                   </Button>
@@ -584,7 +593,7 @@ export default function SectorAprendizajesPage() {
                       router.push(`/aprender?${params.toString()}`);
                       setSeleccionado(null);
                     }}
-                    className="flex items-center justify-center gap-2"
+                    className="flex items-center justify-center gap-2 w-full sm:w-auto"
                   >
                     <span>💬</span>
                     <span>{t('chat.continue_intent', { topic: '' }).replace(':', '')}</span>

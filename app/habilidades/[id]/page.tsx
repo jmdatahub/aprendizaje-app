@@ -220,7 +220,7 @@ export default function HabilidadDetallePage({
   const nivelPercibidoData = habilidad.nivel_percibido ? NIVELES_HABILIDAD.find(n => n.id === habilidad.nivel_percibido) : null
 
   return (
-    <div className="min-h-screen bg-background p-6 md:p-12">
+    <div className="min-h-screen bg-background p-3 sm:p-6 md:p-12 pb-mobile-nav">
       <div className="mx-auto max-w-4xl">
         {/* Back Button */}
         <motion.div

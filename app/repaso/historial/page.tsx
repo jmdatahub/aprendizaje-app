@@ -45,7 +45,7 @@ export default function HistorialPage() {
     : 0;
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 pb-12">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 pb-12 pb-mobile-nav">
       {/* Header */}
       <div className="bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">

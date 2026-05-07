@@ -14,6 +14,7 @@ import { CollapsibleReviewSection } from "@/features/repaso/components/Collapsib
 import { chatStorage } from "@/features/chat/services/chatStorage"
 import { MiniTimeline } from "@/features/aprendizajes/components/MiniTimeline"
 import { TrashModal } from "@/shared/components/TrashModal"
+import { SkeletonCard } from "@/shared/components"
 import { useApp } from "@/shared/contexts/AppContext"
 
 import { SECTORES_DATA } from "@/shared/constants/sectores"
@@ -376,7 +377,7 @@ function AprendizajesContent() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-6 md:p-12">
+    <div className="min-h-screen bg-background p-3 sm:p-6 md:p-12 pb-mobile-nav">
       <div className="mx-auto max-w-7xl"> {/* Increased max-width for more cards */}
         {/* Back Button */}
         <motion.div
@@ -404,38 +405,39 @@ function AprendizajesContent() {
         />
 
         {/* Header */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4"
+          className="mb-6 sm:mb-10 flex flex-col md:flex-row md:items-end justify-between gap-3 md:gap-4"
         >
-          <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">{t('learnings.title')}</h1>
-            <p className="text-muted-foreground">{t('home.subtitle')}</p>
+          <div className="min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-1 sm:mb-2">{t('learnings.title')}</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">{t('home.subtitle')}</p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Button 
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
               variant="outline"
               size="sm"
               onClick={() => {
                 playClick()
                 setShowTrashModal(true)
               }}
-              className="gap-1"
+              className="gap-1 flex-1 sm:flex-none"
             >
-              🗑️ Papelera
+              🗑️ <span className="hidden xs:inline">Papelera</span><span className="xs:hidden">Papelera</span>
             </Button>
-            <Button 
+            <Button
               onClick={handleDownload}
               disabled={items.length === 0}
               variant="outline"
-              className="gap-2 shrink-0"
+              size="sm"
+              className="gap-2 flex-1 sm:flex-none"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
-              {t('learnings.download_all')}
+              <span className="truncate">{t('learnings.download_all')}</span>
             </Button>
           </div>
         </motion.div>
@@ -475,13 +477,12 @@ function AprendizajesContent() {
         )}
 
         {loading ? (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-20 opacity-50 text-muted-foreground"
-          >
-            {t('common.loading')}
-          </motion.div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4" aria-busy="true" aria-live="polite">
+            <span className="sr-only">{t('common.loading')}</span>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
         ) : items.length === 0 ? (
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
@@ -508,21 +509,28 @@ function AprendizajesContent() {
               transition={{ delay: 0.1 }}
               className="mb-6 space-y-4"
             >
-                  <div className="flex flex-col sm:flex-row gap-4 items-center">
+                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 sm:items-center">
                     {/* Buscador */}
                     <div className="relative w-full sm:max-w-xs">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">🔍</span>
                       <Input
-                        type="text"
+                        type="search"
+                        inputMode="search"
+                        enterKeyHint="search"
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="off"
+                        spellCheck={false}
                         placeholder={t('learnings.search_placeholder')}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-9 h-9 text-sm bg-card"
+                        aria-label={t('learnings.search_placeholder')}
+                        className="pl-9 text-sm bg-card"
                       />
                     </div>
 
-                    {/* Selector de ordenamiento */}
-                    <div className="flex gap-2 flex-wrap items-center flex-1 justify-end">
+                    {/* Selector de ordenamiento — scroll-x en mobile, wrap en sm+ */}
+                    <div className="-mx-3 sm:mx-0 px-3 sm:px-0 flex gap-2 overflow-x-auto sm:flex-wrap sm:items-center sm:flex-1 sm:justify-end scrollbar-hide pb-1 sm:pb-0">
                       <Button
                         variant={sortBy === 'date' ? 'secondary' : 'ghost'}
                         size="sm"
@@ -534,17 +542,17 @@ function AprendizajesContent() {
                             setDateSortDirection('desc');
                           }
                         }}
-                        className="gap-1 h-8 text-xs px-3"
+                        className="gap-1 text-xs px-3 shrink-0"
                       >
-                        📅 {sortBy === 'date' 
-                          ? (dateSortDirection === 'desc' ? 'Más reciente' : 'Más antiguo') 
+                        📅 {sortBy === 'date'
+                          ? (dateSortDirection === 'desc' ? 'Más reciente' : 'Más antiguo')
                           : 'Fecha'}
                       </Button>
                       <Button
                         variant={sortBy === 'category' ? 'secondary' : 'ghost'}
                         size="sm"
                         onClick={() => setSortBy('category')}
-                        className="h-8 text-xs px-3"
+                        className="text-xs px-3 shrink-0"
                       >
                         🗂️ Categoría
                       </Button>
@@ -552,20 +560,20 @@ function AprendizajesContent() {
                         variant={sortBy === 'title' ? 'secondary' : 'ghost'}
                         size="sm"
                         onClick={() => setSortBy('title')}
-                        className="h-8 text-xs px-3"
+                        className="text-xs px-3 shrink-0"
                       >
                         🔤 Título
                       </Button>
-                      <div className="w-px h-4 bg-border mx-1" />
+                      <div className="hidden sm:block w-px h-4 bg-border mx-1" />
                       <Button
                         variant={showFavoritesOnly ? 'secondary' : 'ghost'}
                         size="sm"
                         onClick={() => setShowFavoritesOnly(prev => !prev)}
-                        className={`gap-1 h-8 text-xs px-3 ${showFavoritesOnly ? 'text-yellow-600 dark:text-yellow-400' : ''}`}
+                        className={`gap-1 text-xs px-3 shrink-0 ${showFavoritesOnly ? 'text-yellow-600 dark:text-yellow-400' : ''}`}
                       >
                         ⭐ Favoritos
                       </Button>
-                      <div className="w-px h-4 bg-border mx-1" />
+                      <div className="hidden sm:block w-px h-4 bg-border mx-1" />
                       <Button
                         variant="ghost"
                         size="sm"
@@ -575,7 +583,7 @@ function AprendizajesContent() {
                             localStorage.setItem('learnings_view_mode', newMode);
                         }}
                         title={viewMode === 'normal' ? "Cambiar a vista compacta" : "Cambiar a vista normal"}
-                        className="h-8 text-xs px-3"
+                        className="text-xs px-3 shrink-0"
                       >
                         {viewMode === 'normal' ? '🤏 Compacto' : '🃏 Tarjetas'}
                       </Button>
@@ -583,11 +591,11 @@ function AprendizajesContent() {
                         variant={showOnlyPendingReview ? 'destructive' : 'ghost'}
                         size="sm"
                         onClick={() => setShowOnlyPendingReview(prev => !prev)}
-                        className="gap-1 h-8 text-xs px-3"
+                        className="gap-1 text-xs px-3 shrink-0"
                       >
                         ⚠️ Pendientes
                         {showOnlyPendingReview && pendingReviewIds.length > 0 && (
-                          <span className="ml-1 text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full">
+                          <span className="ml-1 text-[10px] bg-foreground/15 px-1.5 py-0.5 rounded-full">
                             {pendingReviewIds.length}
                           </span>
                         )}
@@ -596,7 +604,7 @@ function AprendizajesContent() {
                   </div>
 
                   {/* Contador de resultados */}
-                  <motion.div 
+                  <motion.div
                     key={filteredAndSortedItems.length}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -611,7 +619,6 @@ function AprendizajesContent() {
                       <span>{filteredAndSortedItems.length} aprendizaje{filteredAndSortedItems.length !== 1 ? 's' : ''} total{filteredAndSortedItems.length !== 1 ? 'es' : ''}</span>
                     )}
                   </motion.div>
-              </div>
             </motion.div>
 
             {/* Grid de aprendizajes */}
@@ -634,9 +641,9 @@ function AprendizajesContent() {
                           Ahora mismo no tienes nada para repasar. Puedes aprender cosas nuevas pinchando aquí:
                         </p>
                         <Link href="/aprender">
-                          <Button 
-                            size="lg" 
-                            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all"
+                          <Button
+                            size="lg"
+                            className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-md hover:shadow-lg transition-all"
                           >
                             💬 Ir al Chat General
                           </Button>
@@ -722,9 +729,9 @@ function AprendizajesContent() {
                         {it.tags && it.tags.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-auto pt-2">
                             {it.tags.slice(0, viewMode === 'compact' ? 2 : 10).map((tag, i) => (
-                              <span 
+                              <span
                                 key={i}
-                                className="px-2 py-0.5 bg-muted text-muted-foreground text-[10px] rounded-full font-medium"
+                                className="px-2 py-0.5 bg-muted border border-border/50 text-muted-foreground text-[10px] rounded-full font-medium"
                               >
                                 {tag}
                               </span>
@@ -772,12 +779,12 @@ function AprendizajesContent() {
               className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" 
               onClick={handleCloseModal}
             >
-              <motion.div 
+              <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.9, opacity: 0 }}
                 transition={{ type: "spring", duration: 0.3 }}
-                className="bg-card rounded-2xl shadow-xl max-w-4xl w-full max-h-[85vh] overflow-hidden flex flex-col"
+                className="bg-card rounded-xl sm:rounded-2xl shadow-xl max-w-4xl w-full h-[95vh] sm:h-auto sm:max-h-[90vh] overflow-hidden flex flex-col"
                 onClick={e => e.stopPropagation()}
               >
                 {isChatting ? (
@@ -792,14 +799,14 @@ function AprendizajesContent() {
                   />
                 ) : (
                   <>
-                    <div className={`p-6 border-b border-border flex justify-between items-start transition-all duration-300 ${isFocusMode ? 'bg-background border-transparent' : 'bg-muted/30'}`}>
+                    <div className={`p-4 sm:p-6 border-b border-border flex justify-between items-start gap-2 transition-all duration-300 ${isFocusMode ? 'bg-background border-transparent' : 'bg-muted/30'}`}>
                       {!isFocusMode && (
-                        <div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-lg">{seleccionado.sectorIcon}</span>
-                            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{seleccionado.sectorName}</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-1.5 sm:mb-2 flex-wrap">
+                            <span className="text-base sm:text-lg">{seleccionado.sectorIcon}</span>
+                            <span className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wider truncate">{seleccionado.sectorName}</span>
                           </div>
-                          <h2 className="text-xl font-bold text-foreground pr-8">{seleccionado.title}</h2>
+                          <h2 className="text-base sm:text-xl font-bold text-foreground pr-2 sm:pr-8 leading-tight break-words">{seleccionado.title}</h2>
                         </div>
                       )}
                       
@@ -848,7 +855,7 @@ function AprendizajesContent() {
                       </div>
                     </div>
                     
-                    <div className={`overflow-y-auto prose prose-slate dark:prose-invert max-w-none text-foreground flex-1 transition-all duration-300 ${isFocusMode ? 'p-12 md:px-24 lg:px-32 text-lg leading-loose' : 'p-8'}`}>
+                    <div className={`overflow-y-auto prose prose-sm sm:prose-base dark:prose-invert max-w-none text-foreground flex-1 transition-all duration-300 ${isFocusMode ? 'p-4 sm:p-8 md:px-24 lg:px-32 sm:text-lg sm:leading-loose' : 'p-4 sm:p-8'}`}>
                       <ReactMarkdown>{seleccionado.summary}</ReactMarkdown>
 
                       {/* Sección de preguntas de prueba - Hide in Focus Mode */}
@@ -884,45 +891,50 @@ function AprendizajesContent() {
                     </div>
                     
                     {!isFocusMode && (
-                        <div className="p-4 border-t border-border bg-muted/30 flex flex-wrap justify-between gap-3">
-                        <Button 
+                        <div className="p-3 sm:p-4 border-t border-border bg-muted/30 flex flex-col sm:flex-row sm:flex-wrap sm:justify-between gap-2 sm:gap-3">
+                        <Button
                             variant="ghost"
+                            size="sm"
                             onClick={handleTestMe}
                             disabled={loadingQuestions || questions.length > 0}
-                            className="text-primary hover:text-primary/80 hover:bg-primary/10 gap-2"
+                            className="text-primary hover:text-primary/80 hover:bg-primary/10 gap-2 w-full sm:w-auto"
                         >
                             <span>🤔</span> Ponme a prueba
                         </Button>
 
-                        <div className="flex gap-3">
-                            <Button 
+                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
+                            <Button
                             variant="outline"
+                            size="sm"
                             onClick={handleCloseModal}
+                            className="w-full sm:w-auto order-3 sm:order-none"
                             >
                             Cerrar
                             </Button>
                             <Button
+                            size="sm"
                             onClick={() => {
                                 setChatIdToOpen(undefined); // Force new chat
                                 setIsChatting(true);
                             }}
                             variant="outline"
-                            className="flex items-center justify-center gap-2"
+                            className="flex items-center justify-center gap-2 w-full sm:w-auto"
                             >
                             <span>✨</span>
-                            <span>Nuevo chat sobre esto</span>
+                            <span>Nuevo chat</span>
                             </Button>
                             <Button
+                            size="sm"
                             onClick={() => {
                                 // Find existing chat linked to this learning item
                                 const linkedChat = chatStorage.getAllChats().find(c => c.linkedLearningId === seleccionado.id);
                                 setChatIdToOpen(linkedChat?.id); // If undefined, it will be a new chat anyway, but logically correct
                                 setIsChatting(true);
                             }}
-                            className="flex items-center justify-center gap-2"
+                            className="flex items-center justify-center gap-2 w-full sm:w-auto"
                             >
                             <span>💬</span>
-                            <span>Continuar aprendiendo sobre esto</span>
+                            <span className="truncate">Continuar aprendiendo</span>
                             </Button>
                         </div>
                         </div>

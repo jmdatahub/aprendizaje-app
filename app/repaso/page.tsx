@@ -400,13 +400,13 @@ export default function RepasoPage() {
                   {t('weekly_test.exit')}
               </Link>
               
-              <div className="p-6 flex justify-between items-center">
-                  <div className="text-sm font-medium text-slate-400">
+              <div className="p-3 sm:p-6 pt-16 sm:pt-6 flex justify-between items-center gap-3">
+                  <div className="text-xs sm:text-sm font-medium text-slate-400 shrink-0">
                       {t('weekly_test.question_counter', { current: currentIndex + 1, total: preguntas.length })}
                   </div>
-                  
-                  <div className="relative flex items-center justify-center">
-                      <svg className="transform -rotate-90" width="120" height="120">
+
+                  <div className="relative flex items-center justify-center shrink-0">
+                      <svg className="transform -rotate-90 w-[80px] h-[80px] sm:w-[120px] sm:h-[120px]" viewBox="0 0 120 120">
                           <circle cx="60" cy="60" r="54" stroke="currentColor" strokeWidth="8" fill="none" className="text-slate-700" />
                           <circle
                               cx="60" cy="60" r="54" stroke="currentColor" strokeWidth="8" fill="none"
@@ -417,7 +417,7 @@ export default function RepasoPage() {
                           />
                       </svg>
                       <div className={`absolute inset-0 flex flex-col items-center justify-center ${timeLeft <= 5 ? 'animate-pulse' : ''}`}>
-                          <div className={`text-3xl font-bold font-mono ${timeLeft <= 5 ? 'text-red-400' : timeLeft <= 10 ? 'text-orange-400' : 'text-blue-400'}`}>
+                          <div className={`text-xl sm:text-3xl font-bold font-mono ${timeLeft <= 5 ? 'text-red-400' : timeLeft <= 10 ? 'text-orange-400' : 'text-blue-400'}`}>
                               {timeLeft}
                           </div>
                       </div>
@@ -425,19 +425,19 @@ export default function RepasoPage() {
               </div>
 
               {/* Question Container with Animation */}
-              <div 
-                  key={currentIndex} 
-                  className={`flex-1 flex flex-col justify-center px-6 max-w-3xl mx-auto w-full space-y-8 ${
+              <div
+                  key={currentIndex}
+                  className={`flex-1 flex flex-col justify-center px-4 sm:px-6 max-w-3xl mx-auto w-full space-y-5 sm:space-y-8 pb-6 ${
                       isTransitioning ? 'animate-slide-out-left' : 'animate-slide-in-right'
                   }`}
               >
                   <div className="space-y-2">
-                      <span className="text-xs font-bold tracking-wider text-indigo-400 uppercase">{p.titulo}</span>
-                      <h2 className="text-3xl md:text-4xl font-bold leading-tight">{p.enunciado}</h2>
+                      <span className="text-[10px] sm:text-xs font-bold tracking-wider text-indigo-400 uppercase">{p.titulo}</span>
+                      <h2 className="text-xl sm:text-3xl md:text-4xl font-bold leading-tight break-words">{p.enunciado}</h2>
                   </div>
-                  
+
                   {p.tipo === 'test' && p.opciones ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                           {p.opciones.map((opcion, idx) => (
                               <button
                                   key={idx}
@@ -446,9 +446,9 @@ export default function RepasoPage() {
                                       onChangeRespuesta(currentIndex, opcion);
                                       setTimeout(handleNextQuestion, 200);
                                   }}
-                                  className={`p-6 rounded-xl text-left transition-all ${
-                                      p.respuestaUsuario === opcion 
-                                      ? 'bg-blue-600 text-white shadow-lg scale-105' 
+                                  className={`p-4 sm:p-6 rounded-xl text-left transition-all break-words ${
+                                      p.respuestaUsuario === opcion
+                                      ? 'bg-blue-600 text-white shadow-lg scale-[1.02] sm:scale-105'
                                       : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-2 border-slate-700 hover:border-blue-500'
                                   }`}
                               >
@@ -464,7 +464,7 @@ export default function RepasoPage() {
                           onChange={(e) => onChangeRespuesta(currentIndex, e.target.value)}
                           onKeyDown={handleKeyDown}
                           placeholder={t('chat.input_placeholder')}
-                          className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-6 text-xl text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none transition-colors h-48 resize-none"
+                          className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-4 sm:p-6 text-base sm:text-xl text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none transition-colors h-40 sm:h-48 resize-none"
                       />
                   )}
 
@@ -518,14 +518,14 @@ export default function RepasoPage() {
               {t('weekly_test.exit')}
           </Link>
           
-          <div className="sticky top-0 z-10 bg-amber-100 border-b border-amber-200 p-4 flex justify-between items-center shadow-sm">
-              <div>
-                  <h2 className="text-xl font-bold text-amber-900">{t('weekly_test.review_title')}</h2>
-                  <p className="text-xs text-amber-700">{t('weekly_test.review_desc')}</p>
+          <div className="sticky top-0 z-10 bg-amber-100 border-b border-amber-200 p-3 sm:p-4 pt-16 sm:pt-4 flex justify-between items-center gap-3 shadow-sm">
+              <div className="min-w-0 flex-1">
+                  <h2 className="text-base sm:text-xl font-bold text-amber-900 truncate">{t('weekly_test.review_title')}</h2>
+                  <p className="text-[10px] sm:text-xs text-amber-700 line-clamp-1">{t('weekly_test.review_desc')}</p>
               </div>
-              
-              <div className="relative flex items-center justify-center">
-                  <svg className="transform -rotate-90" width="100" height="100">
+
+              <div className="relative flex items-center justify-center shrink-0">
+                  <svg className="transform -rotate-90 w-[64px] h-[64px] sm:w-[100px] sm:h-[100px]" viewBox="0 0 100 100">
                       <circle cx="50" cy="50" r="45" stroke="currentColor" strokeWidth="6" fill="none" className="text-amber-200" />
                       <circle
                           cx="50" cy="50" r="45" stroke="currentColor" strokeWidth="6" fill="none"
@@ -536,7 +536,7 @@ export default function RepasoPage() {
                       />
                   </svg>
                   <div className={`absolute inset-0 flex flex-col items-center justify-center ${timeLeft <= 15 ? 'animate-pulse' : ''}`}>
-                      <div className={`text-2xl font-bold font-mono ${timeLeft <= 15 ? 'text-red-600' : 'text-amber-900'}`}>
+                      <div className={`text-sm sm:text-2xl font-bold font-mono ${timeLeft <= 15 ? 'text-red-600' : 'text-amber-900'}`}>
                           {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
                       </div>
                   </div>
@@ -561,23 +561,23 @@ export default function RepasoPage() {
               )}
           </div>
 
-          <div className="flex-1 overflow-y-auto p-6 space-y-6 max-w-3xl mx-auto w-full">
+          <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 sm:space-y-6 max-w-3xl mx-auto w-full">
               {preguntas.map((p, idx) => (
-                  <div key={idx} id={`question-${idx}`} className={`bg-white p-6 rounded-xl shadow-sm border ${markedForReview.includes(idx) ? 'border-yellow-400 ring-2 ring-yellow-100' : 'border-amber-100'}`}>
-                      <div className="flex justify-between mb-2">
-                          <span className="text-xs font-bold text-amber-500">{t('weekly_test.question_counter', { current: idx + 1, total: preguntas.length })}</span>
-                          <span className="text-xs text-gray-400">{p.titulo}</span>
+                  <div key={idx} id={`question-${idx}`} className={`bg-white p-4 sm:p-6 rounded-xl shadow-sm border ${markedForReview.includes(idx) ? 'border-yellow-400 ring-2 ring-yellow-100' : 'border-amber-100'}`}>
+                      <div className="flex justify-between gap-2 mb-2">
+                          <span className="text-xs font-bold text-amber-500 shrink-0">{t('weekly_test.question_counter', { current: idx + 1, total: preguntas.length })}</span>
+                          <span className="text-xs text-gray-400 truncate">{p.titulo}</span>
                       </div>
-                      <p className="font-medium text-gray-800 mb-3">{p.enunciado}</p>
+                      <p className="font-medium text-gray-800 mb-3 break-words">{p.enunciado}</p>
                       {p.tipo === 'test' && p.opciones ? (
-                          <div className="grid grid-cols-2 gap-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                               {p.opciones.map((op, i) => (
-                                  <button 
-                                      key={i} 
+                                  <button
+                                      key={i}
                                       onClick={() => { playClick(); onChangeRespuesta(idx, op) }}
-                                      className={`p-2 rounded border text-sm transition-all ${
-                                          p.respuestaUsuario === op 
-                                          ? 'bg-amber-500 border-amber-600 text-white font-medium' 
+                                      className={`p-2.5 sm:p-2 rounded border text-sm transition-all break-words text-left ${
+                                          p.respuestaUsuario === op
+                                          ? 'bg-amber-500 border-amber-600 text-white font-medium'
                                           : 'bg-gray-50 hover:bg-amber-50 hover:border-amber-300'
                                       }`}
                                   >

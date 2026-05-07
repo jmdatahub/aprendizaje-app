@@ -173,7 +173,7 @@ export default function Home() {
   }, [showMobileMenu])
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center pt-24 p-8 relative transition-colors duration-500">
+    <div className="min-h-screen bg-background flex flex-col items-center pt-14 sm:pt-24 px-4 sm:px-8 pb-mobile-nav md:pb-8 relative transition-colors duration-500">
       {/* Background atmospheric glow — dark mode only */}
       <div className="dark:block hidden fixed inset-0 overflow-hidden pointer-events-none -z-10">
         <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[600px] rounded-full bg-indigo-600/[0.06] blur-[130px]" />
@@ -188,33 +188,37 @@ export default function Home() {
       />
 
       {/* Top Right Controls */}
-      <div className="fixed top-4 right-4 flex items-center gap-3 z-50">
+      <div
+        className="fixed top-3 right-3 sm:top-4 sm:right-4 flex items-center gap-2 sm:gap-3 z-50"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
         <Link
           href="/repaso/historial"
           onClick={() => playClick()}
-          className="text-muted-foreground hover:text-foreground p-2 rounded-full hover:bg-muted transition-all"
-          title="Ver historial"
+          aria-label="Historial de exámenes"
+          className="text-muted-foreground hover:text-foreground p-2.5 sm:p-2 rounded-full hover:bg-muted active:bg-muted active:scale-95 transition-all min-w-[40px] min-h-[40px] flex items-center justify-center"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </Link>
 
         <button
+          type="button"
           onClick={() => {
             playClick()
             setIsSettingsOpen(true)
           }}
-          className="text-muted-foreground hover:text-foreground p-2 rounded-full hover:bg-muted transition-all"
-          title={t('settings.title')}
+          aria-label={t('settings.title')}
+          className="text-muted-foreground hover:text-foreground p-2.5 sm:p-2 rounded-full hover:bg-muted active:bg-muted active:scale-95 transition-all min-w-[40px] min-h-[40px] flex items-center justify-center"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
         </button>
 
-        <div className="text-muted-foreground/50 text-[10px] select-none">
+        <div className="hidden sm:block text-muted-foreground/50 text-[10px] select-none">
           {APP_VERSION}
         </div>
       </div>
@@ -423,12 +427,12 @@ export default function Home() {
             MOBILE VIEW (visible only on mobile)
             EDIT THIS SECTION FREELY
             ========================================= */}
-        <div className="flex md:hidden flex-col items-center gap-6 w-full relative">
+        <div className="flex md:hidden flex-col items-center gap-5 w-full relative">
              {/* 1. Bloque Principal Mobile */}
-            <div className="text-center space-y-6 w-full">
-              <div className="h-24 flex items-center justify-center">
+            <div className="text-center space-y-5 w-full">
+              <div className="min-h-[96px] flex items-center justify-center">
                 <h1
-                  className={`text-4xl text-foreground text-balance transition-all duration-700 ease-in-out ${fadeIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+                  className={`text-3xl sm:text-4xl text-foreground text-balance leading-[1.1] transition-all duration-700 ease-in-out ${fadeIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
                 >
                   {headlines[headlineIndex]}
                 </h1>
@@ -575,20 +579,20 @@ export default function Home() {
                         }
                       }}
                     >
-                      <div className={`p-4 rounded-2xl transition-all flex items-center gap-3 cursor-pointer relative overflow-hidden ${
+                      <div className={`p-4 rounded-2xl transition-all flex items-center gap-3 cursor-pointer relative overflow-hidden min-h-[68px] ${
                         isLocked
-                          ? 'bg-muted/30 border border-border/30 opacity-55'
+                          ? 'bg-muted/40 border border-border/40 active:bg-muted/60'
                           : 'bg-card border border-border/50 active:bg-accent/50 shadow-sm'
                       }`}>
-                        <span className={`text-2xl ${isLocked ? 'grayscale opacity-40' : ''}`}>
+                        <span className={`text-2xl shrink-0 ${isLocked ? 'opacity-70' : ''}`}>
                           {sector.icono}
                         </span>
-                        <span className={`text-sm font-medium leading-tight ${isLocked ? 'text-muted-foreground/50' : 'text-foreground/90'}`}>
+                        <span className={`text-sm font-medium leading-tight min-w-0 break-words ${isLocked ? 'text-muted-foreground' : 'text-foreground/90'}`}>
                           {sectorName}
                         </span>
 
                         {isLocked && (
-                          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/30">
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/60" aria-hidden="true">
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                             </svg>
