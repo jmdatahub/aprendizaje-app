@@ -19,6 +19,7 @@ import { useApp } from "@/shared/contexts/AppContext"
 
 import { SECTORES_DATA } from "@/shared/constants/sectores"
 import { reviewSrs, isDue, type SrsState, type ReviewGrade } from "@/lib/srs"
+import { needsReview } from "@/lib/review"
 
 type ReviewEntry = {
   date: string;
@@ -72,7 +73,6 @@ function AprendizajesContent() {
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortOption>('date')
   const [dateSortDirection, setDateSortDirection] = useState<DateSortDirection>('desc')
-  const [showOnlyPendingReview, setShowOnlyPendingReview] = useState(false)
   const [showOnlyDueToday, setShowOnlyDueToday] = useState(false)
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
   const [pendingReviewIds, setPendingReviewIds] = useState<string[]>([])
@@ -89,10 +89,10 @@ function AprendizajesContent() {
   const [reviewToast, setReviewToast] = useState<{ item: Item; previousPending: string[]; previousSrs?: SrsState } | null>(null)
   const [pulsingReviewedId, setPulsingReviewedId] = useState<string | null>(null)
 
-  // Auto-activate pending filter from URL parameter
+  // Auto-activa el filtro unificado "Repasar hoy" desde la URL (?pending / ?review).
   useEffect(() => {
-    if (searchParams.get('pending') === 'true') {
-      setShowOnlyPendingReview(true)
+    if (searchParams.get('pending') === 'true' || searchParams.get('review') === 'true') {
+      setShowOnlyDueToday(true)
     }
   }, [searchParams])
 
@@ -323,16 +323,11 @@ function AprendizajesContent() {
       );
     }
 
-    // Filtrar por pendientes de repaso
-    if (showOnlyPendingReview) {
-      result = result.filter(item => pendingReviewIds.includes(item.id));
-    }
-
-    // Filtrar por SRS "Repasar hoy" (items con repetición espaciada ya vencida).
-    // Filtro NUEVO e independiente del de "Pendientes" (decayed_items).
+    // Filtro unificado "Repasar hoy": SRS vencido O pendiente del test semanal.
     if (showOnlyDueToday) {
       const now = new Date();
-      result = result.filter(item => isDue(item.srs, now));
+      const decayed = new Set(pendingReviewIds);
+      result = result.filter(item => needsReview(item, decayed, now));
     }
 
     // Filtrar por favoritos
@@ -358,13 +353,14 @@ function AprendizajesContent() {
     }
 
     return result;
-  }, [items, searchQuery, sortBy, dateSortDirection, showOnlyPendingReview, pendingReviewIds, showOnlyDueToday, showFavoritesOnly]);
+  }, [items, searchQuery, sortBy, dateSortDirection, pendingReviewIds, showOnlyDueToday, showFavoritesOnly]);
 
-  // Nº de aprendizajes con SRS vencido ("Repasar hoy"). Independiente de decayed_items.
+  // Nº de aprendizajes que tocan repasar hoy (SRS vencido O pendientes del test).
   const dueTodayCount = useMemo(() => {
     const now = new Date();
-    return items.reduce((acc, item) => acc + (isDue(item.srs, now) ? 1 : 0), 0);
-  }, [items]);
+    const decayed = new Set(pendingReviewIds);
+    return items.reduce((acc, item) => acc + (needsReview(item, decayed, now) ? 1 : 0), 0);
+  }, [items, pendingReviewIds]);
 
   const monthlyStats = useMemo(() => {
     const now = new Date();
@@ -690,33 +686,31 @@ function AprendizajesContent() {
                       >
                         {viewMode === 'normal' ? '🤏 Compacto' : '🃏 Tarjetas'}
                       </Button>
-                      <Button
-                        variant={showOnlyPendingReview ? 'destructive' : 'ghost'}
-                        size="sm"
-                        onClick={() => setShowOnlyPendingReview(prev => !prev)}
-                        className="gap-1 text-xs px-3 shrink-0"
-                      >
-                        ⚠️ Pendientes
-                        {showOnlyPendingReview && pendingReviewIds.length > 0 && (
-                          <span className="ml-1 text-[10px] bg-foreground/15 px-1.5 py-0.5 rounded-full">
-                            {pendingReviewIds.length}
+                      {/* Lanzar la sesión guiada de repaso (unificada: SRS + test) */}
+                      {dueTodayCount > 0 && (
+                        <Link
+                          href="/repaso/hoy"
+                          onClick={() => playClick()}
+                          aria-label={`Repasar ahora: ${dueTodayCount} aprendizaje${dueTodayCount !== 1 ? 's' : ''}`}
+                          className="inline-flex items-center gap-1 text-xs px-3 h-8 rounded-md shrink-0 bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity"
+                        >
+                          ▶ Repasar hoy
+                          <span className="ml-1 text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full">
+                            {dueTodayCount}
                           </span>
-                        )}
-                      </Button>
-                      {/* Chip SRS "Repasar hoy" — solo si hay aprendizajes vencidos. */}
+                        </Link>
+                      )}
+                      {/* Filtro: mostrar en la lista solo los que tocan repasar */}
                       {dueTodayCount > 0 && (
                         <Button
                           variant={showOnlyDueToday ? 'secondary' : 'ghost'}
                           size="sm"
                           onClick={() => setShowOnlyDueToday(prev => !prev)}
                           aria-pressed={showOnlyDueToday}
-                          aria-label={`Repasar hoy: ${dueTodayCount} aprendizaje${dueTodayCount !== 1 ? 's' : ''} ${showOnlyDueToday ? '(filtro activo)' : ''}`}
+                          aria-label={`Filtrar la lista por pendientes de repaso ${showOnlyDueToday ? '(filtro activo)' : ''}`}
                           className={`gap-1 text-xs px-3 shrink-0 ${showOnlyDueToday ? 'text-primary' : ''}`}
                         >
-                          📅 Repasar hoy
-                          <span className="ml-1 text-[10px] bg-foreground/15 px-1.5 py-0.5 rounded-full">
-                            {dueTodayCount}
-                          </span>
+                          📅 Solo pendientes
                         </Button>
                       )}
                     </div>
@@ -729,10 +723,10 @@ function AprendizajesContent() {
                     animate={{ opacity: 1 }}
                     className="text-xs text-muted-foreground text-right"
                   >
-                    {searchQuery || showOnlyPendingReview ? (
+                    {searchQuery || showOnlyDueToday ? (
                       <span>
                         {filteredAndSortedItems.length} resultado{filteredAndSortedItems.length !== 1 ? 's' : ''} encontrado{filteredAndSortedItems.length !== 1 ? 's' : ''}
-                        {showOnlyPendingReview && ' (pendientes de repaso)'}
+                        {showOnlyDueToday && ' (para repasar hoy)'}
                       </span>
                     ) : (
                       <span>{filteredAndSortedItems.length} aprendizaje{filteredAndSortedItems.length !== 1 ? 's' : ''} total{filteredAndSortedItems.length !== 1 ? 'es' : ''}</span>
@@ -743,7 +737,7 @@ function AprendizajesContent() {
             {/* Grid de aprendizajes */}
             <AnimatePresence mode="popLayout">
               {filteredAndSortedItems.length === 0 ? (
-                showOnlyPendingReview && !searchQuery ? (
+                showOnlyDueToday && !searchQuery ? (
                   /* Empty State for Pending Reviews */
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}

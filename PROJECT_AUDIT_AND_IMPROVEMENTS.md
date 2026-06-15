@@ -445,9 +445,33 @@ mostrados como dos chips separados en la home, sin un flujo de "sesión de repas
 `app/aprendizajes/[sectorId]/page.tsx` no muestra los botones SRS (solo la vista agregada). Consolidar o
 clarificar estos dos modelos es una decisión de Jorge → ver §6.1.
 
+### Ronda 16 — Sistema de repaso UNIFICADO + sesión guiada (decisión de Jorge)
+
+> **2026-06-15 — Jorge respondió a §R15:** "haz lo más profesional posible, que quede genial,
+> cuanto más desarrollado pero optimizado, fijándose en la mejor UX, pero no construyas por construir."
+> Interpretación: unificar los dos modelos de repaso en uno solo, con la UX estándar de un SRS
+> (sesión guiada uno-a-uno), sin sobre-ingeniería. Es 100% client-side → verificable sin Supabase.
+
+Resuelve el hallazgo arquitectónico de R15. Verificado en preview de extremo a extremo.
+
+| # | Archivo | Cambio | Validación |
+|---|---------|--------|------------|
+| 55 | `lib/review.ts` (nuevo) | Capa unificada: `getDecayedIds`, `needsReview` (isDue OR pendiente del test), `loadDueReviewItems` (carga+ordena por urgencia), `applyReview` (recalcula SRS + reviewHistory y limpia decayed_items, en un único sitio). | typecheck ✓ |
+| 56 | `app/repaso/hoy` (nuevo) | **Sesión de repaso guiada** uno-a-uno: recall activo (oculta el resumen), vista previa del próximo intervalo por grado, barra de progreso, pantalla final con stats, estado vacío. Mobile-first + a11y + safe-area. | **runtime ✓ (3 tarjetas: 2 SRS + 1 del test; califica, persiste SRS, migra el item del test a SRS, pantalla final)** |
+| 57 | `app/page.tsx` | Fusiona los dos chips del home ("Pendientes" + "Repasar hoy") en **uno** que lanza la sesión; contador unificado. | **runtime ✓ ("Repasar hoy: 3")** |
+| 58 | `app/aprendizajes/page.tsx` | Filtro unificado (un solo "Repasar hoy" = isDue OR pendiente); botón **▶ Repasar hoy (N)** que lanza la sesión; `?pending`/`?review` activan el filtro. | **runtime ✓ (launch link "▶ Repasar hoy 2", filtro)** |
+| 59 | `app/aprendizajes/[sectorId]/page.tsx` | Paridad: la insignia "Repasar" ahora refleja SRS+test; botones de calidad (otra vez/bien/fácil) en el modal de detalle vía `applyReview`. | **runtime ✓ (insignia tras calificar desaparece al recargar)** |
+
+Fix incluido: se descartó `AnimatePresence mode="wait"` en la sesión (dejaba la tarjeta colgada
+sin avanzar) por un `motion.div` remontado por `key`.
+
+**Nota de verificación:** el cierre de modales mediante click sintético en el preview es poco fiable
+(limitación del harness, ya documentada); la lógica de cierre es la misma `setSeleccionado(null)` del
+botón "Cerrar" preexistente, y la persistencia del repaso se verificó por recarga limpia.
+
 ### ⏸️ LÍMITE DE TRABAJO IN-HANDS ALCANZADO (2026-06-15)
 
-Tras 15 rondas, **está hecho y validado TODO lo de alto valor que se puede completar de forma segura
+Tras 16 rondas, **está hecho y validado TODO lo de alto valor que se puede completar de forma segura
 sin Supabase y sin decisiones de producto de Jorge.** Estado global: **typecheck ✓ · lint 0 · 52 tests ✓ · build ✓**.
 
 Lo que QUEDA requiere acción de Jorge:

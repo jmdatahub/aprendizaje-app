@@ -19,6 +19,9 @@ import { Card, CardContent } from '@/components/ui/card'
 import { useApp } from "@/shared/contexts/AppContext"
 
 import { SECTORES_DATA } from "@/shared/constants/sectores"
+import { isDue, type SrsState, type ReviewGrade } from "@/lib/srs"
+import { applyReview } from "@/lib/review"
+import { playClick } from "@/shared/utils/sounds"
 
 const COLOR_CLASSES: Record<string, string> = {
   green: 'bg-green-50 text-green-900 border-green-200',
@@ -37,6 +40,7 @@ type Aprendizaje = {
   title: string
   summary: string
   date: string
+  srs?: SrsState
 }
 
 type SortOption = 'date' | 'title'
@@ -115,11 +119,23 @@ export default function SectorAprendizajesPage() {
   useEffect(() => {
     try {
       const decayedIds = JSON.parse(localStorage.getItem('decayed_items') || '[]');
-      setPendingReviewIds(decayedIds);
+      setPendingReviewIds(Array.isArray(decayedIds) ? decayedIds : []);
     } catch (e) {
       console.error("Error loading pending review items", e);
     }
   }, []);
+
+  // Califica el aprendizaje seleccionado (repaso unificado): recalcula su SRS,
+  // lo quita de pendientes y refresca el estado local. Misma lógica que la lista
+  // agregada y la sesión guiada (lib/review.applyReview).
+  const handleGradeSelected = (grade: ReviewGrade) => {
+    if (!seleccionado || !sectorInfo) return;
+    const newSrs = applyReview(sectorInfo.id, seleccionado.id, grade, new Date());
+    playClick();
+    setItems(prev => prev.map(it => it.id === seleccionado.id ? { ...it, srs: newSrs ?? it.srs } : it));
+    setPendingReviewIds(prev => prev.filter(id => id !== seleccionado.id));
+    setSeleccionado(null);
+  };
 
   // Estado para edición de títulos
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -387,7 +403,7 @@ export default function SectorAprendizajesPage() {
                   className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
                 >
                   {filteredAndSortedItems.map((it, index) => {
-                    const needsReview = pendingReviewIds.includes(it.id);
+                    const needsReview = isDue(it.srs, new Date()) || pendingReviewIds.includes(it.id);
                     return (
                       <motion.div
                         key={it.id}
@@ -575,6 +591,18 @@ export default function SectorAprendizajesPage() {
                 <div className="p-4 sm:p-8 md:p-10 overflow-y-auto prose prose-sm sm:prose-base md:prose-lg prose-slate max-w-none flex-1 text-gray-800">
                   <ReactMarkdown>{seleccionado.summary}</ReactMarkdown>
                 </div>
+
+                {/* Repaso unificado: si el aprendizaje toca repasar, se califica aquí */}
+                {(isDue(seleccionado.srs, new Date()) || pendingReviewIds.includes(seleccionado.id)) && (
+                  <div className="px-4 sm:px-8 pb-1">
+                    <p className="text-center text-sm font-medium text-gray-700 mb-2">¿Qué tal lo recordaste?</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button type="button" onClick={() => handleGradeSelected('again')} aria-label="Repaso: otra vez (no lo recordé)" className="min-h-[48px] rounded-lg bg-red-50 text-red-600 font-medium hover:bg-red-100 transition-colors">Otra vez</button>
+                      <button type="button" onClick={() => handleGradeSelected('good')} aria-label="Repaso: bien" className="min-h-[48px] rounded-lg bg-blue-50 text-blue-600 font-medium hover:bg-blue-100 transition-colors">Bien</button>
+                      <button type="button" onClick={() => handleGradeSelected('easy')} aria-label="Repaso: fácil" className="min-h-[48px] rounded-lg bg-green-50 text-green-600 font-medium hover:bg-green-100 transition-colors">Fácil</button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Footer del Modal con Acciones */}
                 <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3">
