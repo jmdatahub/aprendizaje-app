@@ -469,7 +469,28 @@ sin avanzar) por un `motion.div` remontado por `key`.
 (limitación del harness, ya documentada); la lógica de cierre es la misma `setSeleccionado(null)` del
 botón "Cerrar" preexistente, y la persistencia del repaso se verificó por recarga limpia.
 
-### ⏸️ LÍMITE DE TRABAJO IN-HANDS ALCANZADO (2026-06-15)
+### ✅ Ronda 17 — Supabase RESTAURADO (backend nuevo) y todos los flujos verificados
+
+El proyecto Supabase anterior estaba **pausado >90 días** (no restaurable) y su backup **no tenía datos
+de usuario** (0 aprendizajes; solo 9 sectores estáticos ya hardcodeados). Decisión: **proyecto nuevo limpio**.
+
+- **Proyecto nuevo** `aprendizaje-app` (ref `oumnkxwpqppysncdwyhu`, región eu-west-3) creado vía MCP en la
+  cuenta conectada (org `nandoherrera97-code`). Coste **0 €/mes** (free).
+- **Esquema completo** aplicado: 11 tablas (`habilidades`, `sesiones_practica`, `habits`, `habit_logs`,
+  `recordatorios`, `chats`, `chat_mensajes`, `exam_history`, `aprendizajes`, `sectores`, `progreso`) con
+  RLS pública (modo sin login) + triggers + índices. Canónico en `docs/migrations/2026_06_supabase_init.sql`.
+- **Bug de esquema resuelto** (el famoso `categoria` vs `categorias`): el código usa `categorias text[]` y
+  `nivel_percibido`; el esquema viejo de los docs no los tenía → añadidos y verificados.
+- `.env.local` actualizado a la nueva URL + anon key. Backup viejo en `.supabase-backup/` (gitignored).
+- **Verificado runtime contra la BD nueva**: `/api/health` → `supabase: ok`. Flujos antes bloqueados, todos 200:
+  habilidades (crear/leer/**PATCH** con `categorias` array), sesiones_práctica, recordatorios, exam_history,
+  habits, chats, y chat_mensajes con respuesta **real de OpenAI**. Datos de prueba limpiados (BD pristina).
+
+**Pendiente de Jorge (producción):** poner las mismas `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+en **Vercel** (Project → Settings → Environment Variables) y redeploy, para que la app desplegada use el
+backend nuevo. **Siguiente oportunidad:** migración localStorage→Supabase de aprendizajes + mediciones server-side.
+
+### ⏸️ LÍMITE DE TRABAJO IN-HANDS ALCANZADO (2026-06-15) — *(superado en R17: Supabase ya está activo)*
 
 Tras 16 rondas, **está hecho y validado TODO lo de alto valor que se puede completar de forma segura
 sin Supabase y sin decisiones de producto de Jorge.** Estado global: **typecheck ✓ · lint 0 · 52 tests ✓ · build ✓**.
