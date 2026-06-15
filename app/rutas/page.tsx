@@ -8,24 +8,32 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { playClick } from "@/shared/utils/sounds"
 import { generateLearningPath } from "@/features/learning-paths/services/pathGenerator"
-import { getActivePath, saveLearningPath, updatePathProgress } from "@/features/learning-paths/services/learningPathsStorage"
-import { LearningPath } from "@/features/learning-paths/types"
+import { getActivePath, getLearningPaths, saveLearningPath } from "@/features/learning-paths/services/learningPathsStorage"
+import { LearningPath, PathStep } from "@/features/learning-paths/types"
 
-import { motion, AnimatePresence } from "framer-motion"
+import { motion } from "framer-motion"
 
 export default function RutasPage() {
   const router = useRouter()
   const [topic, setTopic] = useState("")
   const [loading, setLoading] = useState(false)
   const [activePath, setActivePath] = useState<LearningPath | null>(null)
+  const [completedPaths, setCompletedPaths] = useState<LearningPath[]>([])
   const [error, setError] = useState("")
 
 
-  // Load active path on mount
+  // Load active + completed paths on mount
   useEffect(() => {
     const path = getActivePath()
     if (path && !path.completed) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrates the active learning path once on mount from getActivePath() (reads localStorage, client-only/undefined during SSR) so a lazy useState initializer isn't usable
       setActivePath(path)
+    }
+    const done = getLearningPaths()
+      .filter((p) => p.completed)
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+    if (done.length > 0) {
+      setCompletedPaths(done)
     }
   }, [])
 
@@ -41,7 +49,7 @@ export default function RutasPage() {
       saveLearningPath(newPath)
       setActivePath(newPath)
       setTopic("")
-    } catch (err) {
+    } catch {
         if (activePath) {
             const updated = { ...activePath, completed: true };
             saveLearningPath(updated);
@@ -50,7 +58,7 @@ export default function RutasPage() {
     }
   }
 
-  const handleStartStep = (step: any) => {
+  const handleStartStep = (step: PathStep) => {
     playClick()
 
     let summary = `Aprendiendo sobre ${step.title}`;
@@ -66,7 +74,7 @@ export default function RutasPage() {
           const stored = localStorage.getItem(key);
           if (!stored) continue;
           const data = JSON.parse(stored);
-          const item = data.items?.find((i: any) => i.id === step.learningId);
+          const item = data.items?.find((i: { id: string; summary: string }) => i.id === step.learningId);
           if (item) {
             summary = item.summary;
             break;
@@ -84,10 +92,23 @@ export default function RutasPage() {
   const handleReset = () => {
     if (confirm("¿Quieres borrar esta ruta y crear una nueva?")) {
         if (activePath) {
-            const updated = { ...activePath, completed: true };
+            const updated = { ...activePath, completed: true, updatedAt: Date.now() };
             saveLearningPath(updated);
+            setCompletedPaths((prev) => [updated, ...prev.filter((p) => p.id !== updated.id)]);
         }
         setActivePath(null);
+    }
+  }
+
+  const formatDate = (timestamp: number): string => {
+    try {
+      return new Date(timestamp).toLocaleDateString('es-ES', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
+    } catch {
+      return '';
     }
   }
 
@@ -165,33 +186,68 @@ export default function RutasPage() {
                         Ruta Activa
                     </span>
                     <h2 className="text-3xl font-bold text-gray-800 mt-4 dark:text-white">{activePath.title}</h2>
-                    <button 
+                    <button
                         onClick={handleReset}
                         className="text-xs text-gray-400 hover:text-red-500 mt-2 underline"
                     >
                         Borrar y crear nueva
                     </button>
+
+                    {/* Progreso de la ruta */}
+                    {(() => {
+                        const total = activePath.steps.length;
+                        const done = activePath.steps.filter((s) => s.completed).length;
+                        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+                        return (
+                            <div className="max-w-sm mx-auto mt-5">
+                                <div className="flex justify-between items-center text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
+                                    <span>Progreso</span>
+                                    <span>{done}/{total} ({pct}%)</span>
+                                </div>
+                                <div
+                                    className="h-2.5 w-full bg-indigo-100 dark:bg-slate-700 rounded-full overflow-hidden"
+                                    role="progressbar"
+                                    aria-valuenow={pct}
+                                    aria-valuemin={0}
+                                    aria-valuemax={100}
+                                    aria-label={`Progreso de la ruta: ${done} de ${total} pasos completados`}
+                                >
+                                    <div
+                                        className="h-full bg-indigo-600 transition-all duration-500"
+                                        style={{ width: `${pct}%` }}
+                                    />
+                                </div>
+                            </div>
+                        );
+                    })()}
                 </div>
 
                 <div className="space-y-6 relative">
                     {/* Connecting Line */}
                     <div className="absolute left-8 top-8 bottom-8 w-0.5 bg-indigo-100 dark:bg-slate-700 -z-10" />
 
-                    {activePath.steps.map((step, index) => (
-                        <motion.div 
+                    {activePath.steps.map((step, index) => {
+                        const completed = step.completed;
+                        const isCurrent = index === activePath.currentStepIndex && !completed;
+                        return (
+                        <motion.div
                             key={step.id}
                             initial={{ opacity: 0, x: -20 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: index * 0.2 }}
                         >
                             <Card className={`overflow-hidden transition-all duration-300 ${
-                                index === 0 ? 'border-indigo-500 shadow-md ring-4 ring-indigo-50 dark:ring-indigo-900/20' : 'border-gray-200 opacity-90'
+                                completed
+                                  ? 'border-green-500 ring-2 ring-green-50 dark:ring-green-900/20'
+                                  : isCurrent
+                                    ? 'border-indigo-500 shadow-md ring-4 ring-indigo-50 dark:ring-indigo-900/20'
+                                    : 'border-gray-200 opacity-90'
                             }`}>
                                 <CardContent className="p-0 flex">
                                     <div className={`w-12 sm:w-16 shrink-0 flex items-center justify-center font-bold text-lg sm:text-xl ${
-                                        index === 0 ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-400'
+                                        completed ? 'bg-green-600 text-white' : isCurrent ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-400'
                                     }`}>
-                                        {index + 1}
+                                        {completed ? '✓' : index + 1}
                                     </div>
                                     <div className="p-4 sm:p-6 flex-1 min-w-0">
                                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-2">
@@ -203,25 +259,62 @@ export default function RutasPage() {
                                         <p className="text-sm text-indigo-600 dark:text-indigo-400 font-medium mb-4">
                                             💡 {step.description}
                                         </p>
-                                        <Button 
+                                        <Button
                                             onClick={() => handleStartStep(step)}
                                             size="sm"
-                                            variant={index === 0 ? "default" : "outline"}
-                                            className={index === 0 ? "bg-indigo-600 hover:bg-indigo-700" : ""}
+                                            variant={isCurrent ? "default" : "outline"}
+                                            className={isCurrent ? "bg-indigo-600 hover:bg-indigo-700" : ""}
                                         >
-                                            Aprender
+                                            {completed ? 'Repasar' : 'Aprender'}
                                         </Button>
                                     </div>
                                 </CardContent>
                             </Card>
                         </motion.div>
-                    ))}
+                        );
+                    })}
                 </div>
 
                 <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center text-green-800 text-sm">
                     <span className="font-bold">🎯 Objetivo:</span> Completa estos 3 pasos para dominar los conceptos básicos de este tema.
                 </div>
             </motion.div>
+        )}
+
+        {/* RUTAS COMPLETADAS */}
+        {completedPaths.length > 0 && (
+            <section className="mt-12" aria-labelledby="rutas-completadas-heading">
+                <div className="flex items-center gap-2 mb-4">
+                    <h2 id="rutas-completadas-heading" className="text-lg sm:text-xl font-bold text-gray-800 dark:text-white">
+                        🏆 Rutas completadas
+                    </h2>
+                    <span className="text-xs font-medium text-gray-500 bg-gray-100 dark:bg-slate-700 dark:text-gray-300 px-2 py-0.5 rounded-full">
+                        {completedPaths.length}
+                    </span>
+                </div>
+                <ul className="space-y-3">
+                    {completedPaths.map((path) => (
+                        <li key={path.id}>
+                            <Card className="border-gray-200 dark:border-slate-700">
+                                <CardContent className="p-4 flex items-center gap-3">
+                                    <div className="shrink-0 w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600 dark:text-green-400 text-lg" aria-hidden="true">
+                                        ✓
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <h3 className="font-semibold text-sm sm:text-base text-gray-800 dark:text-white truncate">
+                                            {path.title}
+                                        </h3>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                            {path.steps.length} {path.steps.length === 1 ? 'paso' : 'pasos'}
+                                            {path.updatedAt ? ` · ${formatDate(path.updatedAt)}` : ''}
+                                        </p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </li>
+                    ))}
+                </ul>
+            </section>
         )}
       </div>
     </div>

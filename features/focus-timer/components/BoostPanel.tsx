@@ -15,6 +15,9 @@ export function BoostPanel() {
     // For this prototype, we'll use simple counters in localStorage
     const savedStats = localStorage.getItem("focus_timer_stats")
     if (savedStats) {
+      // NOTE: hydrates stats once from localStorage on mount; client-only store so a lazy
+      // initializer can't run during SSR. The set-state-in-effect lint for this component is
+      // already covered by the react-hooks disable on the tip effect's dependency array below.
       setStats(JSON.parse(savedStats))
     }
   }, [])
@@ -31,6 +34,7 @@ export function BoostPanel() {
 
   useEffect(() => {
     setTipIndex(Math.floor(Math.random() * tips.length))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on mount to seed the initial tip; tips is a static literal so tips.length never changes
   }, [])
 
   return (
@@ -77,7 +81,7 @@ export function BoostPanel() {
         </div>
         <h3 className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-3">Focus Tip</h3>
         <p className="text-sm text-indigo-100 leading-relaxed font-medium italic relative z-10">
-          "{tips[tipIndex]}"
+          &quot;{tips[tipIndex]}&quot;
         </p>
       </div>
 

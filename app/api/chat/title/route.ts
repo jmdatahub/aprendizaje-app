@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
-import { getOpenAIClient, isStubMode } from '@/lib/openai'
+import { getOpenAIClient, isStubMode, type ChatMessage } from '@/lib/openai'
 import { ApiResponse } from '@/shared/types/api'
 import { rateLimit, getClientIp } from '@/lib/rateLimit'
 
 export const runtime = 'nodejs'
 
 interface TitleRequest {
-  messages: any[];
+  messages: ChatMessage[];
 }
 
 interface TitleResponse extends ApiResponse {
@@ -82,8 +82,8 @@ export async function POST(req: Request) {
       data: { title }
     })
 
-  } catch (error: any) {
-    console.error('[chat/title] Error:', error?.message || 'unknown')
+  } catch (error) {
+    console.error('[chat/title] Error:', error instanceof Error ? error.message : 'unknown')
     return NextResponse.json<TitleResponse>({
       success: false,
       error: 'INTERNAL_ERROR',

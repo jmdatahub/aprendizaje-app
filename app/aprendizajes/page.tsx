@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo, Suspense } from 'react'
+import { useEffect, useState, useMemo, useCallback, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import ReactMarkdown from 'react-markdown'
@@ -18,13 +18,14 @@ import { SkeletonCard } from "@/shared/components"
 import { useApp } from "@/shared/contexts/AppContext"
 
 import { SECTORES_DATA } from "@/shared/constants/sectores"
+import { reviewSrs, isDue, type SrsState, type ReviewGrade } from "@/lib/srs"
 
 type ReviewEntry = {
   date: string;
   notes?: string;
 }
 
-type Item = { 
+type Item = {
   id: string
   title: string
   summary: string
@@ -36,6 +37,7 @@ type Item = {
   sectorName: string
   sectorIcon: string
   isFavorite?: boolean
+  srs?: SrsState
 }
 
 type SortOption = 'date' | 'category' | 'title'
@@ -71,6 +73,7 @@ function AprendizajesContent() {
   const [sortBy, setSortBy] = useState<SortOption>('date')
   const [dateSortDirection, setDateSortDirection] = useState<DateSortDirection>('desc')
   const [showOnlyPendingReview, setShowOnlyPendingReview] = useState(false)
+  const [showOnlyDueToday, setShowOnlyDueToday] = useState(false)
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
   const [pendingReviewIds, setPendingReviewIds] = useState<string[]>([])
   const [isChatting, setIsChatting] = useState(false)
@@ -82,6 +85,10 @@ function AprendizajesContent() {
   const [chatIdToOpen, setChatIdToOpen] = useState<string | undefined>(undefined)
   const [showTrashModal, setShowTrashModal] = useState(false)
 
+  // Toast con deshacer para "Repasado" + estado de pulse visual breve
+  const [reviewToast, setReviewToast] = useState<{ item: Item; previousPending: string[]; previousSrs?: SrsState } | null>(null)
+  const [pulsingReviewedId, setPulsingReviewedId] = useState<string | null>(null)
+
   // Auto-activate pending filter from URL parameter
   useEffect(() => {
     if (searchParams.get('pending') === 'true') {
@@ -89,7 +96,9 @@ function AprendizajesContent() {
     }
   }, [searchParams])
 
-  useEffect(() => {
+  // Single source of truth for the learnings list: localStorage `sector_data_*`.
+  // Reused on mount and after restoring from trash so both paths stay consistent.
+  const loadItemsFromStorage = useCallback(() => {
     const allItems: Item[] = [];
 
     SECTORES_DATA.forEach(sector => {
@@ -110,7 +119,17 @@ function AprendizajesContent() {
         if (stored) {
           const data = JSON.parse(stored);
           if (data && Array.isArray(data.items)) {
-            data.items.forEach((it: any) => {
+            data.items.forEach((it: {
+              id: string;
+              title?: string;
+              summary?: string;
+              tags?: string[];
+              date?: string;
+              learnedDate?: string;
+              reviewHistory?: ReviewEntry[];
+              isFavorite?: boolean;
+              srs?: SrsState;
+            }) => {
               allItems.push({
                 id: it.id,
                 title: it.title || "Sin título",
@@ -122,7 +141,8 @@ function AprendizajesContent() {
                 sectorId: sector.id,
                 sectorName: t(`sectors.${sector.key}`),
                 sectorIcon: sector.icono,
-                isFavorite: it.isFavorite || false
+                isFavorite: it.isFavorite || false,
+                srs: it.srs
               });
             });
           }
@@ -134,6 +154,25 @@ function AprendizajesContent() {
 
     setItems(allItems);
     setLoading(false);
+  }, [t])
+
+  useEffect(() => {
+    loadItemsFromStorage();
+  }, [loadItemsFromStorage])
+
+  // Fecha corta tipo "Jun 10" (independiente del modo relativo/absoluto de formatDate)
+  const formatShortDate = useCallback((date: string) => {
+    const d = new Date(date)
+    if (isNaN(d.getTime())) return ''
+    return d.toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })
+  }, [])
+
+  // Días transcurridos desde la última entrada de reviewHistory
+  const daysSince = useCallback((date: string) => {
+    const d = new Date(date)
+    if (isNaN(d.getTime())) return null
+    const diff = Date.now() - d.getTime()
+    return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)))
   }, [])
 
   const handleToggleFavorite = (e: React.MouseEvent, item: Item) => {
@@ -153,7 +192,7 @@ function AprendizajesContent() {
         if (stored) {
             const data = JSON.parse(stored);
             if (data && Array.isArray(data.items)) {
-                const updatedItems = data.items.map((it: any) => 
+                const updatedItems = data.items.map((it: { id: string }) =>
                     it.id === item.id ? { ...it, isFavorite: newStatus } : it
                 );
                 localStorage.setItem(key, JSON.stringify({ ...data, items: updatedItems }));
@@ -165,44 +204,95 @@ function AprendizajesContent() {
     }
   };
 
-  const handleMarkAsReviewed = (e: React.MouseEvent, item: Item) => {
-    e.stopPropagation();
-    
-    const now = new Date().toISOString();
-    const newReviewEntry: ReviewEntry = { date: now };
-    const updatedHistory = [...(item.reviewHistory || []), newReviewEntry];
-    
-    // Update local state
-    setItems(prev => prev.map(i => 
-      i.id === item.id ? { ...i, reviewHistory: updatedHistory } : i
-    ));
-    if (seleccionado?.id === item.id) {
-      setSeleccionado(prev => prev ? { ...prev, reviewHistory: updatedHistory } : null);
-    }
-
-    // Remove from pending list
-    const newPendingIds = pendingReviewIds.filter(id => id !== item.id);
-    setPendingReviewIds(newPendingIds);
-    localStorage.setItem('decayed_items', JSON.stringify(newPendingIds));
-
-    // Update localStorage sector data
+  // Persiste el reviewHistory (y opcionalmente el estado SRS) de un item concreto
+  // en su sector dentro de localStorage. El campo `srs` es ADITIVO: si no se pasa,
+  // no se toca, así que los lectores existentes no se ven afectados.
+  const persistReviewHistory = (item: Item, history: ReviewEntry[], srs?: SrsState) => {
     try {
       const key = `sector_data_${item.sectorId}`;
       const stored = localStorage.getItem(key);
       if (stored) {
         const data = JSON.parse(stored);
         if (data && Array.isArray(data.items)) {
-          const updatedItems = data.items.map((it: any) =>
-            it.id === item.id ? { ...it, reviewHistory: updatedHistory } : it
+          const updatedItems = data.items.map((it: { id: string }) =>
+            it.id === item.id
+              ? { ...it, reviewHistory: history, ...(srs ? { srs } : {}) }
+              : it
           );
           localStorage.setItem(key, JSON.stringify({ ...data, items: updatedItems }));
         }
       }
-      playClick();
     } catch (e) {
       console.error("Error updating review history", e);
     }
   };
+
+  const handleMarkAsReviewed = (e: React.MouseEvent, item: Item, grade: ReviewGrade = 'good') => {
+    e.stopPropagation();
+
+    const nowDate = new Date();
+    const now = nowDate.toISOString();
+    const newReviewEntry: ReviewEntry = { date: now };
+    const updatedHistory = [...(item.reviewHistory || []), newReviewEntry];
+
+    // SRS (repetición espaciada): el grado de recuerdo (otra vez / bien / fácil)
+    // programa la próxima fecha de repaso vía SM-2 lite. Aditivo: no altera
+    // reviewHistory ni decayed_items, que siguen funcionando igual.
+    const updatedSrs = reviewSrs(item.srs, grade, nowDate);
+
+    // Update local state
+    setItems(prev => prev.map(i =>
+      i.id === item.id ? { ...i, reviewHistory: updatedHistory, srs: updatedSrs } : i
+    ));
+    if (seleccionado?.id === item.id) {
+      setSeleccionado(prev => prev ? { ...prev, reviewHistory: updatedHistory, srs: updatedSrs } : null);
+    }
+
+    // Snapshot de pendientes ANTES del cambio (para poder deshacer)
+    const previousPending = [...pendingReviewIds];
+
+    // Remove from pending list
+    const newPendingIds = pendingReviewIds.filter(id => id !== item.id);
+    setPendingReviewIds(newPendingIds);
+    localStorage.setItem('decayed_items', JSON.stringify(newPendingIds));
+
+    // Update localStorage sector data (review history + SRS)
+    persistReviewHistory(item, updatedHistory, updatedSrs);
+    playClick();
+
+    // Feedback visual: pulse verde breve + toast con deshacer (5s)
+    setPulsingReviewedId(item.id);
+    window.setTimeout(() => {
+      setPulsingReviewedId(prev => (prev === item.id ? null : prev));
+    }, 700);
+    // Guarda el srs PREVIO en el toast para poder restaurarlo al deshacer.
+    setReviewToast({ item: { ...item, reviewHistory: updatedHistory, srs: updatedSrs }, previousPending, previousSrs: item.srs });
+  };
+
+  // Deshace el último "Repasado": elimina la entrada recién añadida y restaura pendientes
+  const handleUndoReviewed = useCallback((toast: { item: Item; previousPending: string[]; previousSrs?: SrsState }) => {
+    const { item, previousPending, previousSrs } = toast;
+    const restoredHistory = (item.reviewHistory || []).slice(0, -1);
+
+    setItems(prev => prev.map(i =>
+      i.id === item.id ? { ...i, reviewHistory: restoredHistory, srs: previousSrs } : i
+    ));
+    setSeleccionado(prev => (prev && prev.id === item.id ? { ...prev, reviewHistory: restoredHistory, srs: previousSrs } : prev));
+
+    setPendingReviewIds(previousPending);
+    localStorage.setItem('decayed_items', JSON.stringify(previousPending));
+    persistReviewHistory(item, restoredHistory, previousSrs);
+
+    playClick();
+    setReviewToast(null);
+  }, []);
+
+  // Auto-cierre del toast tras 5s
+  useEffect(() => {
+    if (!reviewToast) return;
+    const id = window.setTimeout(() => setReviewToast(null), 5000);
+    return () => window.clearTimeout(id);
+  }, [reviewToast]);
 
   // Load pending review items
   useEffect(() => {
@@ -238,6 +328,13 @@ function AprendizajesContent() {
       result = result.filter(item => pendingReviewIds.includes(item.id));
     }
 
+    // Filtrar por SRS "Repasar hoy" (items con repetición espaciada ya vencida).
+    // Filtro NUEVO e independiente del de "Pendientes" (decayed_items).
+    if (showOnlyDueToday) {
+      const now = new Date();
+      result = result.filter(item => isDue(item.srs, now));
+    }
+
     // Filtrar por favoritos
     if (showFavoritesOnly) {
       result = result.filter(item => item.isFavorite);
@@ -261,7 +358,13 @@ function AprendizajesContent() {
     }
 
     return result;
-  }, [items, searchQuery, sortBy, dateSortDirection, showOnlyPendingReview, pendingReviewIds, showFavoritesOnly]);
+  }, [items, searchQuery, sortBy, dateSortDirection, showOnlyPendingReview, pendingReviewIds, showOnlyDueToday, showFavoritesOnly]);
+
+  // Nº de aprendizajes con SRS vencido ("Repasar hoy"). Independiente de decayed_items.
+  const dueTodayCount = useMemo(() => {
+    const now = new Date();
+    return items.reduce((acc, item) => acc + (isDue(item.srs, now) ? 1 : 0), 0);
+  }, [items]);
 
   const monthlyStats = useMemo(() => {
     const now = new Date();
@@ -484,18 +587,18 @@ function AprendizajesContent() {
             ))}
           </div>
         ) : items.length === 0 ? (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="text-center py-20 bg-card rounded-3xl border border-dashed border-border"
+            className="text-center py-12 sm:py-20 px-5 sm:px-6 bg-card rounded-2xl sm:rounded-3xl border border-dashed border-border"
           >
-            <div className="text-4xl mb-4 opacity-30">📚</div>
-            <h3 className="text-xl font-semibold text-foreground mb-2">{t('learnings.empty_state')}</h3>
-            <p className="text-muted-foreground max-w-md mx-auto mb-6">
-              Completa conversaciones y guárdalas para empezar a llenar tu biblioteca de conocimientos.
+            <div className="text-5xl sm:text-6xl mb-3 sm:mb-4 opacity-40">📚</div>
+            <h3 className="text-lg sm:text-xl font-semibold text-foreground mb-2">{t('learnings.empty_state')}</h3>
+            <p className="text-sm sm:text-base text-muted-foreground max-w-md mx-auto mb-6">
+              Completa conversaciones y guárdalas para llenar tu biblioteca.
             </p>
-            <Link href="/aprender">
-              <Button size="lg">
+            <Link href="/aprender" className="block sm:inline-block">
+              <Button size="lg" className="w-full sm:w-auto">
                 {t('learnings.start_learning')}
               </Button>
             </Link>
@@ -600,6 +703,22 @@ function AprendizajesContent() {
                           </span>
                         )}
                       </Button>
+                      {/* Chip SRS "Repasar hoy" — solo si hay aprendizajes vencidos. */}
+                      {dueTodayCount > 0 && (
+                        <Button
+                          variant={showOnlyDueToday ? 'secondary' : 'ghost'}
+                          size="sm"
+                          onClick={() => setShowOnlyDueToday(prev => !prev)}
+                          aria-pressed={showOnlyDueToday}
+                          aria-label={`Repasar hoy: ${dueTodayCount} aprendizaje${dueTodayCount !== 1 ? 's' : ''} ${showOnlyDueToday ? '(filtro activo)' : ''}`}
+                          className={`gap-1 text-xs px-3 shrink-0 ${showOnlyDueToday ? 'text-primary' : ''}`}
+                        >
+                          📅 Repasar hoy
+                          <span className="ml-1 text-[10px] bg-foreground/15 px-1.5 py-0.5 rounded-full">
+                            {dueTodayCount}
+                          </span>
+                        </Button>
+                      )}
                     </div>
                   </div>
 
@@ -658,7 +777,7 @@ function AprendizajesContent() {
                     exit={{ opacity: 0 }}
                     className="text-center py-12 text-muted-foreground"
                   >
-                    No se encontraron resultados para "{searchQuery}"
+                    No se encontraron resultados para &quot;{searchQuery}&quot;
                   </motion.div>
                 )
               ) : (
@@ -696,18 +815,21 @@ function AprendizajesContent() {
                         </div>
                         
                         <div className={`absolute top-2 right-2 z-10 flex flex-col items-end gap-1 ${viewMode === 'compact' ? 'scale-75 origin-top-right' : ''}`}>
-                            <span className="text-[10px] text-muted-foreground/70 bg-background/80 px-1.5 py-0.5 rounded backdrop-blur-sm shadow-sm">
+                            <span className={`text-muted-foreground/70 bg-background/80 px-1.5 py-0.5 rounded backdrop-blur-sm shadow-sm ${viewMode === 'compact' ? 'text-[11px]' : 'text-[10px]'}`}>
                                 {formatDate(it.date)}
                             </span>
                             <button
+                                type="button"
                                 onClick={(e) => handleToggleFavorite(e, it)}
+                                aria-label={it.isFavorite ? 'Quitar de favoritos' : 'Marcar como favorito'}
+                                aria-pressed={it.isFavorite}
                                 className={`p-1.5 rounded-full transition-all ${
-                                    it.isFavorite 
-                                    ? 'text-yellow-400 hover:text-yellow-500 bg-yellow-400/10' 
+                                    it.isFavorite
+                                    ? 'text-yellow-400 hover:text-yellow-500 bg-yellow-400/10'
                                     : 'text-muted-foreground/20 hover:text-yellow-400 hover:bg-muted'
                                 }`}
                             >
-                                <svg className="w-4 h-4" fill={it.isFavorite ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-4 h-4" aria-hidden="true" fill={it.isFavorite ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
                                 </svg>
                             </button>
@@ -725,23 +847,31 @@ function AprendizajesContent() {
                             </div>
                         )}
 
-                        {/* Tags */}
+                        {/* Tags — en compacto se ocultan y se muestra un badge contador */}
                         {it.tags && it.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-auto pt-2">
-                            {it.tags.slice(0, viewMode === 'compact' ? 2 : 10).map((tag, i) => (
-                              <span
-                                key={i}
-                                className="px-2 py-0.5 bg-muted border border-border/50 text-muted-foreground text-[10px] rounded-full font-medium"
-                              >
-                                {tag}
+                          viewMode === 'compact' ? (
+                            <div className="flex flex-wrap gap-1 mt-auto pt-2">
+                              <span className="px-2 py-0.5 bg-muted border border-border/50 text-muted-foreground text-[10px] rounded-full font-medium">
+                                {it.tags.length} tag{it.tags.length !== 1 ? 's' : ''}
                               </span>
-                            ))}
-                          </div>
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap gap-1 mt-auto pt-2">
+                              {it.tags.slice(0, 10).map((tag, i) => (
+                                <span
+                                  key={i}
+                                  className="px-2 py-0.5 bg-muted border border-border/50 text-muted-foreground text-[10px] rounded-full font-medium"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          )
                         )}
 
                         {/* Review History & Pending Action */}
                         <div className={`flex items-center justify-between mt-auto pt-2 border-t border-border/50 ${viewMode === 'compact' ? 'text-[9px]' : 'text-[10px]'}`}>
-                          <div className="flex items-center gap-2 text-muted-foreground">
+                          <div className="flex items-center gap-2 text-muted-foreground flex-wrap">
                             {it.reviewHistory && it.reviewHistory.length > 0 ? (
                               <span className="flex items-center gap-1">
                                 🔄 {it.reviewHistory.length} repaso{it.reviewHistory.length !== 1 ? 's' : ''}
@@ -749,15 +879,47 @@ function AprendizajesContent() {
                             ) : (
                               <span className="opacity-50">Sin repasos aún</span>
                             )}
+                            {isDue(it.srs, new Date()) && (
+                              <span className="flex items-center gap-0.5 text-primary font-medium bg-primary/10 px-1.5 py-0.5 rounded-full">
+                                📅 Toca repasar
+                              </span>
+                            )}
                           </div>
                           
-                          {pendingReviewIds.includes(it.id) && (
-                            <button
-                              onClick={(e) => handleMarkAsReviewed(e, it)}
-                              className="flex items-center gap-1 px-2 py-1 bg-primary/10 hover:bg-primary/20 text-primary rounded-md transition-colors font-medium"
-                            >
-                              ✓ Repasado
-                            </button>
+                          {(pendingReviewIds.includes(it.id) || isDue(it.srs, new Date())) && (
+                            pulsingReviewedId === it.id ? (
+                              <span className="flex items-center gap-1 px-3 py-1.5 min-h-[36px] rounded-md font-medium bg-green-500/20 text-green-600 dark:text-green-400 animate-pulse">
+                                ✓ Repasado
+                              </span>
+                            ) : (
+                              <div className="flex items-center gap-1" role="group" aria-label={`Calidad de repaso de "${it.title}"`}>
+                                <span className="text-[10px] text-muted-foreground hidden sm:inline mr-0.5">¿Lo recordaste?</span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleMarkAsReviewed(e, it, 'again')}
+                                  aria-label={`Repasar "${it.title}": otra vez (no lo recordé)`}
+                                  className="px-2.5 py-1.5 min-h-[36px] rounded-md text-xs font-medium bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 transition-all"
+                                >
+                                  Otra vez
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleMarkAsReviewed(e, it, 'good')}
+                                  aria-label={`Repasar "${it.title}": bien`}
+                                  className="px-2.5 py-1.5 min-h-[36px] rounded-md text-xs font-medium bg-primary/10 hover:bg-primary/20 text-primary transition-all"
+                                >
+                                  Bien
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleMarkAsReviewed(e, it, 'easy')}
+                                  aria-label={`Repasar "${it.title}": fácil`}
+                                  className="px-2.5 py-1.5 min-h-[36px] rounded-md text-xs font-medium bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 transition-all"
+                                >
+                                  Fácil
+                                </button>
+                              </div>
+                            )
                           )}
                         </div>
                       </div>
@@ -845,11 +1007,12 @@ function AprendizajesContent() {
                                 </button>
                             )}
                             
-                            <button 
+                            <button
                               onClick={() => { playClick(); handleCloseModal(); setIsFocusMode(false); }}
-                              className="text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted transition-colors"
+                              aria-label="Cerrar"
+                              className="text-muted-foreground hover:text-foreground p-2 rounded-full hover:bg-muted transition-colors min-w-[40px] min-h-[40px] flex items-center justify-center"
                             >
-                              ✕
+                              <span aria-hidden="true">✕</span>
                             </button>
                         </div>
                       </div>
@@ -890,6 +1053,36 @@ function AprendizajesContent() {
                       )}
                     </div>
                     
+                    {/* Historial de repasos (datos ya presentes en reviewHistory) */}
+                    {!isFocusMode && seleccionado.reviewHistory && seleccionado.reviewHistory.length > 0 && (() => {
+                      const sortedReviews = [...seleccionado.reviewHistory].sort(
+                        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+                      );
+                      const lastDays = daysSince(sortedReviews[0].date);
+                      const lastLabel = lastDays === null
+                        ? null
+                        : lastDays === 0
+                          ? 'hoy'
+                          : lastDays === 1
+                            ? 'hace 1 día'
+                            : `hace ${lastDays} días`;
+                      const recent = sortedReviews.slice(0, 3).map(r => formatShortDate(r.date)).join(', ');
+                      return (
+                        <div className="px-4 sm:px-6 pt-3 pb-1 border-t border-border bg-muted/30 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1.5">
+                            <span aria-hidden="true">🔄</span>
+                            Repasado el {recent}
+                          </span>
+                          {lastLabel && (
+                            <span className="flex items-center gap-1.5">
+                              <span aria-hidden="true">⏱️</span>
+                              Último repaso: {lastLabel}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
+
                     {!isFocusMode && (
                         <div className="p-3 sm:p-4 border-t border-border bg-muted/30 flex flex-col sm:flex-row sm:flex-wrap sm:justify-between gap-2 sm:gap-3">
                         <Button
@@ -951,28 +1144,39 @@ function AprendizajesContent() {
         isOpen={showTrashModal}
         onClose={() => setShowTrashModal(false)}
         type="aprendizajes"
-        onRestored={() => {
-          fetch('/api/aprendizajes')
-            .then(res => res.json())
-            .then(data => {
-              if (data.success && data.data?.items) {
-                const mappedItems = data.data.items.map((a: any) => {
-                  const sec = SECTORES_DATA.find(s => s.id === a.sector_id)
-                  return {
-                    id: String(a.id),
-                    title: a.titulo,
-                    summary: a.resumen,
-                    date: a.created_at,
-                    sectorId: String(a.sector_id ?? ''),
-                    sectorName: sec?.key ?? 'Sin sector',
-                    sectorIcon: sec?.icono ?? '📚'
-                  }
-                })
-                setItems(mappedItems)
-              }
-            })
-        }}
+        onRestored={loadItemsFromStorage}
       />
+
+      {/* Toast "Marcado como repasado" con deshacer (ventana 5s) */}
+      <div
+        aria-live="polite"
+        className="fixed bottom-20 sm:bottom-6 inset-x-0 z-[60] flex justify-center px-4 pointer-events-none"
+      >
+        <AnimatePresence>
+          {reviewToast && (
+            <motion.div
+              key={reviewToast.item.id + (reviewToast.item.reviewHistory?.length ?? 0)}
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              transition={{ type: 'spring', duration: 0.3 }}
+              className="pointer-events-auto flex items-center gap-3 bg-foreground text-background rounded-full pl-4 pr-2 py-2 shadow-xl max-w-full"
+            >
+              <span className="text-sm font-medium flex items-center gap-2 min-w-0">
+                <span aria-hidden="true">✓</span>
+                <span className="truncate">Marcado como repasado</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => handleUndoReviewed(reviewToast)}
+                className="shrink-0 px-3 py-1.5 min-h-[36px] rounded-full bg-background/15 hover:bg-background/25 text-background text-sm font-semibold transition-colors"
+              >
+                Deshacer
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   )
 }

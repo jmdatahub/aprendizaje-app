@@ -27,7 +27,7 @@ interface AppContextType {
   settings: AppSettings;
   updateSettings: (newSettings: Partial<AppSettings>) => void;
   // i18n
-  t: (key: string, params?: Record<string, any>) => any;
+  t: (key: string, params?: Record<string, unknown>) => string;
   formatDate: (date: string | Date | number) => string;
   // Weekly Test (delegated to hook)
   testStatus: TestStatus;
@@ -49,10 +49,10 @@ const DEFAULT_SETTINGS: AppSettings = {
 };
 
 // Helper for nested keys
-const getNestedValue = (obj: any, path: string): string => {
-  return path.split('.').reduce((prev, curr) => {
-    return prev ? prev[curr] : null;
-  }, obj) || path;
+const getNestedValue = (obj: unknown, path: string): string => {
+  return path.split('.').reduce<unknown>((prev, curr) => {
+    return prev ? (prev as Record<string, unknown>)[curr] : null;
+  }, obj) as string || path;
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -70,6 +70,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time client-only hydration of settings from localStorage on mount; cannot run during SSR/render
         setSettings({ ...DEFAULT_SETTINGS, ...parsed });
       } catch (e) {
         console.error("Error loading settings", e);
@@ -97,7 +98,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setSettings(prev => ({ ...prev, ...newSettings }));
   };
 
-  const t = (key: string, params?: Record<string, any>) => {
+  const t = (key: string, params?: Record<string, unknown>) => {
     const dict = settings.language === 'es' ? es : en;
     let value = getNestedValue(dict, key);
     

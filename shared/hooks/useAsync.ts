@@ -44,6 +44,7 @@ export function useAsync<T>(
 
   useEffect(() => {
     if (immediate) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentionally kicks off the async fn on mount when immediate=true; execute() sets loading state as designed
       execute()
     }
   }, [execute, immediate])

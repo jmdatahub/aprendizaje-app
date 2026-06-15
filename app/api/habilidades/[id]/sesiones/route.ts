@@ -110,8 +110,8 @@ export async function POST(
       success: true,
       data: result
     })
-  } catch (e: any) {
-    console.error('[sesiones] Error:', e?.message)
+  } catch (e) {
+    console.error('[sesiones] Error:', e instanceof Error ? e.message : String(e))
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',

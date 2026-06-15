@@ -52,11 +52,22 @@ export function ActivityHeatmap({ data, onSelectDate, selectedDate }: ActivityHe
     })
   }, [weeks])
 
+  // Escala de intensidad por percentiles del propio dataset en lugar de umbrales
+  // fijos (1/3/>3): así el heatmap se adapta a usuarios con poca o mucha actividad.
+  const maxCount = useMemo(() => {
+    let max = 0
+    activityMap.forEach(v => { if (v > max) max = v })
+    return max
+  }, [activityMap])
+
   const getColorClass = (count: number, isSelected: boolean) => {
     if (isSelected) return 'bg-violet-500 scale-125 shadow-lg shadow-violet-500/50'
     if (count === 0) return 'bg-muted/60 hover:bg-muted'
-    if (count === 1) return 'bg-violet-300/60 dark:bg-violet-900/60 hover:bg-violet-400/60 dark:hover:bg-violet-800/70'
-    if (count <= 3) return 'bg-violet-400 dark:bg-violet-700 hover:bg-violet-500 dark:hover:bg-violet-600'
+    // Percentiles 25/50/75/100 sobre el máximo del dataset.
+    const ratio = maxCount > 0 ? count / maxCount : 0
+    if (ratio <= 0.25) return 'bg-violet-300/60 dark:bg-violet-900/60 hover:bg-violet-400/60 dark:hover:bg-violet-800/70'
+    if (ratio <= 0.5) return 'bg-violet-400 dark:bg-violet-700 hover:bg-violet-500 dark:hover:bg-violet-600'
+    if (ratio <= 0.75) return 'bg-violet-500 dark:bg-violet-600 hover:bg-violet-600 dark:hover:bg-violet-500'
     return 'bg-violet-600 dark:bg-violet-500 hover:bg-violet-700 dark:hover:bg-violet-400'
   }
 
@@ -81,14 +92,19 @@ export function ActivityHeatmap({ data, onSelectDate, selectedDate }: ActivityHe
                 const dateKey = format(day, 'yyyy-MM-dd')
                 const count = activityMap.get(dateKey) || 0
                 const isSelected = selectedDate === dateKey
+                const dayLabel = `${format(day, 'PPP', { locale: es })}: ${count} actividad${count !== 1 ? 'es' : ''}`
 
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={dateKey}
                     onClick={() => onSelectDate?.(dateKey)}
-                    title={`${format(day, 'PPP', { locale: es })}: ${count} actividad${count !== 1 ? 'es' : ''}`}
+                    title={dayLabel}
+                    aria-label={dayLabel}
+                    aria-pressed={isSelected}
                     className={cn(
                       'w-[16px] h-[16px] sm:w-[14px] sm:h-[14px] rounded-sm transition-all duration-150 cursor-pointer',
+                      'focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-1 focus-visible:ring-offset-card',
                       getColorClass(count, isSelected)
                     )}
                   />

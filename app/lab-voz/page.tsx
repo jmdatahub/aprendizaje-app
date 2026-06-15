@@ -2,26 +2,46 @@
 
 import { useEffect, useRef, useState } from 'react'
 
+// Minimal shapes for the non-standard Web Speech API (not in TS DOM lib)
+type SpeechRecognitionResultLike = { [index: number]: { transcript: string } }
+type SpeechRecognitionEventLike = { results: ArrayLike<SpeechRecognitionResultLike> }
+
+interface SpeechRecognitionLike {
+  lang: string
+  continuous: boolean
+  interimResults: boolean
+  onstart: (() => void) | null
+  onend: (() => void) | null
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null
+  onerror: ((event: unknown) => void) | null
+  start: () => void
+  stop: () => void
+}
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike
+
 export default function LabVozPage() {
   // Estado principal del laboratorio de voz
   const [input, setInput] = useState('')
   const [lastTranscript, setLastTranscript] = useState('')
   const [listening, setListening] = useState(false)
   const [hasSpeechApi, setHasSpeechApi] = useState(false)
-  // Nota: usamos any para compatibilidad con navegadores sin tipos de Web Speech API
-  const recognitionRef = useRef<any>(null)
+  // Nota: tipos minimos para compatibilidad con navegadores sin tipos de Web Speech API
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
 
   // Inicializa una unica instancia de SpeechRecognition al montar
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const SpeechRecognition: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    const w = window as unknown as { SpeechRecognition?: SpeechRecognitionConstructor; webkitSpeechRecognition?: SpeechRecognitionConstructor }
+    const SpeechRecognition: SpeechRecognitionConstructor | undefined = w.SpeechRecognition || w.webkitSpeechRecognition
     if (!SpeechRecognition) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- detects a browser-only capability (Web Speech API) once on mount; `window` is undefined during SSR so this cannot be a lazy useState initializer, and it runs only once
       setHasSpeechApi(false)
       return
     }
     setHasSpeechApi(true)
 
-    const rec: any = new SpeechRecognition()
+    const rec: SpeechRecognitionLike = new SpeechRecognition()
     rec.lang = 'es-ES'
     rec.continuous = false
     rec.interimResults = false
@@ -32,14 +52,14 @@ export default function LabVozPage() {
     rec.onend = () => {
       setListening(false)
     }
-    rec.onerror = (ev: any) => {
+    rec.onerror = (ev: unknown) => {
       // Mantenemos la UI estable aunque haya errores
       console.error('Speech recognition error (lab)', ev)
       setListening(false)
     }
-    rec.onresult = (ev: any) => {
+    rec.onresult = (ev: SpeechRecognitionEventLike) => {
       const transcript = Array.from(ev.results)
-        .map((r: any) => r[0].transcript)
+        .map((r: SpeechRecognitionResultLike) => r[0].transcript)
         .join(' ')
         .trim()
       if (transcript) {

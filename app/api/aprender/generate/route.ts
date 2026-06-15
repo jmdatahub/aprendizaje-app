@@ -26,7 +26,7 @@ export async function POST(req: Request) {
       )
     }
 
-    const body = await req.json().catch(() => ({} as any))
+    const body = await req.json().catch(() => ({} as Record<string, unknown>))
     const { conversacion } = body || {}
 
     if (!Array.isArray(conversacion) || conversacion.length === 0 || conversacion.length > 200) {
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
           { status: 400 }
         )
       }
-      const texto = (m as any).texto
+      const texto = (m as { texto?: unknown }).texto
       if (texto !== undefined && (typeof texto !== 'string' || texto.length > 4000)) {
         return NextResponse.json<ApiResponse>(
           { success: false, error: 'INVALID_REQUEST', message: 'Entrada con texto demasiado largo (máx 4000 caracteres).' },
@@ -80,7 +80,7 @@ export async function POST(req: Request) {
     }
 
     const plano = conversacion
-      .map((m: any) => `${m?.rol === 'usuario' ? 'Usuario' : 'Asistente'}: ${m?.texto ?? ''}`)
+      .map((m: { rol?: string; texto?: string }) => `${m?.rol === 'usuario' ? 'Usuario' : 'Asistente'}: ${m?.texto ?? ''}`)
       .join('\n')
 
     const completion = await openai.chat.completions.create({
@@ -115,7 +115,7 @@ export async function POST(req: Request) {
 
     let suggestedSections: number[] = [];
     if (Array.isArray(parsed.suggested_sections)) {
-      suggestedSections = parsed.suggested_sections.map((s: any) => Number(s)).filter((n: number) => n >= 1 && n <= 9);
+      suggestedSections = parsed.suggested_sections.map((s: unknown) => Number(s)).filter((n: number) => n >= 1 && n <= 9);
     }
 
     const responseData: GenerateResponse = {
@@ -132,8 +132,8 @@ export async function POST(req: Request) {
       data: responseData
     })
 
-  } catch (e: any) {
-    console.error('[aprender/generate] Error:', e?.message)
+  } catch (e) {
+    console.error('[aprender/generate] Error:', e instanceof Error ? e.message : String(e))
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',

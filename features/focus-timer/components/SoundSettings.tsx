@@ -2,11 +2,12 @@
 
 import { useState, useRef } from "react"
 import { Volume2, Music, Wind, Upload, Play, X, Info, Trash2, Speaker } from "lucide-react"
-import { BuiltInSound, AmbientSound } from "../hooks/useSounds"
+import { BuiltInSound, AmbientSound, SoundSettings as SoundSettingsState } from "../hooks/useSounds"
+import { useEscapeKey } from "@/shared/hooks/useEscapeKey"
 
 interface SoundSettingsProps {
-  settings: any
-  setSettings: (s: any) => void
+  settings: SoundSettingsState
+  setSettings: (s: SoundSettingsState) => void
   onClose: () => void
   onPlayPreview: (overriddenSound?: string) => void
   onStartAmbient: (overriddenAmbient?: string) => void
@@ -36,7 +37,9 @@ export function SoundSettings({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const ambientFileInputRef = useRef<HTMLInputElement>(null)
   const [isPreviewingAmbient, setIsPreviewingAmbient] = useState<string | null>(null)
-  
+
+  useEscapeKey(() => { onStopAmbient(); onClose() }, true)
+
   const handleToggleAmbientPreview = (id: string) => {
     if (isPreviewingAmbient === id) {
       onStopAmbient()

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useAnimation } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 interface ChatInputProps {
@@ -15,7 +15,7 @@ interface ChatInputProps {
   onEndChat: () => void;
   autoPlay: boolean;
   setAutoPlay: (val: boolean) => void;
-  sendButtonControls: any;
+  sendButtonControls: ReturnType<typeof useAnimation>;
 }
 
 export function ChatInput({
@@ -27,8 +27,6 @@ export function ChatInput({
   transcript,
   loading,
   onEndChat,
-  autoPlay,
-  setAutoPlay,
   sendButtonControls,
 }: ChatInputProps) {
   const mobileTextareaRef = useRef<HTMLTextAreaElement>(null);

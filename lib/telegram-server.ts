@@ -1,5 +1,5 @@
 
-export async function sendTelegramMessage(chatId: string, text: string, token: string, options: any = {}) {
+export async function sendTelegramMessage(chatId: string, text: string, token: string, options: Record<string, unknown> = {}) {
   if (!chatId || !token) {
     console.error("Missing chatId or token for Telegram message")
     return { success: false, error: "Missing config" }
@@ -27,8 +27,8 @@ export async function sendTelegramMessage(chatId: string, text: string, token: s
     }
 
     return { success: true, data }
-  } catch (error: any) {
+  } catch (error) {
     console.error("Telegram Network Error:", error)
-    return { success: false, error: error.message }
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
 }

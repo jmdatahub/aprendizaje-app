@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { formatearTiempo } from '@/shared/constants/habilidades'
 import { playClick } from '@/shared/utils/sounds'
+import { useEscapeKey } from '@/shared/hooks/useEscapeKey'
 
 interface SessionSummaryModalProps {
   isOpen: boolean
@@ -14,14 +15,16 @@ interface SessionSummaryModalProps {
   loading?: boolean
 }
 
-export function SessionSummaryModal({ 
-  isOpen, 
-  duracionSegundos, 
-  onSave, 
+export function SessionSummaryModal({
+  isOpen,
+  duracionSegundos,
+  onSave,
   onClose,
-  loading 
+  loading
 }: SessionSummaryModalProps) {
   const [resumen, setResumen] = useState('')
+
+  useEscapeKey(onClose, isOpen)
 
   const handleSave = () => {
     playClick()

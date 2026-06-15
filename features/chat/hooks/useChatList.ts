@@ -39,6 +39,7 @@ export function useChatList() {
     if (hasChanges) {
       // We can't batch save easily with current service, so we iterate
       migratedChats.forEach(c => chatStorage.saveChat(c));
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time mount migration that hydrates chat list from localStorage; the setState is a deliberate sync from the external store, not a render-loop
       refreshChats();
     } else {
       refreshChats();

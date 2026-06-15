@@ -9,8 +9,8 @@ import { ApiResponse } from '@/shared/types/api';
 interface ChatApiResponseData {
   respuesta: string;
   engine?: string;
-  aieState?: any;
-  aieAnalysis?: any;
+  aieState?: unknown;
+  aieAnalysis?: unknown;
 }
 
 interface RecommendationsApiResponseData {
@@ -22,8 +22,8 @@ interface ChatResponse {
   respuesta: string;
   content: string;
   engine?: string;
-  aieState?: any;
-  aieAnalysis?: any;
+  aieState?: unknown;
+  aieAnalysis?: unknown;
   error?: boolean;
 }
 
@@ -33,9 +33,9 @@ interface RecommendationsResponse {
 }
 
 export const sendChatMessage = async (
-  history: any[], 
-  context?: string, 
-  config?: any
+  history: unknown[],
+  context?: string,
+  config?: unknown
 ): Promise<ChatResponse> => {
   try {
     const resp = await apiPost<ApiResponse<ChatApiResponseData>>('/api/chat', {
@@ -65,7 +65,7 @@ export const sendChatMessage = async (
   }
 };
 
-export const generateRecommendations = async (history: any[]): Promise<RecommendationsResponse> => {
+export const generateRecommendations = async (history: unknown[]): Promise<RecommendationsResponse> => {
   try {
     const resp = await apiPost<ApiResponse<RecommendationsApiResponseData>>('/api/recommendations', { history });
     
@@ -82,7 +82,7 @@ export const generateRecommendations = async (history: any[]): Promise<Recommend
   }
 };
 
-export const generateChatTitle = async (history: any[]): Promise<string | null> => {
+export const generateChatTitle = async (history: unknown[]): Promise<string | null> => {
   try {
     const resp = await apiPost<ApiResponse<{ title: string }>>('/api/chat/title', { messages: history });
     return resp.success ? resp.data?.title || null : null;

@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef } from "react"
 export type BuiltInSound = "bell" | "chime" | "ding" | "gentle" | "alarm-loop"
 export type AmbientSound = "none" | "white-noise" | "rain-sim" | "waves" | "forest" | "fire"
 
-interface SoundSettings {
+export interface SoundSettings {
   completionSound: BuiltInSound | string
   ambientSound: AmbientSound | string
   completionVolume: number
@@ -26,7 +26,7 @@ export function useSounds() {
   const audioCtxRef = useRef<AudioContext | null>(null)
   const ambientSourceRef = useRef<AudioBufferSourceNode | null>(null)
   const ambientGainRef = useRef<GainNode | null>(null)
-  const loopSourceRef = useRef<AudioBufferSourceNode | null>(null)
+  const loopSourceRef = useRef<AudioBufferSourceNode | { stop?: () => void } | null>(null)
 
   useEffect(() => {
     const saved = localStorage.getItem("focus_timer_sounds")
@@ -37,6 +37,7 @@ export function useSounds() {
          parsed.ambientVolume = parsed.volume * 0.5
          delete parsed.volume
        }
+       // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrates sound settings once from localStorage on mount (with a legacy-volume migration); client-only store so a lazy initializer can't run during SSR
        setSettings(parsed)
     }
     const savedCustom = localStorage.getItem("focus_timer_custom_sounds")
@@ -61,7 +62,7 @@ export function useSounds() {
   useEffect(() => {
     return () => {
       if (ambientSourceRef.current) ambientSourceRef.current.stop()
-      if (loopSourceRef.current) (loopSourceRef.current as any).stop?.()
+      if (loopSourceRef.current) loopSourceRef.current.stop?.()
       if (audioCtxRef.current) audioCtxRef.current.close()
     }
   }, [])
@@ -78,7 +79,7 @@ export function useSounds() {
 
   const initAudio = () => {
     if (!audioCtxRef.current) {
-      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
+      audioCtxRef.current = new (window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)()
     }
     if (audioCtxRef.current.state === "suspended") {
       audioCtxRef.current.resume()
@@ -86,7 +87,7 @@ export function useSounds() {
     return audioCtxRef.current
   }
 
-  const playBuiltIn = (type: BuiltInSound, ctx: AudioContext, vol: number, loop = false) => {
+  const playBuiltIn = (type: BuiltInSound, ctx: AudioContext, vol: number) => {
     const masterGain = ctx.createGain()
     masterGain.gain.setValueAtTime(vol, ctx.currentTime)
     masterGain.connect(ctx.destination)
@@ -125,13 +126,13 @@ export function useSounds() {
           gain.gain.setValueAtTime(0, now + t + 0.2);
        }
        osc.connect(gain).connect(masterGain); osc.start(); osc.stop(now + 30);
-       return { stop: () => { try { osc.stop(); } catch(e) {} } }
+       return { stop: () => { try { osc.stop(); } catch {} } }
     }
   }
 
   const stopLoop = useCallback(() => {
     if (loopSourceRef.current) {
-      try { (loopSourceRef.current as any).stop?.(); } catch(e) {}
+      try { loopSourceRef.current.stop?.(); } catch {}
       loopSourceRef.current = null
     }
   }, [])
@@ -144,8 +145,8 @@ export function useSounds() {
     if (loop) stopLoop();
 
     if (["bell", "chime", "ding", "gentle", "alarm-loop"].includes(soundToPlay)) {
-      const source = playBuiltIn(soundToPlay as BuiltInSound, ctx, vol, loop)
-      if (loop && source) (loopSourceRef as any).current = source;
+      const source = playBuiltIn(soundToPlay as BuiltInSound, ctx, vol)
+      if (loop && source) loopSourceRef.current = source;
     } else if (customSounds[soundToPlay]) {
       try {
         const resp = await fetch(customSounds[soundToPlay]); const arrayBuf = await resp.arrayBuffer();
@@ -165,11 +166,11 @@ export function useSounds() {
       try { 
         ambientSourceRef.current.stop(); 
         ambientSourceRef.current.disconnect();
-      } catch(e) {}
+      } catch {}
       ambientSourceRef.current = null
     }
     if (ambientGainRef.current) {
-      try { ambientGainRef.current.disconnect(); } catch(e) {}
+      try { ambientGainRef.current.disconnect(); } catch {}
       ambientGainRef.current = null
     }
   }, [])

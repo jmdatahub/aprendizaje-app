@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import type OpenAI from 'openai'
 import { getSupabaseForRequest } from '@/lib/supabaseRoute'
 import { getOpenAIClient, isStubMode } from '@/lib/openai'
 import { ApiResponse } from '@/shared/types/api'
@@ -36,9 +37,9 @@ const RESPUESTAS_INICIO = [
   (t: string) => `Yo te acompano con ${t || 'esto'} y lo hacemos accionable.`,
   (t: string) => `Si arrancamos por lo basico de ${t || 'esto'}, todo encaja.`,
 ]
-const RESPUESTAS_PROFUNDIZAR = [
+const RESPUESTAS_PROFUNDIZAR: ((msg: string) => string)[] = [
   (msg: string) => `Traduce ${msg || 'tu duda'} a lenguaje cotidiano y separalo en concepto, utilidad y ejemplo.`,
-  (msg: string) => `Piensa en: definicion en 1 linea, para que sirve y un mini ejemplo de diario.`,
+  () => `Piensa en: definicion en 1 linea, para que sirve y un mini ejemplo de diario.`,
   (msg: string) => `Una regla util: explica ${msg || 'la idea'} como si lo contaras a un amigo sin jerga.`,
 ]
 const CIERRES = [
@@ -75,9 +76,16 @@ function stubInteligente(mensaje = '', tema = '') {
   return `${inicio}\n${profund}\n${cierre}`
 }
 
+interface ChatMensajeRow {
+  id: string;
+  rol: string;
+  texto: string;
+  created_at: string;
+}
+
 interface ChatMessageResponse extends ApiResponse {
-  usuario?: any;
-  ia?: any;
+  usuario?: ChatMensajeRow;
+  ia?: ChatMensajeRow;
   engine?: string;
 }
 
@@ -113,7 +121,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (!c || typeof c !== 'object') {
         return NextResponse.json<ChatMessageResponse>({ success: false, error: 'INVALID_REQUEST', message: 'Entrada de contexto inválida' }, { status: 400 })
       }
-      const t = (c as any).texto
+      const t = (c as { texto?: unknown }).texto
       if (t !== undefined && (typeof t !== 'string' || t.length > 4000)) {
         return NextResponse.json<ChatMessageResponse>({ success: false, error: 'INVALID_REQUEST', message: 'Entrada de contexto demasiado larga' }, { status: 400 })
       }
@@ -146,7 +154,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .order('created_at', { ascending: false })
       .limit(16)
     if (eHist) throw new Error(eHist.message)
-    const conversacion = (hist || []).reverse().map((m: any) => ({ rol: m.rol, texto: m.texto }))
+    const conversacion = (hist || []).reverse().map((m: { rol: string; texto: string }) => ({ rol: m.rol, texto: m.texto }))
 
     // 4) Generar respuesta con STUB u OpenAI (misma politica que /api/chat)
     let respuesta = ''
@@ -161,19 +169,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         'Usa numeracion solo cuando listes pasos o razones, y que quede ordenada. Evita parrafos largos y markdown complejo.',
         'Si resaltas, puedes usar **texto**. Termina con una pregunta util.'
       ].join(' ')
-      const ctxMsgs = contexto.slice(-10).map((m: any) => ({ role: m?.rol === 'ia' ? 'assistant' : 'user', content: (m?.texto ?? '').toString() }))
+      const ctxMsgs = contexto.slice(-10).map((m: { rol?: string; texto?: string }) => ({ role: m?.rol === 'ia' ? 'assistant' : 'user', content: (m?.texto ?? '').toString() }))
       const messages = [
         { role: 'system', content: systemText },
         ...(chat.tema ? [{ role: 'user', content: `Tema inicial: ${chat.tema}` }] : []),
         ...ctxMsgs,
-        ...conversacion.map((m: any) => ({ role: m.rol === 'ia' ? 'assistant' : 'user', content: m.texto })),
+        ...conversacion.map((m: { rol: string; texto: string }) => ({ role: m.rol === 'ia' ? 'assistant' : 'user', content: m.texto })),
         { role: 'user', content: mensaje },
       ]
       const completion = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         temperature: 0.3,
         max_tokens: 512,
-        messages: messages as any[],
+        messages: messages as unknown as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
       })
       respuesta = completion.choices?.[0]?.message?.content ?? 'Sin contenido.'
       engine = 'openai-gpt-4o-mini'
@@ -193,8 +201,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (eMi) throw new Error(eMi.message)
 
     return NextResponse.json<ChatMessageResponse>({ success: true, usuario: mu, ia: mi, engine })
-  } catch (e: any) {
-    console.error('[Chat messages API] Error:', e?.message || 'unknown')
+  } catch (e) {
+    console.error('[Chat messages API] Error:', e instanceof Error ? e.message : 'unknown')
     return NextResponse.json<ChatMessageResponse>({ success: false, error: 'INTERNAL_ERROR', message: 'An internal error occurred' }, { status: 500 })
   }
 }

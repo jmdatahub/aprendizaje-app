@@ -47,8 +47,8 @@ export async function POST(
       message: `"${data.nombre}" restaurada correctamente`,
       data
     })
-  } catch (e: any) {
-    console.error('[habilidades restore] Error:', e?.message)
+  } catch (e) {
+    console.error('[habilidades restore] Error:', e instanceof Error ? e.message : String(e))
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',

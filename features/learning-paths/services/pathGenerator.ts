@@ -2,9 +2,18 @@ import { sendChatMessage } from '@/lib/apiClient';
 import { LearningPath, PathStep } from '../types';
 import { SECTORES_DATA } from '@/shared/constants/sectores';
 
+interface LearningItem {
+  id: string;
+  title: string;
+  summary: string;
+  sectorId: string;
+  sectorName: string;
+  [key: string]: unknown;
+}
+
 // Helper to get all learnings from all sectors
-const getAllLearnings = () => {
-  const allItems: any[] = [];
+const getAllLearnings = (): LearningItem[] => {
+  const allItems: LearningItem[] = [];
   SECTORES_DATA.forEach(sector => {
     try {
       const key = `sector_data_${sector.id}`;
@@ -12,7 +21,7 @@ const getAllLearnings = () => {
       if (stored) {
         const data = JSON.parse(stored);
         if (data && Array.isArray(data.items)) {
-            allItems.push(...data.items.map((item: any) => ({
+            allItems.push(...data.items.map((item: LearningItem) => ({
               ...item,
               sectorId: sector.id,
               sectorName: sector.key,
@@ -69,7 +78,7 @@ export const generateLearningPath = async (topic: string): Promise<LearningPath>
         { role: 'user', content: prompt }
     ], 'Eres un experto pedagogo creando rutas de estudio. JSON Only.', { verbosity: 'concise' });
 
-    let result = { title: '', steps: [] };
+    let result: { title: string; steps: { learningId?: string; reasoning: string; description?: string }[] } = { title: '', steps: [] };
     try {
         const text = response.respuesta || response.content || "{}";
         const jsonMatch = text.match(/\{.*\}/s);
@@ -84,7 +93,7 @@ export const generateLearningPath = async (topic: string): Promise<LearningPath>
     }
 
     // Reconstruct full steps with metadata
-    const fullSteps: PathStep[] = result.steps.map((step: any) => {
+    const fullSteps: PathStep[] = result.steps.map((step: { learningId?: string; reasoning: string; description?: string }) => {
         const original = allLearnings.find(l => l.id === step.learningId);
         if (!original) return null;
         return {
@@ -95,7 +104,7 @@ export const generateLearningPath = async (topic: string): Promise<LearningPath>
             completed: false,
             sectorName: original.sectorId ?? original.sectorName
         };
-    }).filter((s:any) => s !== null);
+    }).filter((s): s is PathStep => s !== null);
 
     return {
         id: Math.random().toString(36).slice(2, 11),

@@ -80,8 +80,8 @@ export async function POST(req: Request) {
       data: { questions: parsed.questions || [] } 
     })
 
-  } catch (error: any) {
-    console.error('[test-me] Error:', error?.message || 'unknown')
+  } catch (error) {
+    console.error('[test-me] Error:', error instanceof Error ? error.message : 'unknown')
     return NextResponse.json<TestMeResponse>({
       success: false,
       error: 'INTERNAL_ERROR',

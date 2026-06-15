@@ -27,18 +27,6 @@ const SECTOR_KEYWORDS: Record<SectionKey, string[]> = {
   society: ['sociedad', 'psicología', 'política', 'leyes', 'educación', 'gente', 'comunidad', 'society', 'psychology', 'politics', 'laws', 'education', 'people', 'emociones', 'sentimientos', 'relaciones', 'gobierno']
 };
 
-const SECTOR_CONFIG: Record<SectionKey, { emoji: string, color: string }> = {
-  health: { emoji: '🍎', color: 'green' },
-  nature: { emoji: '🌱', color: 'emerald' }, // Changed to 🌱 and emerald
-  physics: { emoji: '⚛️', color: 'purple' },
-  math: { emoji: '🔢', color: 'yellow' },
-  tech: { emoji: '💻', color: 'cyan' },
-  history: { emoji: '📜', color: 'orange' },
-  arts: { emoji: '🎨', color: 'pink' },
-  economy: { emoji: '💰', color: 'teal' },
-  society: { emoji: '🧠', color: 'indigo' }
-};
-
 export function detectSectionFromText(text: string): SectionResult {
   const lowerText = text.toLowerCase();
   let maxScore = 0;

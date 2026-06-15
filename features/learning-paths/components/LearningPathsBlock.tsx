@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { playClick } from '@/shared/utils/sounds';
 import { LearningPath } from '../types';
-import { getActivePath, getLearningPaths, deleteLearningPath } from '../services/learningPathsStorage';
+import { getActivePath, deleteLearningPath } from '../services/learningPathsStorage';
 import { generateLearningPath } from '../services/pathGenerator';
 import { PathDetailModal } from './PathDetailModal';
 
@@ -46,8 +46,8 @@ export function LearningPathsBlock({ onStartLearning }: LearningPathsBlockProps)
       
       setActivePath(newPath);
       setShowModal(true);
-    } catch (err: any) {
-      setError(err.message || "Error al generar la ruta");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al generar la ruta");
     } finally {
       setIsGenerating(false);
     }

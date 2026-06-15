@@ -64,8 +64,8 @@ export class EmailService {
         return false
       }
       return true
-    } catch (err: any) {
-      console.error(`[EmailService] Network error: ${err?.message || 'unknown'}`)
+    } catch (err) {
+      console.error(`[EmailService] Network error: ${err instanceof Error ? err.message : String(err)}`)
       return false
     }
   }

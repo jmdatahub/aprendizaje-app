@@ -97,8 +97,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, data })
 
-  } catch (e: any) {
-    console.error('[telegram/setup] Error:', e?.message)
+  } catch (e) {
+    console.error('[telegram/setup] Error:', e instanceof Error ? e.message : String(e))
     return NextResponse.json({ success: false, error: 'An internal error occurred' }, { status: 500 })
   }
 }

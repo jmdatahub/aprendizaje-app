@@ -9,12 +9,13 @@ export function useChatPersistence(chatId?: string) {
     if (chatId) {
       const chat = chatStorage.getChat(chatId);
       if (chat) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrates currentChat from localStorage when chatId changes; a derived/lazy initializer can't be used because chatId is a prop that can change after mount
         setCurrentChat(chat);
       }
     }
   }, [chatId]);
 
-  const saveMessage = useCallback((message: ChatMessage, role: 'user' | 'assistant') => {
+  const saveMessage = useCallback((message: ChatMessage) => {
     if (!currentChat) return;
 
     const updatedChat = {

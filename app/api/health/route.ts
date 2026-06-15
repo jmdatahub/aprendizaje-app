@@ -30,8 +30,8 @@ export async function GET() {
       } else {
         checks.supabase = { ok: true, ms: Date.now() - t0 }
       }
-    } catch (e: any) {
-      console.error('[health] supabase exception:', e?.message)
+    } catch (e) {
+      console.error('[health] supabase exception:', e instanceof Error ? e.message : String(e))
       checks.supabase = { ok: false, ms: Date.now() - t0 }
     }
   }

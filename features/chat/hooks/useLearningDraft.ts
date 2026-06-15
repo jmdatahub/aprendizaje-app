@@ -3,7 +3,9 @@
 import { useState, useCallback } from "react";
 import { ChatMessage } from "@/features/chat/services/chatStorage";
 import { createAprendizajeDraft } from "@/features/learning/services/learningService";
+import { updatePathProgress } from "@/features/learning-paths/services/learningPathsStorage";
 import { SECTORES_DATA } from "@/shared/constants/sectores";
+import { initSrs } from "@/lib/srs";
 
 function createId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -79,7 +81,7 @@ export function useLearningDraft(options: UseLearningDraftOptions): UseLearningD
         texto: m.content
       }));
 
-      const res = await createAprendizajeDraft({ conversacion: plainConversation }) as any;
+      const res = await createAprendizajeDraft({ conversacion: plainConversation });
 
       if (res) {
         const rawSuggested: unknown[] = Array.isArray(res.suggested_sections)
@@ -133,9 +135,26 @@ export function useLearningDraft(options: UseLearningDraftOptions): UseLearningD
         tags: finalTags,
         isFavorite: data?.isFavorite || false,
         personalNote: data?.personalNote || '',
+        // SRS (repetición espaciada): inicializa el aprendizaje como "debido ya"
+        // para que entre en la cola de "Repasar hoy" hasta su primer repaso.
+        srs: initSrs(new Date()),
       });
 
       localStorage.setItem(sectorKey, JSON.stringify(sectorData));
+
+      // If this learning was started from a learning-path step, mark that step
+      // complete now (closes the start→learn→save→progress loop that was never
+      // wired, leaving routes stuck at 0/N). active_path_step is set in mapa.
+      try {
+        const aps = sessionStorage.getItem('active_path_step');
+        if (aps) {
+          const { pathId, stepId } = JSON.parse(aps);
+          if (pathId && stepId) updatePathProgress(pathId, stepId, true);
+          sessionStorage.removeItem('active_path_step');
+        }
+      } catch (e) {
+        console.error('Error updating learning-path progress', e);
+      }
 
       if (activeChatId && !data?.keepChat) {
         onChatDeleted?.();

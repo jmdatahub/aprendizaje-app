@@ -47,6 +47,7 @@ export function Sheet({
 }: SheetProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const previouslyFocused = useRef<Element | null>(null)
+  // eslint-disable-next-line react-hooks/purity -- Math.random runs once inside useRef's initializer to mint a stable id; the value is frozen via .current for the component's lifetime, not recomputed per render
   const titleId = useRef(`sheet-title-${Math.random().toString(36).slice(2, 9)}`).current
 
   // Track mount + visibility separately so we can run an exit transition

@@ -14,7 +14,7 @@ export interface Aprendizaje {
   titulo: string
   resumen: string
   sector_id: string | null
-  conversacion_json?: any[]
+  conversacion_json?: unknown[]
   created_at: string
 }
 

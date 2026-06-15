@@ -17,10 +17,10 @@ if (!isSupabaseConfigured) {
  * Used when env vars are missing.
  */
 function createNoopClient(): SupabaseClient {
-  const proxy: any = new Proxy(function () {}, {
+  const proxy: unknown = new Proxy(function () {}, {
     get(_t, prop) {
       if (prop === 'then') {
-        return (resolve: (v: any) => void) => resolve({ data: [], error: null })
+        return (resolve: (v: unknown) => void) => resolve({ data: [], error: null })
       }
       if (prop === 'single' || prop === 'maybeSingle') {
         return () => Promise.resolve({ data: null, error: null })

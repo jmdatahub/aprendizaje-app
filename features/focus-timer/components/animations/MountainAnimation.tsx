@@ -1,6 +1,5 @@
 "use client"
 
-import { Mountain } from "lucide-react"
 
 interface MountainAnimationProps {
   progress: number // 0 to 1
@@ -8,7 +7,7 @@ interface MountainAnimationProps {
   isCompleted: boolean
 }
 
-export function MountainAnimation({ progress, isActive, isCompleted }: MountainAnimationProps) {
+export function MountainAnimation({ progress, isActive }: MountainAnimationProps) {
   // Sunlight moves across the mountain as progress increases
   const sunPos = progress * 100 // 0 to 100
   

@@ -2,17 +2,43 @@
 
 import React, { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { useApp } from '@/shared/contexts/AppContext'
 import { ActivityHeatmap } from '@/features/stats/components/ActivityHeatmap'
 import { SkillCharts } from '@/features/stats/components/SkillCharts'
 import { WeeklyChart } from "@/features/stats/components/WeeklyChart"
 import Link from 'next/link'
-import { Flame, CalendarDays, Zap, ArrowLeft, BookOpen, TrendingUp } from 'lucide-react'
+import { Flame, CalendarDays, Zap, ArrowLeft, BookOpen, TrendingUp, TrendingDown, Minus, Gauge } from 'lucide-react'
+import { SECTORES_DATA } from '@/shared/constants/sectores'
+import { useApp } from '@/shared/contexts/AppContext'
+
+/**
+ * Learnings are persisted to localStorage (`sector_data_*`), not the Supabase
+ * `aprendizajes` table the stats API reads. Pull learning activity from the same
+ * source the rest of the app uses so the progress streak matches the home screen.
+ */
+function getLocalLearningActivity(): { date: string; type: 'learning' }[] {
+  if (typeof window === 'undefined') return []
+  const out: { date: string; type: 'learning' }[] = []
+  SECTORES_DATA.forEach((sector) => {
+    try {
+      const stored = localStorage.getItem(`sector_data_${sector.id}`)
+      if (!stored) return
+      const data = JSON.parse(stored)
+      if (data && Array.isArray(data.items)) {
+        data.items.forEach((it: { date?: string }) => {
+          if (it?.date) out.push({ date: it.date, type: 'learning' })
+        })
+      }
+    } catch (e) {
+      console.error('progreso: error reading local learnings', e)
+    }
+  })
+  return out
+}
 
 interface ActivityLogItem {
   date: string
   type: 'learning' | 'practice'
-  details?: any
+  details?: { duration?: number; skillId?: string }
 }
 
 interface SkillStats {
@@ -23,7 +49,7 @@ interface SkillStats {
 }
 
 export default function ProgresoPage() {
-  const { t } = useApp()
+  const { settings } = useApp()
   const [loading, setLoading] = useState(true)
   const [activityLog, setActivityLog] = useState<ActivityLogItem[]>([])
   const [skillsStats, setSkillsStats] = useState<SkillStats[]>([])
@@ -32,15 +58,27 @@ export default function ProgresoPage() {
 
   useEffect(() => {
     async function fetchData() {
+      const localLearnings = getLocalLearningActivity()
       try {
         const res = await fetch('/api/stats/activity')
         const json = await res.json()
         if (json.success) {
-          setActivityLog(json.data.activityLog)
+          // Practice activity is server-side (Supabase); learning activity lives in
+          // localStorage. Drop the (empty) server learning entries and use the local
+          // ones so this dashboard agrees with the home streak.
+          const practice = (json.data.activityLog || []).filter((a: ActivityLogItem) => a.type !== 'learning')
+          const merged = [...practice, ...localLearnings].sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+          )
+          setActivityLog(merged)
           setSkillsStats(json.data.skillsStats)
+        } else {
+          setActivityLog(localLearnings)
         }
       } catch (err) {
         console.error(err)
+        // API failed — still show learning activity from the local source.
+        setActivityLog(localLearnings)
       } finally {
         setLoading(false)
       }
@@ -80,15 +118,44 @@ export default function ProgresoPage() {
     ]
   }, [filteredLogs])
 
+  // Velocidad de aprendizaje: actividades de los últimos 7 días vs los 7 anteriores.
+  // Reutiliza el mismo array (filteredLogs) que alimenta el heatmap. Solo lectura.
+  const velocity = React.useMemo(() => {
+    const now = Date.now()
+    const DAY = 86400000
+    const last7Start = now - 7 * DAY
+    const prev7Start = now - 14 * DAY
+    let last7 = 0
+    let prev7 = 0
+    filteredLogs.forEach(log => {
+      const t = new Date(log.date).getTime()
+      if (isNaN(t)) return
+      if (t >= last7Start && t <= now) last7++
+      else if (t >= prev7Start && t < last7Start) prev7++
+    })
+    // Cálculo de tendencia y % de cambio frente a la semana pasada.
+    let direction: 'up' | 'down' | 'flat'
+    let percent: number | null
+    if (prev7 === 0) {
+      direction = last7 > 0 ? 'up' : 'flat'
+      percent = last7 > 0 ? null : 0 // sin base previa: mostramos "nuevo" en lugar de %
+    } else {
+      const change = ((last7 - prev7) / prev7) * 100
+      percent = Math.round(change)
+      direction = change > 0 ? 'up' : change < 0 ? 'down' : 'flat'
+    }
+    return { last7, prev7, direction, percent }
+  }, [filteredLogs])
+
   function calculateStreak(dates: string[]) {
     if (!dates.length) return 0
     const unique = Array.from(new Set(dates)).sort().reverse()
     const today = new Date().toISOString().split('T')[0]
     const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
     let streak = 0
-    let current = unique[0] === today ? today : (unique[0] === yesterday ? yesterday : null)
+    const current = unique[0] === today ? today : (unique[0] === yesterday ? yesterday : null)
     if (!current) return 0
-    let checkDate = new Date(current)
+    const checkDate = new Date(current)
     streak = 1
     while (true) {
       checkDate.setDate(checkDate.getDate() - 1)
@@ -169,6 +236,11 @@ export default function ProgresoPage() {
                   <span className="text-5xl font-bold text-orange-400 leading-none">{statsSummary.currentStreak}</span>
                   <span className="text-sm text-orange-400/70 mb-1">días</span>
                 </div>
+                <GoalProgress
+                  value={statsSummary.currentStreak}
+                  goal={settings.streakGoal}
+                  label="Meta de racha"
+                />
               </motion.div>
 
               {/* Días activos */}
@@ -188,6 +260,11 @@ export default function ProgresoPage() {
                 <div className="relative mt-3">
                   <span className="text-5xl font-bold text-indigo-400 leading-none">{statsSummary.totalActiveDays}</span>
                 </div>
+                <GoalProgress
+                  value={statsSummary.totalActiveDays}
+                  goal={settings.yearlyGoal}
+                  label="Meta anual"
+                />
               </motion.div>
 
               {/* Total actividades */}
@@ -209,6 +286,57 @@ export default function ProgresoPage() {
                 </div>
               </motion.div>
             </div>
+
+            {/* Velocidad de aprendizaje (semana vs semana) */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="relative overflow-hidden rounded-2xl border border-violet-500/30 bg-card p-5 shadow-sm"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-violet-500/15 to-transparent pointer-events-none" />
+              <div className="relative flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-violet-500/20">
+                    <Gauge className="w-5 h-5 text-violet-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-widest text-violet-400">Velocidad de aprendizaje</p>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      {velocity.last7} actividad{velocity.last7 !== 1 ? 'es' : ''} esta semana
+                      <span className="text-muted-foreground/70"> · {velocity.prev7} la anterior</span>
+                    </p>
+                  </div>
+                </div>
+                <div
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold ${
+                    velocity.direction === 'up'
+                      ? 'bg-emerald-500/15 text-emerald-400'
+                      : velocity.direction === 'down'
+                      ? 'bg-rose-500/15 text-rose-400'
+                      : 'bg-muted text-muted-foreground'
+                  }`}
+                  aria-label={
+                    velocity.percent === null
+                      ? 'Nueva actividad respecto a la semana pasada'
+                      : `${velocity.percent > 0 ? '+' : ''}${velocity.percent}% respecto a la semana pasada`
+                  }
+                >
+                  {velocity.direction === 'up' ? (
+                    <TrendingUp className="w-4 h-4" aria-hidden="true" />
+                  ) : velocity.direction === 'down' ? (
+                    <TrendingDown className="w-4 h-4" aria-hidden="true" />
+                  ) : (
+                    <Minus className="w-4 h-4" aria-hidden="true" />
+                  )}
+                  <span className="whitespace-nowrap">
+                    {velocity.percent === null
+                      ? 'Nuevo'
+                      : `${velocity.percent > 0 ? '+' : ''}${velocity.percent}% vs semana pasada`}
+                  </span>
+                </div>
+              </div>
+            </motion.div>
 
             {/* Heatmap */}
             <motion.section
@@ -288,6 +416,46 @@ export default function ProgresoPage() {
             </div>
           </>
         )}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Barra de progreso hacia una meta (streakGoal / yearlyGoal). Solo lectura.
+ * Verde si la meta está cumplida, ámbar si queda <20% para alcanzarla.
+ */
+function GoalProgress({ value, goal, label }: { value: number; goal: number; label: string }) {
+  if (!goal || goal <= 0) return null
+  const ratio = value / goal
+  const pct = Math.min(100, Math.round(ratio * 100))
+  const reached = value >= goal
+  // <20% restante => ratio >= 0.8 (pero aún no cumplida) => ámbar.
+  const nearGoal = !reached && ratio >= 0.8
+  const barColor = reached
+    ? 'bg-emerald-500'
+    : nearGoal
+    ? 'bg-amber-500'
+    : 'bg-violet-500'
+
+  return (
+    <div className="relative mt-4">
+      <div className="flex items-center justify-between text-[11px] font-medium text-muted-foreground mb-1.5">
+        <span>{label}</span>
+        <span>{value}/{goal}{reached ? ' ✓' : ''}</span>
+      </div>
+      <div
+        className="h-1.5 w-full rounded-full bg-muted overflow-hidden"
+        role="progressbar"
+        aria-valuenow={value}
+        aria-valuemin={0}
+        aria-valuemax={goal}
+        aria-label={`${label}: ${value} de ${goal}`}
+      >
+        <div
+          className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+          style={{ width: `${pct}%` }}
+        />
       </div>
     </div>
   )

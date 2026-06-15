@@ -43,29 +43,51 @@ export async function GET(request: Request) {
     console.log(`[Cron] Found ${toSend.length} reminders to send`)
 
     const recipientEmail = process.env.REMINDER_EMAIL_TO || ''
+    const configError = toSend.length > 0 && !recipientEmail
+
+    if (configError) {
+      console.error(
+        `[Cron] REMINDER_EMAIL_TO no configurada; ${toSend.length} recordatorios no enviados`
+      )
+    }
+
     const results = []
-    for (const r of toSend as any[]) {
+    let sentCount = 0
+    let skippedCount = 0
+    type Recordatorio = {
+      id: string;
+      hora: string;
+      habilidades?: { nombre?: string } | { nombre?: string }[];
+    }
+    for (const r of toSend as Recordatorio[]) {
       const hab = r?.habilidades
       const habilidadNombre = (Array.isArray(hab) ? hab[0]?.nombre : hab?.nombre) || 'Habilidad'
 
       if (!recipientEmail) {
-        console.log(`[Cron] Skipping email for ${habilidadNombre} — REMINDER_EMAIL_TO not set`)
         results.push({ id: r.id, sent: false, skipped: true })
+        skippedCount++
         continue
       }
 
       const sent = await EmailService.sendReminderEmail(recipientEmail, habilidadNombre, r.hora)
       results.push({ id: r.id, sent })
+      if (sent) {
+        sentCount++
+      } else {
+        skippedCount++
+      }
     }
 
     return NextResponse.json({
-      success: true,
+      success: !configError,
+      configError,
       checkedAt: new Date().toISOString(),
-      sentCount: results.length,
+      sentCount,
+      skippedCount,
       results
     })
-  } catch (e: any) {
-    console.error('[Cron check-reminders] Error:', e?.message || 'unknown')
+  } catch (e) {
+    console.error('[Cron check-reminders] Error:', e instanceof Error ? e.message : 'unknown')
     return NextResponse.json({ success: false, error: 'CRON_ERROR' }, { status: 500 })
   }
 }

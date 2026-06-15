@@ -21,8 +21,8 @@ export async function DELETE(
     }
 
     return NextResponse.json({ success: true })
-  } catch (e: any) {
-    console.error('[recordatorios/[id] DELETE] Error:', e?.message)
+  } catch (e) {
+    console.error('[recordatorios/[id] DELETE] Error:', e instanceof Error ? e.message : String(e))
     return NextResponse.json({ success: false, error: 'INTERNAL_ERROR', message: 'Error al eliminar recordatorio' }, { status: 500 })
   }
 }

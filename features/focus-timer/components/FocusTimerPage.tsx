@@ -2,17 +2,18 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { useTimer } from "../hooks/useTimer"
+import { useTimer, type SessionBlock } from "../hooks/useTimer"
 import { useSounds } from "../hooks/useSounds"
 import { useCollectibles } from "../hooks/useCollectibles"
 import { TimerDisplay } from "./TimerDisplay"
 import { TimerControls } from "./TimerControls"
 import { TabBar, TimerTab } from "./TabBar"
-import { TodoList } from "./TodoList"
+import { TodoList, type Todo } from "./TodoList"
 import { HabitTracker } from "./HabitTracker"
 import { GoalsPanel } from "./GoalsPanel"
 import { SoundSettings } from "./SoundSettings"
 import { AnimationSelector } from "./AnimationSelector"
+import { EstimationAccuracy, appendSessionLogEntry } from "./EstimationAccuracy"
 import { ArrowLeft, Target, Clock, Coffee, Settings2, Volume2, Sparkles, CheckCircle, Plus, ArrowRight } from "lucide-react"
 
 const PRESET_MINUTES = [15, 25, 45, 60]
@@ -37,15 +38,16 @@ export function FocusTimerPage() {
   const [focusDuration, setFocusDuration] = useState({ m: 25, s: 0 })
   const [breakDuration, setBreakDuration] = useState({ m: 5, s: 0 })
   const [totalTargetDuration, setTotalTargetDuration] = useState(120) // Default 2h
-  const [isJornadaMode, setIsJornadaMode] = useState(false)
-  
+
   // Advanced Task Tracking
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null)
   const [activeTaskDescription, setActiveTaskDescription] = useState<string | undefined>()
   const [taskEstimatedMinutes, setTaskEstimatedMinutes] = useState<number | undefined>()
   const [taskStartTime, setTaskStartTime] = useState<number | null>(null)
   const [sessionTaskLog, setSessionTaskLog] = useState<{name: string, est: number, real: number}[]>([])
-  
+  // Bumped whenever a measured task is persisted, so EstimationAccuracy re-reads localStorage
+  const [accuracyRefreshKey, setAccuracyRefreshKey] = useState(0)
+
   // Estimation Modal State
   const [showEstimationModal, setShowEstimationModal] = useState(false)
   const [pendingTask, setPendingTask] = useState<{id: string, text: string, description?: string} | null>(null)
@@ -126,10 +128,10 @@ export function FocusTimerPage() {
     
     // 1. Mark in localStorage
     const saved = localStorage.getItem("focus_timer_todos")
-    let todos: any[] = []
+    let todos: Todo[] = []
     if (saved) {
       todos = JSON.parse(saved)
-      const updated = todos.map((t: any) => 
+      const updated = todos.map((t) =>
         (activeTaskId ? t.id === activeTaskId : t.text === goal) ? { ...t, completed: true } : t
       )
       localStorage.setItem("focus_timer_todos", JSON.stringify(updated))
@@ -139,17 +141,21 @@ export function FocusTimerPage() {
     // 2. Log timing
     if (taskStartTime) {
       const actualMinutes = Math.round((Date.now() - taskStartTime) / 60000)
-      setSessionTaskLog(prev => [...prev, {
+      const entry = {
         name: goal,
         est: taskEstimatedMinutes || 0,
         real: actualMinutes
-      }])
+      }
+      setSessionTaskLog(prev => [...prev, entry])
+      // Persist for the accumulated estimation-accuracy metric (survives reloads)
+      appendSessionLogEntry(entry)
+      setAccuracyRefreshKey(k => k + 1)
     }
 
     // 3. Jump to NEXT uncompleted task (Prioritized)
     const TIER_ORDER: Record<string, number> = { S: 0, A: 1, B: 2, C: 3 }
     const nextTask = todos
-      .filter((t: any) => !t.completed)
+      .filter((t) => !t.completed)
       .sort((a, b) => TIER_ORDER[a.tier] - TIER_ORDER[b.tier])[0]
     
     if (nextTask) {
@@ -180,8 +186,8 @@ export function FocusTimerPage() {
     // Sync estimate to localStorage
     const saved = localStorage.getItem("focus_timer_todos")
     if (saved) {
-      const todos = JSON.parse(saved)
-      const updated = todos.map((t: any) => 
+      const todos: Todo[] = JSON.parse(saved)
+      const updated = todos.map((t) =>
         t.id === pendingTask.id ? { ...t, estimatedMinutes: estMinutes } : t
       )
       localStorage.setItem("focus_timer_todos", JSON.stringify(updated))
@@ -190,20 +196,6 @@ export function FocusTimerPage() {
     setShowEstimationModal(false)
     setPendingTask(null)
     setActiveTab("focus")
-  }
-
-  const updateTaskEstimate = (val: number) => {
-    setTaskEstimatedMinutes(val)
-    if (activeTaskId) {
-      const saved = localStorage.getItem("focus_timer_todos")
-      if (saved) {
-        const todos = JSON.parse(saved)
-        const updated = todos.map((t: any) => 
-          t.id === activeTaskId ? { ...t, estimatedMinutes: val } : t
-        )
-        localStorage.setItem("focus_timer_todos", JSON.stringify(updated))
-      }
-    }
   }
 
   const handlePresetSelect = (m: number) => {
@@ -228,11 +220,16 @@ export function FocusTimerPage() {
     }
     // Cleanup on every status change or unmount
     return () => sounds.stopAmbient()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed only on the status and selected ambient sound; `sounds` is a fresh object each render (useSounds is not memoized), so adding it would restart ambient audio on every render
   }, [timer.status, sounds.settings.ambientSound])
 
   // Play completion sound and handle transition state
   useEffect(() => {
     if (timer.status === "completed") {
+      // NOTE: setIsWaitingConfirmation here reacts to the external timer reaching "completed"
+      // (synchronizing React state to a timer event, not derivable during render). The
+      // set-state-in-effect lint for this effect is already covered by the exhaustive-deps
+      // disable on its dependency array below.
       setIsWaitingConfirmation(true)
       sounds.playCompletion("alarm-loop", true) // Play looping alarm
       
@@ -251,6 +248,7 @@ export function FocusTimerPage() {
         localStorage.setItem("focus_timer_stats", JSON.stringify(stats))
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires the one-shot completion side effects keyed on the completion event (status/mode/minutes); `collectibles` and `sounds` are fresh objects each render (useCollectibles/useSounds aren't memoized) so adding them would re-run completion logic and double-count stats
   }, [timer.status, isBreakMode, timer.minutes])
 
   const handleStop = useCallback(() => {
@@ -299,7 +297,7 @@ export function FocusTimerPage() {
                       handleStartFocusedTask(parseInt((e.target as HTMLInputElement).value) || 25)
                     }
                   }}
-                  onChange={(e) => {
+                  onChange={() => {
                     // Update state if needed, but we can just pull from ref or event on submit
                   }}
                   id="modal-est-input"
@@ -407,10 +405,12 @@ export function FocusTimerPage() {
         )}
 
         <button
+          type="button"
           onClick={() => setShowSettings(true)}
+          aria-label="Ajustes del temporizador"
           className="p-2 bg-slate-800/50 hover:bg-slate-700/50 rounded-xl border border-slate-700/50 transition-all text-slate-400 hover:text-white group"
         >
-          <Settings2 className="w-5 h-5 group-hover:rotate-45 transition-transform" />
+          <Settings2 className="w-5 h-5 group-hover:rotate-45 transition-transform" aria-hidden="true" />
         </button>
       </header>
 
@@ -565,10 +565,11 @@ export function FocusTimerPage() {
                         <input
                           type="number"
                           inputMode="numeric"
+                          aria-label={item.label === 'Total (h)' ? 'Total de horas' : `Minutos de ${item.label.toLowerCase()}`}
                           step={item.label.includes('h') ? "0.5" : "1"}
                           value={item.val}
                           onChange={(e) => item.set(parseFloat(e.target.value) || 0)}
-                          className="w-full min-w-0 bg-transparent text-center text-sm text-indigo-400 font-mono font-bold outline-none leading-none appearance-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          className="w-full min-w-0 bg-transparent text-center text-sm text-indigo-400 font-mono font-bold outline-none leading-none py-1.5 appearance-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                       </div>
                     ))}
@@ -576,7 +577,7 @@ export function FocusTimerPage() {
 
                   <button
                     onClick={() => {
-                      const seq: any[] = []
+                      const seq: SessionBlock[] = []
                       let accumulated = 0
                       const totalMin = totalTargetDuration
                       const fDuration = focusDuration.m
@@ -584,10 +585,10 @@ export function FocusTimerPage() {
                       if (fDuration <= 0 || totalMin <= 0) {
                         // If user hasn't selected a goal, find the top one automatically
                         const saved = localStorage.getItem("focus_timer_todos")
-                        const todos = saved ? JSON.parse(saved) : []
+                        const todos: Todo[] = saved ? JSON.parse(saved) : []
                         const nextTask = todos
-                          .filter((t: any) => !t.completed)
-                          .sort((a: any, b: any) => {
+                          .filter((t) => !t.completed)
+                          .sort((a, b) => {
                             const TIER_ORDER: Record<string, number> = { S: 0, A: 1, B: 2, C: 3 }
                             return TIER_ORDER[a.tier] - TIER_ORDER[b.tier]
                           })[0]
@@ -634,14 +635,17 @@ export function FocusTimerPage() {
                       </button>
                     ))}
                     <button
+                      type="button"
                       onClick={() => setIsCustomTime(!isCustomTime)}
+                      aria-label="Tiempo personalizado"
+                      aria-pressed={isCustomTime}
                       className={`px-4 py-3 rounded-2xl transition-all border ${
                         isCustomTime
                           ? "bg-indigo-600 border-indigo-500 text-white"
                           : "bg-slate-800/40 border-slate-700/20 text-slate-500 hover:text-white hover:bg-slate-700/60"
                       }`}
                     >
-                      <Clock className="w-4 h-4" />
+                      <Clock className="w-4 h-4" aria-hidden="true" />
                     </button>
                   </div>
                 </div>
@@ -800,6 +804,7 @@ export function FocusTimerPage() {
             <Sparkles className="w-3 h-3 text-indigo-400" />
             <span className="uppercase tracking-[0.2em] font-medium text-[9px]">Skins desbloqueables activas</span>
           </div>
+          <EstimationAccuracy refreshKey={accuracyRefreshKey} />
         </footer>
       )}
     </div>

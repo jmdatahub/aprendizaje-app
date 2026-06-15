@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from "react"
-import { Plus, Trash2, CheckCircle2, Circle, Flame, Calendar, MoreHorizontal, Activity, Star, Target, Trophy, Bell, BellOff, Settings2, X, ChevronDown, Clock, MessageSquare, MessageCircle, Send, Radio, CloudLightning } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Plus, Trash2, CheckCircle2, Circle, Flame, Calendar, Activity, Star, Target, Bell, BellOff, Settings2, X, ChevronDown, Clock, MessageSquare, MessageCircle, Send, CloudLightning, type LucideIcon } from "lucide-react"
 import { format, subDays } from "date-fns"
 import { HabitDetailModal, type HabitCategory } from "./HabitDetailModal"
-import { useHabitNotifications, HabitMinimal } from "../hooks/useHabitNotifications"
+import { useHabitNotifications } from "../hooks/useHabitNotifications"
 import { TimePicker } from "./TimePicker"
 import { habitService, type Habit } from "../services/habitService"
 
@@ -132,11 +132,12 @@ export function HabitTracker() {
      if (savedConfig) {
         try {
            setTelegramConfig(JSON.parse(savedConfig))
-        } catch (e) {}
+        } catch {}
      }
 
      // 2. Load API Habits
      loadHabits()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-time mount bootstrap (load Telegram config + initial habits); loadHabits is a plain function redefined each render, including it would refetch habits on every render
   }, [])
 
   const loadHabits = async () => {
@@ -148,7 +149,7 @@ export function HabitTracker() {
         if (localHabitsJson) {
             try {
                 localHabits = JSON.parse(localHabitsJson)
-            } catch (e) {}
+            } catch {}
         }
 
         const dbHabits = await habitService.list(telegramConfig.chatId)
@@ -174,7 +175,7 @@ export function HabitTracker() {
         
         const localHabits = JSON.parse(localHabitsJson)
         // Inject current telegram config if not present in habits
-        const habitsToMigrate = localHabits.map((h: any) => ({
+        const habitsToMigrate = localHabits.map((h: Habit) => ({
             ...h,
             telegramConfig: h.telegramConfig || telegramConfig
         }))
@@ -232,7 +233,7 @@ export function HabitTracker() {
        } else {
           alert("Error: " + (data.error || "Desconocido"))
        }
-    } catch (e) {
+    } catch {
        alert("Error de conexión con el servidor")
     }
   }
@@ -275,7 +276,6 @@ export function HabitTracker() {
 
   const updateHabit = async (updatedHabit: Habit) => {
     // Optimistic Update
-    const prevHabits = [...habits]
     setHabits(prev => prev.map(h => h.id === updatedHabit.id ? updatedHabit : h))
     if (selectedHabit?.id === updatedHabit.id) {
        setSelectedHabit(updatedHabit)
@@ -329,7 +329,7 @@ export function HabitTracker() {
         setInputValue("")
         setStreakInput("")
         setTotalDaysInput("")
-    } catch (e) {
+    } catch {
         alert("Error al crear hábito")
     }
   }
@@ -387,14 +387,14 @@ export function HabitTracker() {
 
     try {
         await habitService.delete(id)
-    } catch (e) {
+    } catch {
         setHabits(prevHabits)
         alert("Error al eliminar")
     }
   }
 
   // Categories for selector
-  const CATEGORIES: { id: HabitCategory, icon: any, color: string, label: string }[] = [
+  const CATEGORIES: { id: HabitCategory, icon: LucideIcon, color: string, label: string }[] = [
     { id: "health", icon: Activity, color: "text-emerald-400", label: "Salud" },
     { id: "study", icon: Star, color: "text-blue-400", label: "Estudio" },
     { id: "work", icon: Target, color: "text-violet-400", label: "Trabajo" },
@@ -515,7 +515,7 @@ export function HabitTracker() {
                                     } else {
                                         alert("Error: " + data.error)
                                     }
-                                } catch (e) {
+                                } catch {
                                     alert("Error de conexión")
                                 }
                             }}

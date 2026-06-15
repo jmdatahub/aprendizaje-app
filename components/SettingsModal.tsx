@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useApp, AppSettings } from "@/shared/contexts/AppContext";
 import { Sheet } from "@/shared/components";
@@ -12,9 +13,20 @@ interface SettingsModalProps {
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const { t, settings, updateSettings } = useApp();
+  const [showSavedToast, setShowSavedToast] = React.useState(false);
+  const toastTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleChange = (key: keyof AppSettings, value: any) => {
+  React.useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    };
+  }, []);
+
+  const handleChange = (key: keyof AppSettings, value: string | number | boolean) => {
     updateSettings({ [key]: value });
+    setShowSavedToast(true);
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    toastTimeoutRef.current = setTimeout(() => setShowSavedToast(false), 2000);
   };
 
   return (
@@ -124,7 +136,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   onClick={() => handleChange('dateFormat', 'classic')}
                   aria-label="Formato de fecha clásico DD/MM/YYYY"
                   aria-pressed={settings.dateFormat === 'classic'}
-                  className={`px-3 h-9 sm:h-8 text-xs font-medium rounded-md transition-all active:scale-95 ${
+                  className={`px-4 h-11 sm:h-9 text-xs font-medium rounded-md transition-all active:scale-95 ${
                     settings.dateFormat === 'classic'
                       ? 'bg-card text-foreground shadow-sm border border-border/60'
                       : 'text-muted-foreground hover:text-foreground'
@@ -137,7 +149,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   onClick={() => handleChange('dateFormat', 'relative')}
                   aria-label="Formato de fecha relativo (hace X días)"
                   aria-pressed={settings.dateFormat === 'relative'}
-                  className={`px-3 h-9 sm:h-8 text-xs font-medium rounded-md transition-all active:scale-95 ${
+                  className={`px-4 h-11 sm:h-9 text-xs font-medium rounded-md transition-all active:scale-95 ${
                     settings.dateFormat === 'relative'
                       ? 'bg-card text-foreground shadow-sm border border-border/60'
                       : 'text-muted-foreground hover:text-foreground'
@@ -228,6 +240,23 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           </div>
 
       </div>
+
+      {/* Toast de confirmación al guardar ajustes */}
+      <AnimatePresence>
+        {showSavedToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            role="status"
+            aria-live="polite"
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 z-[60] pointer-events-none"
+          >
+            <span aria-hidden="true">✅</span>
+            <span className="text-sm font-medium">Ajustes guardados</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </Sheet>
   );
 }

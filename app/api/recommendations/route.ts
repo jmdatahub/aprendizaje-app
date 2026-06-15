@@ -54,7 +54,7 @@ export async function POST(req: Request) {
     }
 
     // Construir contexto breve (últimos 3 mensajes)
-    const contextMessages = messages.slice(-3).map((m: any) => `${m.role}: ${m.content}`).join('\n')
+    const contextMessages = messages.slice(-3).map((m: { role: string; content: string }) => `${m.role}: ${m.content}`).join('\n')
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -96,8 +96,8 @@ export async function POST(req: Request) {
       }
     })
 
-  } catch (error: any) {
-    console.error('[recommendations] Error:', error?.message || 'unknown')
+  } catch (error) {
+    console.error('[recommendations] Error:', error instanceof Error ? error.message : 'unknown')
     return NextResponse.json<RecommendationsResponse>({
       success: false,
       error: 'INTERNAL_ERROR',

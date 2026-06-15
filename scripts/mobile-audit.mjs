@@ -3,7 +3,7 @@
 // Captures every primary route + every important modal at 320 / 375 / 430 viewports.
 // Saves PNGs into screenshots/mobile-audit/.
 
-import { chromium, devices } from 'playwright'
+import { chromium } from 'playwright'
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 

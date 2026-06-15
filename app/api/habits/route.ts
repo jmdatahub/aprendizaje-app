@@ -30,14 +30,14 @@ export async function GET(request: Request) {
     const { data, error } = await query
     if (error) throw error
 
-    const habits = (data || []).map((h: any) => ({
+    const habits = (data || []).map((h: { habit_logs?: { completed_at: string }[] }) => ({
       ...h,
-      history: h.habit_logs?.map((l: any) => l.completed_at) || []
+      history: h.habit_logs?.map((l: { completed_at: string }) => l.completed_at) || []
     }))
 
     return NextResponse.json({ success: true, data: habits })
-  } catch (e: any) {
-    console.error('[habits GET] Error:', e?.message)
+  } catch (e) {
+    console.error('[habits GET] Error:', e instanceof Error ? e.message : String(e))
     return NextResponse.json({ success: false, error: 'INTERNAL_ERROR' }, { status: 500 })
   }
 }
@@ -75,8 +75,8 @@ export async function POST(request: Request) {
     if (error) throw error
 
     return NextResponse.json({ success: true, data })
-  } catch (e: any) {
-    console.error('[habits POST] Error:', e?.message)
+  } catch (e) {
+    console.error('[habits POST] Error:', e instanceof Error ? e.message : String(e))
     return NextResponse.json({ success: false, error: 'INTERNAL_ERROR' }, { status: 500 })
   }
 }
@@ -117,7 +117,7 @@ export async function PUT(request: Request) {
 
       if (Array.isArray(h.history) && h.history.length > 0) {
         const validDates = h.history
-          .filter((d: any) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d))
+          .filter((d: unknown): d is string => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d))
           .slice(0, 1000)
 
         if (validDates.length > 0) {
@@ -131,8 +131,8 @@ export async function PUT(request: Request) {
     }
 
     return NextResponse.json({ success: true, migrated: results.length })
-  } catch (e: any) {
-    console.error('[habits PUT] Error:', e?.message)
+  } catch (e) {
+    console.error('[habits PUT] Error:', e instanceof Error ? e.message : String(e))
     return NextResponse.json({ success: false, error: 'INTERNAL_ERROR' }, { status: 500 })
   }
 }

@@ -24,7 +24,11 @@ const PALETTE = [
   '#8b5cf6', '#6366f1', '#06b6d4', '#10b981', '#f59e0b', '#f43f5e', '#ec4899'
 ]
 
-const CustomPieTooltip = ({ active, payload, isDark }: any) => {
+const CustomPieTooltip = ({ active, payload, isDark }: {
+  active?: boolean;
+  payload?: { name?: string; value?: number; payload?: { fill?: string } }[];
+  isDark?: boolean;
+}) => {
   if (!active || !payload?.length) return null
   return (
     <div className={`px-3 py-2 rounded-xl border shadow-lg text-sm ${
@@ -36,7 +40,12 @@ const CustomPieTooltip = ({ active, payload, isDark }: any) => {
   )
 }
 
-const CustomBarTooltip = ({ active, payload, label, isDark }: any) => {
+const CustomBarTooltip = ({ active, payload, label, isDark }: {
+  active?: boolean;
+  payload?: { value?: number }[];
+  label?: string | number;
+  isDark?: boolean;
+}) => {
   if (!active || !payload?.length) return null
   return (
     <div className={`px-3 py-2 rounded-xl border shadow-lg text-sm ${

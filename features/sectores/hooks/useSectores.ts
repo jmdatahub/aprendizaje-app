@@ -44,15 +44,13 @@ export function useSectores(): UseSectoresReturn {
       })
 
       // Fetch progress
-      let token: string | undefined
       try {
-        const session = await (supabase as any)?.auth?.getSession?.()
-        token = session?.data?.session?.access_token
+        await supabase?.auth?.getSession?.()
       } catch {}
 
       let serverProgress: string[] = []
       try {
-        serverProgress = await fetchUnlockedSectors(token)
+        serverProgress = await fetchUnlockedSectors()
       } catch (err) {
         console.error('Error fetching unlocked sectors:', err)
         // Don't fail completely if progress fetch fails

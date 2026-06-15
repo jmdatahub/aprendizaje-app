@@ -45,6 +45,7 @@ export const es = {
     yearly_goal: "Objetivo anual (días)",
     general_section: "General",
     language: "Idioma",
+    select_language: "Seleccionar idioma",
     summary_placeholder: "Aquí aparecerá el resumen generado...",
     sector_label: "Sector",
     save_button: "Guardar y Finalizar",

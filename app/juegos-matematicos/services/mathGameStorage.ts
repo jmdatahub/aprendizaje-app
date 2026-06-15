@@ -118,6 +118,7 @@ export interface MathGameStats {
 
 const STORAGE_KEY = 'math_game_history';
 const STATS_KEY = 'math_game_stats';
+const OP_STATS_KEY = 'math_game_op_stats';
 
 const initialStats: MathGameStats = {
   sum: { totalAttempts: 0, correctCount: 0, incorrectCount: 0, lastLevel: 'facil' },
@@ -207,6 +208,116 @@ export const updateSmartStats = (newStats: Partial<MathGameStats>, profileId?: s
     return updated;
   } catch (error) {
     console.error('Failed to update smart stats:', error);
+    return null;
+  }
+};
+
+// ============================================
+// Per-operation measurement stats (NEW, additive)
+// Aggregates precision (accuracy) and speed (avg time per op) by concrete
+// operation type — independent of game mode. Stored under a dedicated key
+// so it never interferes with smart stats or session history.
+// ============================================
+
+// Only the four concrete operations are measured; 'mixed' resolves to a
+// concrete op per exercise, so it is never stored as a bucket itself.
+export type ConcreteOperationType = 'sum' | 'sub' | 'mul' | 'div';
+
+export const CONCRETE_OPERATIONS: readonly ConcreteOperationType[] = ['sum', 'sub', 'mul', 'div'];
+
+export interface OperationAggregate {
+  totalAttempts: number;
+  correctCount: number;
+  /** Sum of answer times in ms across all attempts; avg = totalTimeMs / totalAttempts. */
+  totalTimeMs: number;
+}
+
+export type OpAggregateStats = Record<ConcreteOperationType, OperationAggregate>;
+
+/** A single recorded answer during a game, used to build the aggregate. */
+export interface OpResult {
+  op: ConcreteOperationType;
+  correct: boolean;
+  timeMs: number;
+}
+
+const emptyOpAggregate = (): OperationAggregate => ({
+  totalAttempts: 0,
+  correctCount: 0,
+  totalTimeMs: 0,
+});
+
+export const getEmptyOpAggregateStats = (): OpAggregateStats => ({
+  sum: emptyOpAggregate(),
+  sub: emptyOpAggregate(),
+  mul: emptyOpAggregate(),
+  div: emptyOpAggregate(),
+});
+
+const getOpStatsKey = (profileId: string) => `${OP_STATS_KEY}_${profileId}`;
+
+// Guards against pathological values that could bloat localStorage or skew
+// averages (e.g. a tab left open for hours between two answers).
+const MAX_TIME_PER_OP_MS = 5 * 60 * 1000; // 5 min cap per single answer
+
+const sanitizeAggregate = (raw: unknown): OperationAggregate => {
+  const base = emptyOpAggregate();
+  if (!raw || typeof raw !== 'object') return base;
+  const r = raw as Partial<OperationAggregate>;
+  const totalAttempts = Number.isFinite(r.totalAttempts) ? Math.max(0, Math.floor(r.totalAttempts as number)) : 0;
+  const correctCount = Number.isFinite(r.correctCount) ? Math.max(0, Math.floor(r.correctCount as number)) : 0;
+  const totalTimeMs = Number.isFinite(r.totalTimeMs) ? Math.max(0, r.totalTimeMs as number) : 0;
+  return {
+    totalAttempts,
+    // correctCount can never exceed attempts
+    correctCount: Math.min(correctCount, totalAttempts),
+    totalTimeMs,
+  };
+};
+
+export const getOpAggregateStats = (profileId?: string): OpAggregateStats => {
+  const pid = profileId || getActiveProfileId();
+  const empty = getEmptyOpAggregateStats();
+  try {
+    const stored = localStorage.getItem(getOpStatsKey(pid));
+    if (!stored) return empty;
+    const parsed = JSON.parse(stored) as Partial<Record<ConcreteOperationType, unknown>>;
+    return {
+      sum: sanitizeAggregate(parsed.sum),
+      sub: sanitizeAggregate(parsed.sub),
+      mul: sanitizeAggregate(parsed.mul),
+      div: sanitizeAggregate(parsed.div),
+    };
+  } catch (error) {
+    console.error('Failed to retrieve op aggregate stats:', error);
+    return empty;
+  }
+};
+
+/**
+ * Folds a batch of per-exercise results (from one game) into the persisted
+ * per-operation aggregate for the given profile. Additive: existing totals are
+ * preserved and incremented. Returns the updated aggregate (or null on error).
+ */
+export const recordOpResults = (results: OpResult[], profileId?: string): OpAggregateStats | null => {
+  const pid = profileId || getActiveProfileId();
+  if (results.length === 0) return getOpAggregateStats(pid);
+  try {
+    const current = getOpAggregateStats(pid);
+    for (const result of results) {
+      if (!CONCRETE_OPERATIONS.includes(result.op)) continue;
+      const bucket = current[result.op];
+      const timeMs = Number.isFinite(result.timeMs)
+        ? Math.min(Math.max(0, result.timeMs), MAX_TIME_PER_OP_MS)
+        : 0;
+      bucket.totalAttempts += 1;
+      bucket.correctCount += result.correct ? 1 : 0;
+      bucket.totalTimeMs += timeMs;
+    }
+    localStorage.setItem(getOpStatsKey(pid), JSON.stringify(current));
+    return current;
+  } catch (error) {
+    console.error('Failed to record op results:', error);
     return null;
   }
 };

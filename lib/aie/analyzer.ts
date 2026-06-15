@@ -3,7 +3,7 @@ import { getOpenAIClient, isStubMode } from '@/lib/openai';
 
 export async function analyzeUserMessage(
   message: string,
-  history: any[]
+  history: { content: string }[]
 ): Promise<AIEAnalysis> {
   try {
     const client = getOpenAIClient();
@@ -55,7 +55,7 @@ export async function analyzeUserMessage(
 
     return {
       level: result.level || 'medium',
-      detectedGaps: (result.gaps || []).map((g: any) => ({
+      detectedGaps: (result.gaps || []).map((g: { topic: string; misconception: string }) => ({
         topic: g.topic,
         misconception: g.misconception,
         detectedAt: Date.now()

@@ -74,14 +74,14 @@ export function LearningCanvas({ initialContent, onContentChange, onRestore, loa
           <div className="prose prose-sm dark:prose-invert max-w-none">
             <ReactMarkdown
               components={{
-                h1: ({node, ...props}) => <h1 className="text-xl font-bold mb-4 text-primary break-words" {...props} />,
-                h2: ({node, ...props}) => (
+                h1: ({...props}) => <h1 className="text-xl font-bold mb-4 text-primary break-words" {...props} />,
+                h2: ({...props}) => (
                   <h2 className="text-lg font-semibold mt-6 mb-3 pb-2 border-b border-border break-words" {...props} />
                 ),
-                p: ({node, ...props}) => <p className="mb-4 leading-relaxed text-muted-foreground break-words" {...props} />,
-                ul: ({node, ...props}) => <ul className="list-disc pl-5 mb-4 space-y-1" {...props} />,
-                li: ({node, ...props}) => <li className="text-muted-foreground break-words" {...props} />,
-                strong: ({node, ...props}) => <strong className="font-semibold text-foreground" {...props} />,
+                p: ({...props}) => <p className="mb-4 leading-relaxed text-muted-foreground break-words" {...props} />,
+                ul: ({...props}) => <ul className="list-disc pl-5 mb-4 space-y-1" {...props} />,
+                li: ({...props}) => <li className="text-muted-foreground break-words" {...props} />,
+                strong: ({...props}) => <strong className="font-semibold text-foreground" {...props} />,
               }}
             >
               {content}

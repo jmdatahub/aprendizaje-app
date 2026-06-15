@@ -5,9 +5,26 @@ import { isValidUUID, badRequest } from '@/lib/validate'
 
 export const runtime = 'nodejs'
 
+interface ChatRow {
+  id: string;
+  tema: string | null;
+  sector_id: number | null;
+  estado: string;
+  created_at: string;
+  closed_at: string | null;
+  aprendizaje_id: string | null;
+}
+
+interface ChatMensajeRow {
+  id: string;
+  rol: string;
+  texto: string;
+  created_at: string;
+}
+
 interface ChatDetailsResponse extends ApiResponse {
-  chat?: any;
-  mensajes?: any[];
+  chat?: ChatRow;
+  mensajes?: ChatMensajeRow[];
 }
 
 // GET /api/chats/[id] -> { chat, mensajes }
@@ -33,8 +50,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     if (e2) throw new Error(e2.message)
 
     return NextResponse.json<ChatDetailsResponse>({ success: true, chat, mensajes })
-  } catch (e: any) {
-    console.error('[chats/[id] GET] Error:', e?.message)
+  } catch (e) {
+    console.error('[chats/[id] GET] Error:', e instanceof Error ? e.message : String(e))
     return NextResponse.json<ChatDetailsResponse>({ success: false, error: 'INTERNAL_ERROR', message: 'An internal error occurred' }, { status: 500 })
   }
 }

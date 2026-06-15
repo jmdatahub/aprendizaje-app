@@ -22,7 +22,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ success: false, error: 'INVALID_REQUEST', message: 'custom_message demasiado largo' }, { status: 400 })
     }
 
-    const updates: Record<string, any> = { updated_at: new Date().toISOString() }
+    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
     if (text !== undefined) updates.text = text.trim()
     if (category !== undefined) updates.category = category
     if (with_notification !== undefined) updates.with_notification = Boolean(with_notification)
@@ -39,8 +39,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (error) throw error
 
     return NextResponse.json({ success: true, data })
-  } catch (e: any) {
-    console.error('[habits/[id] PATCH] Error:', e?.message)
+  } catch (e) {
+    console.error('[habits/[id] PATCH] Error:', e instanceof Error ? e.message : String(e))
     return NextResponse.json({ success: false, error: 'INTERNAL_ERROR' }, { status: 500 })
   }
 }
@@ -59,8 +59,8 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     if (error) throw error
 
     return NextResponse.json({ success: true })
-  } catch (e: any) {
-    console.error('[habits/[id] DELETE] Error:', e?.message)
+  } catch (e) {
+    console.error('[habits/[id] DELETE] Error:', e instanceof Error ? e.message : String(e))
     return NextResponse.json({ success: false, error: 'INTERNAL_ERROR' }, { status: 500 })
   }
 }

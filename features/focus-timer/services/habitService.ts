@@ -25,12 +25,23 @@ export const habitService = {
     if (!data.success) throw new Error(data.error)
     
     // Map DB to Frontend
-    return data.data.map((h: any) => ({
+    return data.data.map((h: {
+       id: string;
+       text: string;
+       category: HabitCategory;
+       streak: number;
+       history: string[];
+       created_at: string;
+       with_notification?: boolean;
+       notification_times?: string[];
+       custom_message?: string;
+       telegram_chat_id?: string;
+    }) => ({
        id: h.id,
        text: h.text,
        category: h.category,
        streak: h.streak,
-       lastChecked: null, // Calculated from history? Or we trust DB? 
+       lastChecked: null, // Calculated from history? Or we trust DB?
        // Actually 'lastChecked' is transient in the current frontend logic (checked today?)
        // We can derive it.
        history: h.history,

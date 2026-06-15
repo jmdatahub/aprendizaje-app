@@ -17,20 +17,32 @@ import {
   getGameHistory, 
   getSmartStats,
   updateSmartStats,
-  GameSession, 
+  GameSession,
   GameMode,
   MathGameStats,
   PlayerProfile,
   getProfiles,
   getActiveProfileId,
-  getActiveProfile,
   setActiveProfile,
-  createProfile
+  createProfile,
+  recordOpResults,
+  getOpAggregateStats,
+  CONCRETE_OPERATIONS,
+  OpResult,
+  OpAggregateStats,
+  ConcreteOperationType
 } from "./services/mathGameStorage"
-import { 
-  selectSmartOperation, 
-  determineSmartLevel 
+import {
+  selectSmartOperation,
+  determineSmartLevel
 } from "./utils/mathGameUtils"
+
+// Input de sesión a guardar: extiende el payload de saveGameSession con un
+// campo extra `wasManuallyFinished`. Se persiste tal cual en localStorage
+// (saveGameSession hace spread del objeto) sin tocar el tipo del storage.
+type SavedGameSessionInput = Omit<GameSession, 'id' | 'timestamp' | 'profileId'> & {
+  wasManuallyFinished: boolean
+}
 
 export default function JuegosMatematicos() {
   const router = useRouter()
@@ -60,8 +72,29 @@ export default function JuegosMatematicos() {
   const [sessionSmartStats, setSessionSmartStats] = useState<Partial<MathGameStats>>({})
   const [timeLeft, setTimeLeft] = useState(60)
   const [startTime, setStartTime] = useState<number | null>(null)
+  const [currentSessionOpsPerSec, setCurrentSessionOpsPerSec] = useState(0)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
-  
+  // Snapshot vivo del estado del juego para el auto-guardado al salir (evita
+  // closures obsoletos en los handlers de beforeunload / cleanup de unmount).
+  const liveGameRef = useRef({
+    gameActive: false,
+    selectedMode: selectedMode as GameMode,
+    startTime: null as number | null,
+    correct: 0,
+    incorrect: 0,
+    selectedOperation: selectedOperation as OperationType,
+    selectedLevel: selectedLevel as DifficultyLevel,
+  })
+  const sessionSavedRef = useRef(false)
+
+  // -- Per-operation measurement (additive) --
+  // Marca de tiempo en que se mostró el ejercicio actual, para medir el tiempo
+  // de respuesta (ms) por ejercicio. Acumulamos un resultado por ejercicio.
+  const exerciseShownAtRef = useRef<number | null>(null)
+  const opResultsRef = useRef<OpResult[]>([])
+  // Desglose por operación de la partida recién terminada (para Game Over).
+  const [opBreakdown, setOpBreakdown] = useState<OpAggregateStats | null>(null)
+
   // -- History --
   const [history, setHistory] = useState<GameSession[]>([])
   const [showHistory, setShowHistory] = useState(false)
@@ -99,7 +132,66 @@ export default function JuegosMatematicos() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- timeLeft is already a dep so the interval is recreated every tick with a fresh endGame closure; adding endGame (recreated each render) would needlessly tear down/rebuild the interval and risk drift in the countdown
   }, [gameActive, selectedMode, timeLeft])
+
+  // Mantén un snapshot vivo del estado del juego para el auto-guardado al salir.
+  useEffect(() => {
+    liveGameRef.current = {
+      gameActive,
+      selectedMode,
+      startTime,
+      correct: stats.correct,
+      incorrect: stats.incorrect,
+      selectedOperation,
+      selectedLevel,
+    }
+  }, [gameActive, selectedMode, startTime, stats.correct, stats.incorrect, selectedOperation, selectedLevel])
+
+  // Auto-guardado de la sesión de modo libre si el usuario sale sin pulsar
+  // "Terminar" (cierra pestaña/recarga o desmonta el componente). Marca la
+  // sesión como wasManuallyFinished:false para distinguir cierre incompleto.
+  useEffect(() => {
+    const autoSaveFreeSession = () => {
+      const live = liveGameRef.current
+      if (sessionSavedRef.current) return
+      // Solo modo libre con partida en curso y al menos un intento.
+      if (!live.gameActive || live.selectedMode !== 'free') return
+      const totalAttempts = live.correct + live.incorrect
+      if (totalAttempts === 0) return
+
+      const finalDuration = live.startTime ? (Date.now() - live.startTime) / 1000 : 0
+      const accuracy = totalAttempts > 0 ? (live.correct / totalAttempts) * 100 : 0
+      const opsPerSec = finalDuration > 0 ? totalAttempts / finalDuration : 0
+
+      const sessionData: SavedGameSessionInput = {
+        mode: live.selectedMode,
+        operation: live.selectedOperation,
+        level: live.selectedLevel,
+        durationSeconds: finalDuration,
+        totalAttempts,
+        correctCount: live.correct,
+        incorrectCount: live.incorrect,
+        accuracyPercentage: accuracy,
+        opsPerSecond: opsPerSec,
+        wasManuallyFinished: false,
+      }
+      saveGameSession(sessionData)
+      // Persiste también la medición por operación de la partida abandonada.
+      if (opResultsRef.current.length > 0) {
+        recordOpResults(opResultsRef.current)
+        opResultsRef.current = []
+      }
+      sessionSavedRef.current = true
+    }
+
+    window.addEventListener('beforeunload', autoSaveFreeSession)
+    return () => {
+      window.removeEventListener('beforeunload', autoSaveFreeSession)
+      // Desmontaje del componente (p. ej. navegación interna) sin terminar.
+      autoSaveFreeSession()
+    }
+  }, [])
 
   const getLevelContent = () => {
     switch (selectedLevel) {
@@ -119,7 +211,10 @@ export default function JuegosMatematicos() {
     setFeedback(null)
     setUserAnswer('')
     setStartTime(Date.now())
-    
+    sessionSavedRef.current = false // Nueva partida: permite auto-guardado al salir
+    opResultsRef.current = [] // Reinicia el buffer de medición por operación
+    setOpBreakdown(null)
+
     if (selectedMode === 'timed') {
       // Use selected time (or custom)
       let timeToSet = selectedTime
@@ -148,16 +243,18 @@ export default function JuegosMatematicos() {
     } else {
       setCurrentExercise(generateExercise(selectedOperation, selectedLevel))
     }
+    // Inicia el cronómetro del primer ejercicio para la medición por operación.
+    exerciseShownAtRef.current = Date.now()
   }
 
-  const endGame = () => {
+  const endGame = (wasManuallyFinished: boolean = true) => {
     setGameActive(false)
     setIsGameOver(true)
     if (timerRef.current) clearInterval(timerRef.current)
 
     // Calculate final stats
     const endTime = Date.now()
-    
+
     // Determine initial duration for timed mode
     let initialDuration = selectedTime
     if (isCustomTime) {
@@ -165,10 +262,10 @@ export default function JuegosMatematicos() {
        initialDuration = (!isNaN(parsed) && parsed > 0) ? parsed : 60
     }
 
-    const duration = selectedMode === 'timed' 
-      ? initialDuration - timeLeft 
+    const duration = selectedMode === 'timed'
+      ? initialDuration - timeLeft
       : (startTime ? (endTime - startTime) / 1000 : 0)
-      
+
     // For timed mode, if it ended by timeout, duration is full duration
     const finalDuration = selectedMode === 'timed' && timeLeft === 0 ? initialDuration : duration
 
@@ -176,7 +273,13 @@ export default function JuegosMatematicos() {
     const accuracy = totalAttempts > 0 ? (stats.correct / totalAttempts) * 100 : 0
     const opsPerSec = finalDuration > 0 ? totalAttempts / finalDuration : 0
 
-    const sessionData = {
+    // Ops/s de la sesión ACTUAL (no de la sesión anterior del historial)
+    setCurrentSessionOpsPerSec(opsPerSec)
+
+    // wasManuallyFinished: distingue cierre limpio (botón "Terminar"/timeout)
+    // vs cierre incompleto (el usuario abandonó el modo libre sin terminar).
+    // Se persiste como campo extra de la sesión (extiende GameSession en runtime).
+    const sessionData: SavedGameSessionInput = {
       mode: selectedMode,
       operation: selectedOperation,
       level: selectedLevel,
@@ -185,15 +288,23 @@ export default function JuegosMatematicos() {
       correctCount: stats.correct,
       incorrectCount: stats.incorrect,
       accuracyPercentage: accuracy,
-      opsPerSecond: opsPerSec
+      opsPerSecond: opsPerSec,
+      wasManuallyFinished
     }
 
     saveGameSession(sessionData)
-    
+    sessionSavedRef.current = true // Ya guardada: evita auto-guardado duplicado al salir
+
     if (selectedMode === 'smart') {
       updateSmartStats(sessionSmartStats)
     }
-    
+
+    // Persiste la medición por operación (precisión + tiempo) y prepara el
+    // desglose acumulado del perfil para mostrarlo en la pantalla de fin.
+    const updatedOpStats = recordOpResults(opResultsRef.current)
+    setOpBreakdown(updatedOpStats ?? getOpAggregateStats())
+    opResultsRef.current = []
+
     setHistory(getGameHistory()) // Refresh history
   }
 
@@ -204,12 +315,17 @@ export default function JuegosMatematicos() {
     if (isNaN(numAnswer)) return
 
     const isCorrect = numAnswer === currentExercise.answer
-    
+
     // Update session smart stats
-    const currentOp = currentExercise.operator === '+' ? 'sum' : 
+    const currentOp: ConcreteOperationType = currentExercise.operator === '+' ? 'sum' :
                      currentExercise.operator === '-' ? 'sub' :
                      currentExercise.operator === '×' ? 'mul' : 'div';
-                     
+
+    // Medición por operación: registra acierto + tiempo (ms) de este ejercicio.
+    const now = Date.now()
+    const timeMs = exerciseShownAtRef.current !== null ? now - exerciseShownAtRef.current : 0
+    opResultsRef.current.push({ op: currentOp, correct: isCorrect, timeMs })
+
     setSessionSmartStats(prev => {
       const opStats = prev[currentOp] || { totalAttempts: 0, correctCount: 0, incorrectCount: 0, lastLevel: selectedLevel };
       return {
@@ -245,6 +361,8 @@ export default function JuegosMatematicos() {
     } else {
       setCurrentExercise(generateExercise(selectedOperation, selectedLevel))
     }
+    // Reinicia el cronómetro para medir el tiempo del siguiente ejercicio.
+    exerciseShownAtRef.current = Date.now()
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -262,6 +380,23 @@ export default function JuegosMatematicos() {
     }
     return map[op]
   }
+
+  // Iconos por operación para el desglose de medición (reusa el estilo emoji).
+  const OP_ICONS: Record<ConcreteOperationType, string> = {
+    sum: '➕', sub: '➖', mul: '✖️', div: '➗'
+  }
+
+  // Formatea el tiempo medio por operación de forma legible (ms o s).
+  const formatAvgTime = (totalTimeMs: number, attempts: number): string => {
+    if (attempts === 0) return '—'
+    const avgMs = totalTimeMs / attempts
+    return avgMs < 1000 ? `${Math.round(avgMs)} ms` : `${(avgMs / 1000).toFixed(1)} s`
+  }
+
+  // Operaciones con al menos un intento registrado en el acumulado del perfil.
+  const breakdownRows = opBreakdown
+    ? CONCRETE_OPERATIONS.filter(op => opBreakdown[op].totalAttempts > 0)
+    : []
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 md:p-8 pb-mobile-nav dark:from-slate-900 dark:to-slate-800 transition-colors duration-500">
@@ -368,7 +503,7 @@ export default function JuegosMatematicos() {
                     const modeLabel = game.mode === 'timed' ? t('math_games.mode_timed') : game.mode === 'smart' ? t('math_games.mode_smart') : t('math_games.mode_free');
                     return (
                       <div key={game.id} className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-3">
-                        <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex items-start justify-between gap-2 mb-2.5">
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-slate-600 rounded-full text-xs truncate max-w-[60%]">
                             {profile?.emoji || '👤'} {profile?.name || 'Desconocido'}
                           </span>
@@ -376,30 +511,35 @@ export default function JuegosMatematicos() {
                             {game.accuracyPercentage.toFixed(0)}%
                           </span>
                         </div>
-                        <div className="text-[11px] text-gray-500 dark:text-gray-400 mb-2">
-                          {new Date(game.timestamp).toLocaleDateString()} · {new Date(game.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        {/* Fila 1: Modo | Operación | Nivel */}
+                        <div className="grid grid-cols-3 gap-x-2 gap-y-1.5">
+                          <div className="min-w-0">
+                            <div className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Modo</div>
+                            <div className="text-xs font-medium text-gray-700 dark:text-gray-200 truncate">{modeLabel}</div>
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Operación</div>
+                            <div className="text-xs font-medium text-gray-700 dark:text-gray-200 truncate">{getOpName(game.operation)}</div>
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Nivel</div>
+                            <div className="text-xs font-medium capitalize text-gray-700 dark:text-gray-200 truncate">{game.level}</div>
+                          </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                          <div className="flex justify-between">
-                            <span className="text-gray-500">Modo:</span>
-                            <span className="font-medium text-gray-700 dark:text-gray-200 truncate ml-1">{modeLabel}</span>
+                        {/* Fila 2: Aciertos | Ops/s */}
+                        <div className="grid grid-cols-2 gap-x-2 mt-2">
+                          <div className="min-w-0">
+                            <div className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Aciertos</div>
+                            <div className="text-xs font-medium text-gray-700 dark:text-gray-200 truncate">{game.correctCount}/{game.totalAttempts}</div>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-500">Op:</span>
-                            <span className="font-medium text-gray-700 dark:text-gray-200 truncate ml-1">{getOpName(game.operation)}</span>
+                          <div className="min-w-0">
+                            <div className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Ops/s</div>
+                            <div className="text-xs font-medium text-gray-700 dark:text-gray-200 truncate">{game.opsPerSecond.toFixed(2)}</div>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-500">Nivel:</span>
-                            <span className="font-medium capitalize text-gray-700 dark:text-gray-200 truncate ml-1">{game.level}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-500">Aciertos:</span>
-                            <span className="font-medium text-gray-700 dark:text-gray-200 ml-1">{game.correctCount}/{game.totalAttempts}</span>
-                          </div>
-                          <div className="flex justify-between col-span-2">
-                            <span className="text-gray-500">Ops/s:</span>
-                            <span className="font-medium text-gray-700 dark:text-gray-200 ml-1">{game.opsPerSecond.toFixed(2)}</span>
-                          </div>
+                        </div>
+                        {/* Fila 3: Fecha */}
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-2 pt-2 border-t border-gray-100 dark:border-slate-700">
+                          {new Date(game.timestamp).toLocaleDateString()} · {new Date(game.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                         </div>
                       </div>
                     );
@@ -696,10 +836,70 @@ export default function JuegosMatematicos() {
                   </div>
                   <div className="p-4 bg-blue-50 dark:bg-slate-700 rounded-xl">
                     <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                      {history.length > 0 ? history[0].opsPerSecond.toFixed(2) : '0.00'}
+                      {currentSessionOpsPerSec.toFixed(2)}
                     </div>
                     <div className="text-sm text-gray-600 dark:text-gray-300">{t('math_games.ops_per_sec')}</div>
                   </div>
+                </div>
+
+                {/* Desglose por operación (precisión + velocidad media acumuladas) */}
+                <div className="text-left">
+                  <div className="flex items-baseline justify-between gap-2 mb-3">
+                    <h3 className="text-base sm:text-lg font-bold text-gray-800 dark:text-white">
+                      📊 Por operación
+                    </h3>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">Acumulado del perfil</span>
+                  </div>
+
+                  {breakdownRows.length > 0 && opBreakdown ? (
+                    <div className="space-y-2">
+                      {/* Cabecera de columnas (oculta etiquetas redundantes en móvil) */}
+                      <div className="grid grid-cols-[1fr_auto_auto] gap-2 sm:gap-4 px-3 text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                        <span>Operación</span>
+                        <span className="text-right w-20">{t('math_games.accuracy')}</span>
+                        <span className="text-right w-20">Tiempo medio</span>
+                      </div>
+                      {breakdownRows.map((op) => {
+                        const agg = opBreakdown[op]
+                        const acc = agg.totalAttempts > 0
+                          ? Math.round((agg.correctCount / agg.totalAttempts) * 100)
+                          : 0
+                        const accColor = acc >= 80
+                          ? 'text-green-600 dark:text-green-400'
+                          : acc >= 50
+                            ? 'text-yellow-600 dark:text-yellow-400'
+                            : 'text-red-500 dark:text-red-400'
+                        return (
+                          <div
+                            key={op}
+                            className="grid grid-cols-[1fr_auto_auto] items-center gap-2 sm:gap-4 p-3 bg-gray-50 dark:bg-slate-700/50 rounded-xl"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-lg shrink-0" aria-hidden="true">{OP_ICONS[op]}</span>
+                              <div className="min-w-0">
+                                <div className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
+                                  {getOpName(op)}
+                                </div>
+                                <div className="text-[11px] text-gray-400 dark:text-gray-500">
+                                  {agg.correctCount}/{agg.totalAttempts}
+                                </div>
+                              </div>
+                            </div>
+                            <div className={`text-right w-20 font-bold tabular-nums ${accColor}`}>
+                              {acc}%
+                            </div>
+                            <div className="text-right w-20 font-medium tabular-nums text-gray-700 dark:text-gray-200">
+                              {formatAvgTime(agg.totalTimeMs, agg.totalAttempts)}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-xl text-center text-sm text-gray-500 dark:text-gray-400">
+                      Aún no hay datos por operación. ¡Juega una partida para empezar a medir tu progreso!
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex gap-4 justify-center">
@@ -726,7 +926,7 @@ export default function JuegosMatematicos() {
                     </div>
                   )}
                   {selectedMode === 'free' && (
-                     <Button variant="ghost" size="sm" onClick={endGame} className="text-red-500 hover:text-red-600 hover:bg-red-50">
+                     <Button variant="ghost" size="sm" onClick={() => endGame(true)} className="text-red-500 hover:text-red-600 hover:bg-red-50">
                        {t('math_games.finish_game')}
                      </Button>
                   )}

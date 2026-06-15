@@ -10,14 +10,15 @@ import {
   NIVELES_HABILIDAD
 } from '@/shared/constants/habilidades'
 import { playClick } from '@/shared/utils/sounds'
+import { useEscapeKey } from '@/shared/hooks/useEscapeKey'
 
-interface NewSkillModalProps {
+interface NewSkillModalProps<T> {
   isOpen: boolean
   onClose: () => void
-  onCreated: (habilidad: any) => void
+  onCreated: (habilidad: T) => void
 }
 
-export function NewSkillModal({ isOpen, onClose, onCreated }: NewSkillModalProps) {
+export function NewSkillModal<T>({ isOpen, onClose, onCreated }: NewSkillModalProps<T>) {
   const [nombre, setNombre] = useState('')
   const [categorias, setCategorias] = useState<string[]>([])
   const [experiencia, setExperiencia] = useState('ninguna')
@@ -70,7 +71,7 @@ export function NewSkillModal({ isOpen, onClose, onCreated }: NewSkillModalProps
       } else {
         setError(data.message || 'Error al crear habilidad')
       }
-    } catch (e) {
+    } catch {
       setError('Error de conexión')
     } finally {
       setLoading(false)
@@ -87,6 +88,8 @@ export function NewSkillModal({ isOpen, onClose, onCreated }: NewSkillModalProps
     setError('')
     onClose()
   }
+
+  useEscapeKey(handleClose, isOpen)
 
   return (
     <AnimatePresence>

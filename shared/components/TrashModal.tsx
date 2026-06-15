@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { playClick } from '@/shared/utils/sounds'
+import { useEscapeKey } from '@/shared/hooks/useEscapeKey'
 
 interface TrashItem {
   id: string
@@ -29,6 +30,7 @@ export function TrashModal({ isOpen, onClose, type, onRestored }: TrashModalProp
     if (isOpen) {
       fetchTrash()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetches when isOpen/type change; fetchTrash is a stable closure over the same type prop
   }, [isOpen, type])
 
   const fetchTrash = async () => {
@@ -67,6 +69,8 @@ export function TrashModal({ isOpen, onClose, type, onRestored }: TrashModalProp
     playClick()
     onClose()
   }
+
+  useEscapeKey(handleClose, isOpen)
 
   const titulo = type === 'habilidades' ? 'Habilidades' : 'Aprendizajes'
 
@@ -122,7 +126,7 @@ export function TrashModal({ isOpen, onClose, type, onRestored }: TrashModalProp
                     >
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-foreground truncate">
-                          {item.nombre || (item as any).titulo}
+                          {item.nombre || (item as { titulo?: string }).titulo}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {item.dias_restantes > 0 

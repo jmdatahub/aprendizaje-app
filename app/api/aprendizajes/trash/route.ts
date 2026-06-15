@@ -47,8 +47,8 @@ export async function GET() {
       success: true,
       data: { items }
     })
-  } catch (e: any) {
-    console.error('[aprendizajes/trash GET] Error:', e?.message)
+  } catch (e) {
+    console.error('[aprendizajes/trash GET] Error:', e instanceof Error ? e.message : String(e))
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',

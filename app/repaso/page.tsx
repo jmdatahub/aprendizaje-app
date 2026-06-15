@@ -24,8 +24,7 @@ export default function RepasoPage() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [timeLeft, setTimeLeft] = useState(0)
   const [resultado, setResultado] = useState<Resultado>(null)
-  const [error, setError] = useState('')
-  
+
   // Sincronización de carga
   const [dataReady, setDataReady] = useState(false)
   
@@ -64,7 +63,7 @@ export default function RepasoPage() {
       try {
         const parsed = JSON.parse(saved);
         if (parsed.version === TEST_VERSION) {
-           setPhase('restore_prompt' as any); 
+           setPhase('restore_prompt');
            return;
         }
       } catch (e) {
@@ -72,6 +71,7 @@ export default function RepasoPage() {
         localStorage.removeItem(STORAGE_KEY);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on mount to detect a saved session in localStorage; phase/restored are only read as initial-mount guards and re-running on their changes would wrongly re-trigger the restore prompt mid-test
   }, []);
 
   const clearProgress = () => {
@@ -112,7 +112,9 @@ export default function RepasoPage() {
                // We found a backup! Don't redirect, let the restore logic handle it
                return;
             }
-         } catch (e) {}
+         } catch (e) {
+            console.warn('repaso: ignoring corrupted saved test session', e);
+         }
       }
 
       // Si no hay datos o no está listo, redirigir o mostrar error
@@ -159,6 +161,7 @@ export default function RepasoPage() {
     return () => {
         if (timerRef.current) clearInterval(timerRef.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- phase and currentIndex (the only state handleTimeUp branches on) are already deps, so the interval is recreated with a fresh handleTimeUp closure on each question; adding handleTimeUp (new identity every render) would needlessly tear down/rebuild the countdown each render
   }, [phase, currentIndex]);
 
   const handleTimeUp = () => {
@@ -288,9 +291,11 @@ export default function RepasoPage() {
     setResultado({ total: preguntas.length, aciertos });
     setPhase('results');
     
-    // Guardar en el historial (Supabase)
+    // Guardar en el historial (Supabase). El estado crítico de repaso
+    // (decayed_items) ya se guardó arriba en localStorage, así que un fallo aquí
+    // solo afecta al registro del historial — lo dejamos constar sin romper el flujo.
     try {
-      await fetch('/api/repaso/historial', {
+      const histRes = await fetch('/api/repaso/historial', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -299,6 +304,9 @@ export default function RepasoPage() {
           questions_data: preguntasCorregidas
         })
       });
+      if (!histRes.ok) {
+        console.warn(`Exam history not saved (HTTP ${histRes.status}) — results still shown, review state preserved locally.`);
+      }
     } catch (saveError) {
       console.error("Error saving exam history:", saveError);
     }
@@ -313,7 +321,7 @@ export default function RepasoPage() {
   // Renders
   if (phase === 'loading') return null;
 
-  if (phase === ('restore_prompt' as any)) return (
+  if (phase === 'restore_prompt') return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 p-6 text-white">
       <div className="max-w-md text-center space-y-6 bg-slate-800 p-8 rounded-2xl shadow-xl border border-slate-700">
         <div className="text-6xl">💾</div>
@@ -401,8 +409,24 @@ export default function RepasoPage() {
               </Link>
               
               <div className="p-3 sm:p-6 pt-16 sm:pt-6 flex justify-between items-center gap-3">
-                  <div className="text-xs sm:text-sm font-medium text-slate-400 shrink-0">
-                      {t('weekly_test.question_counter', { current: currentIndex + 1, total: preguntas.length })}
+                  <div className="flex-1 min-w-0 space-y-2">
+                      <div className="text-xs sm:text-sm font-medium text-slate-400">
+                          {t('weekly_test.question_counter', { current: currentIndex + 1, total: preguntas.length })}
+                      </div>
+                      {/* Barra de progreso lineal del test */}
+                      <div
+                          className="h-1.5 w-full max-w-xs rounded-full bg-slate-700 overflow-hidden"
+                          role="progressbar"
+                          aria-label="Progreso del test"
+                          aria-valuenow={currentIndex + 1}
+                          aria-valuemin={1}
+                          aria-valuemax={preguntas.length}
+                      >
+                          <div
+                              className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500 ease-out"
+                              style={{ width: `${((currentIndex + 1) / preguntas.length) * 100}%` }}
+                          />
+                      </div>
                   </div>
 
                   <div className="relative flex items-center justify-center shrink-0">
@@ -446,13 +470,13 @@ export default function RepasoPage() {
                                       onChangeRespuesta(currentIndex, opcion);
                                       setTimeout(handleNextQuestion, 200);
                                   }}
-                                  className={`p-4 sm:p-6 rounded-xl text-left transition-all break-words ${
+                                  className={`p-5 sm:p-7 rounded-xl text-left transition-all break-words ${
                                       p.respuestaUsuario === opcion
                                       ? 'bg-blue-600 text-white shadow-lg scale-[1.02] sm:scale-105'
                                       : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-2 border-slate-700 hover:border-blue-500'
                                   }`}
                               >
-                                  <span className="font-bold mr-2">{String.fromCharCode(65 + idx)}.</span> {opcion}
+                                  <span className="font-bold mr-2">{String.fromCharCode(65 + idx)}.</span> <span className="line-clamp-3 inline-block align-top">{opcion}</span>
                               </button>
                           ))}
                       </div>
@@ -575,13 +599,13 @@ export default function RepasoPage() {
                                   <button
                                       key={i}
                                       onClick={() => { playClick(); onChangeRespuesta(idx, op) }}
-                                      className={`p-2.5 sm:p-2 rounded border text-sm transition-all break-words text-left ${
+                                      className={`p-3 sm:p-4 rounded border text-sm transition-all break-words text-left ${
                                           p.respuestaUsuario === op
                                           ? 'bg-amber-500 border-amber-600 text-white font-medium'
                                           : 'bg-gray-50 hover:bg-amber-50 hover:border-amber-300'
                                       }`}
                                   >
-                                      {op}
+                                      <span className="line-clamp-3">{op}</span>
                                   </button>
                               ))}
                           </div>
@@ -640,6 +664,17 @@ export default function RepasoPage() {
       </div>
   );
 
+  // Desglose por tema: reduce las preguntas corregidas a { titulo: { hits, total } }
+  const temasResumen = Object.entries(
+      preguntas.reduce<Record<string, { hits: number; total: number }>>((acc, p) => {
+          const tema = p.titulo || t('weekly_test.results_title');
+          if (!acc[tema]) acc[tema] = { hits: 0, total: 0 };
+          acc[tema].total += 1;
+          if (p.esCorrecta) acc[tema].hits += 1;
+          return acc;
+      }, {})
+  );
+
   return (
       <div className="min-h-screen bg-slate-50 p-6">
           <div className="max-w-3xl mx-auto">
@@ -651,6 +686,37 @@ export default function RepasoPage() {
                   <p className="text-xl text-slate-600 mt-2">
                       {t('weekly_test.score')} <span className="font-bold text-blue-600">{resultado?.aciertos}</span> / <span className="font-bold">{resultado?.total}</span>
                   </p>
+
+                  {/* Desglose por tema */}
+                  {temasResumen.length > 0 && (
+                      <div className="mt-6 text-left">
+                          <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3 text-center">Resumen por tema</h2>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                              {temasResumen.map(([tema, { hits, total }]) => {
+                                  const ok = hits === total;
+                                  const parcial = hits > 0 && hits < total;
+                                  return (
+                                      <div
+                                          key={tema}
+                                          className={`flex items-center justify-between gap-3 px-4 py-3 rounded-xl border text-sm ${
+                                              ok
+                                                  ? 'bg-green-50 border-green-200 text-green-800'
+                                                  : parcial
+                                                  ? 'bg-amber-50 border-amber-200 text-amber-800'
+                                                  : 'bg-red-50 border-red-200 text-red-800'
+                                          }`}
+                                      >
+                                          <span className="font-medium truncate" title={tema}>{tema}</span>
+                                          <span className="font-bold shrink-0 tabular-nums">
+                                              {hits}/{total} {ok ? '✓' : parcial ? '⚠' : '✗'}
+                                          </span>
+                                      </div>
+                                  );
+                              })}
+                          </div>
+                      </div>
+                  )}
+
                   <Link href="/" onClick={() => { playClick(); resetTest(); clearProgress(); }} className="inline-block mt-6 px-6 py-3 bg-slate-800 text-white rounded-lg font-medium hover:bg-slate-700">
                       {t('weekly_test.back_home')}
                   </Link>
@@ -674,7 +740,7 @@ export default function RepasoPage() {
                           </div>
                           <div className="mb-3">
                               <p className="text-xs text-slate-400 mb-1">{t('weekly_test.your_answer')}</p>
-                              <p className="text-slate-700 italic">"{p.respuestaUsuario}"</p>
+                              <p className="text-slate-700 italic">&quot;{p.respuestaUsuario}&quot;</p>
                           </div>
                           <div className="bg-slate-50 p-3 rounded text-sm text-slate-600">
                               <strong>{t('weekly_test.feedback')}</strong> {p.feedback}

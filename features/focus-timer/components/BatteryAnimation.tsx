@@ -6,7 +6,7 @@ interface BatteryAnimationProps {
   isCompleted: boolean
 }
 
-export function BatteryAnimation({ progress, isActive, isCompleted }: BatteryAnimationProps) {
+export function BatteryAnimation({ progress, isActive }: BatteryAnimationProps) {
   const chargeLevel = 1 - progress // 1=full, 0=empty
   const fillHeight = 120 * chargeLevel
   

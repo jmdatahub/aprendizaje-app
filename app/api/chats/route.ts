@@ -45,8 +45,8 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ ok: true, id: data?.id })
-  } catch (e: any) {
-    console.error('[chats POST] Error:', e?.message)
+  } catch (e) {
+    console.error('[chats POST] Error:', e instanceof Error ? e.message : String(e))
     return NextResponse.json({ error: 'An internal error occurred' }, { status: 500 })
   }
 }

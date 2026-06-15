@@ -32,6 +32,7 @@ export function ReminderSettings({ habilidadId }: { habilidadId: string }) {
 
   useEffect(() => {
     fetchReminders()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetches only when habilidadId changes; fetchReminders is a stable closure over that same prop
   }, [habilidadId])
 
   const fetchReminders = async () => {

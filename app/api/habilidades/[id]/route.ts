@@ -78,8 +78,8 @@ export async function GET(
       success: true,
       data: result
     })
-  } catch (e: any) {
-    console.error('[habilidades/[id] GET] Error:', e?.message)
+  } catch (e) {
+    console.error('[habilidades/[id] GET] Error:', e instanceof Error ? e.message : String(e))
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',
@@ -117,8 +117,8 @@ export async function DELETE(
       success: true,
       message: 'Habilidad movida a papelera (se eliminará permanentemente en 15 días)'
     })
-  } catch (e: any) {
-    console.error('[habilidades/[id] DELETE] Error:', e?.message)
+  } catch (e) {
+    console.error('[habilidades/[id] DELETE] Error:', e instanceof Error ? e.message : String(e))
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',
@@ -153,7 +153,7 @@ export async function PATCH(
     }
 
     // Construir objeto de actualización solo con campos proporcionados
-    const updateData: Record<string, any> = {}
+    const updateData: Record<string, unknown> = {}
     if (nombre !== undefined) updateData.nombre = nombre.trim()
     if (categorias !== undefined) updateData.categorias = categorias
     if (descripcion !== undefined) updateData.descripcion = descripcion?.trim() || null
@@ -189,8 +189,8 @@ export async function PATCH(
       success: true,
       data
     })
-  } catch (e: any) {
-    console.error('[habilidades/[id] PATCH] Error:', e?.message)
+  } catch (e) {
+    console.error('[habilidades/[id] PATCH] Error:', e instanceof Error ? e.message : String(e))
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',

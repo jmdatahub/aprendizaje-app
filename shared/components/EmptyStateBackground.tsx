@@ -10,7 +10,6 @@ interface EmptyStateBackgroundProps {
 
 export const EmptyStateBackground: React.FC<EmptyStateBackgroundProps> = ({
   active,
-  context = 'general',
   customMessages,
   className = ''
 }) => {

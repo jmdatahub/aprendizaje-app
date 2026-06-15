@@ -1,4 +1,4 @@
-import { LearningPath, PathStep } from '../types';
+import { LearningPath } from '../types';
 
 const STORAGE_KEY = 'learning_paths';
 

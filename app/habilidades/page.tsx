@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
@@ -25,29 +25,56 @@ interface Habilidad {
   tiempo_total_segundos: number
   nivel: string
   created_at: string
+  // Campos que ya devuelve la API (select * sobre la tabla habilidades)
+  descripcion?: string | null
+  updated_at?: string
+  objetivo_semanal_minutos?: number | null
+}
+
+// Umbral en días para considerar una habilidad "dormida"
+const DIAS_DORMIDA = 30
+
+// Días enteros transcurridos desde una fecha ISO hasta hoy, o null si no es válida
+function diasDesdeISO(fechaISO: string | null | undefined): number | null {
+  if (!fechaISO) return null
+  const fecha = new Date(fechaISO)
+  if (isNaN(fecha.getTime())) return null
+  return Math.max(0, Math.floor((Date.now() - fecha.getTime()) / (1000 * 60 * 60 * 24)))
 }
 
 export default function HabilidadesPage() {
   const [habilidades, setHabilidades] = useState<Habilidad[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
   const [showNewModal, setShowNewModal] = useState(false)
   const [showTrashModal, setShowTrashModal] = useState(false)
   const [filtroCategoria, setFiltroCategoria] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<string>('creacion-desc')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [soloRacha, setSoloRacha] = useState(false)
+  const [soloDormidas, setSoloDormidas] = useState(false)
+  const [soloMeta, setSoloMeta] = useState(false)
 
   useEffect(() => {
     fetchHabilidades()
   }, [])
 
   const fetchHabilidades = async () => {
+    setLoading(true)
+    setError(false)
     try {
       const res = await fetch('/api/habilidades')
       const data = await res.json()
       if (data.success) {
         setHabilidades(data.data.items || [])
+      } else {
+        // API reachable but returned an error (e.g. DB down) — surface it instead
+        // of falling through to the "empty" state, which would imply data loss.
+        setError(true)
       }
     } catch (e) {
       console.error('Error fetching habilidades:', e)
+      setError(true)
     } finally {
       setLoading(false)
     }
@@ -57,27 +84,62 @@ export default function HabilidadesPage() {
     setHabilidades(prev => [nuevaHabilidad, ...prev])
   }
 
-  const filteredHabilidades = filtroCategoria
-    ? habilidades.filter(h => (h.categorias || []).includes(filtroCategoria))
-    : habilidades
+  // Filtrado por categoría + búsqueda + filtros de estado (solo cliente)
+  const filteredHabilidades = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    return habilidades.filter(h => {
+      // Categoría
+      if (filtroCategoria && !(h.categorias || []).includes(filtroCategoria)) return false
 
-  const sortedHabilidades = [...filteredHabilidades].sort((a, b) => {
-    switch (sortBy) {
-      case 'nombre-asc':
-        return a.nombre.localeCompare(b.nombre)
-      case 'nombre-desc':
-        return b.nombre.localeCompare(a.nombre)
-      case 'tiempo-desc':
-        return b.tiempo_total_segundos - a.tiempo_total_segundos
-      case 'tiempo-asc':
-        return a.tiempo_total_segundos - b.tiempo_total_segundos
-      case 'creacion-asc':
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-      case 'creacion-desc':
-      default:
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    }
-  })
+      // Búsqueda por nombre + descripción
+      if (q) {
+        const enNombre = h.nombre.toLowerCase().includes(q)
+        const enDescripcion = (h.descripcion || '').toLowerCase().includes(q)
+        if (!enNombre && !enDescripcion) return false
+      }
+
+      // Estado: dormida (>30d sin práctica, usando updated_at como proxy)
+      const diasInactiva = diasDesdeISO(h.updated_at ?? h.created_at)
+      const dormida = diasInactiva !== null && diasInactiva > DIAS_DORMIDA
+      if (soloDormidas && !dormida) return false
+
+      // Estado: racha activa (practicó hoy o ayer, según updated_at)
+      const rachaActiva = diasInactiva !== null && diasInactiva <= 1
+      if (soloRacha && !rachaActiva) return false
+
+      // Estado: con meta semanal definida
+      if (soloMeta && !(h.objetivo_semanal_minutos && h.objetivo_semanal_minutos > 0)) return false
+
+      return true
+    })
+  }, [habilidades, filtroCategoria, searchQuery, soloDormidas, soloRacha, soloMeta])
+
+  const sortedHabilidades = useMemo(() => {
+    return [...filteredHabilidades].sort((a, b) => {
+      switch (sortBy) {
+        case 'nombre-asc':
+          return a.nombre.localeCompare(b.nombre)
+        case 'nombre-desc':
+          return b.nombre.localeCompare(a.nombre)
+        case 'tiempo-desc':
+          return b.tiempo_total_segundos - a.tiempo_total_segundos
+        case 'tiempo-asc':
+          return a.tiempo_total_segundos - b.tiempo_total_segundos
+        case 'practica-asc': {
+          // "Últimas practicadas": las dormidas (menos recientes) primero,
+          // usando updated_at como proxy de la última práctica.
+          const fa = new Date(a.updated_at ?? a.created_at).getTime()
+          const fb = new Date(b.updated_at ?? b.created_at).getTime()
+          return fa - fb
+        }
+        case 'creacion-asc':
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        case 'creacion-desc':
+        default:
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      }
+    })
+  }, [filteredHabilidades, sortBy])
 
   // Calcular stats
   const tiempoTotal = habilidades.reduce((acc, h) => acc + h.tiempo_total_segundos, 0)
@@ -91,8 +153,6 @@ export default function HabilidadesPage() {
         const cats = (h.categorias || []).map(c => 
           CATEGORIAS_HABILIDADES.find(cat => cat.id === c)?.label || c
         ).join('; ')
-        const nivelLabel = CATEGORIAS_HABILIDADES.find(c => c.id === h.nivel)?.label || h.nivel
-        
         return [
           `"${h.nombre}"`,
           `"${cats}"`,
@@ -242,6 +302,56 @@ export default function HabilidadesPage() {
           </motion.div>
         )}
 
+        {/* Búsqueda + filtros de estado */}
+        {habilidades.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="mb-6 space-y-3"
+          >
+            {/* Search box */}
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">🔍</span>
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar por nombre o descripción..."
+                aria-label="Buscar habilidades"
+                className="w-full min-h-[40px] pl-10 pr-3 py-2 rounded-xl bg-card border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-colors"
+              />
+            </div>
+
+            {/* Filtros de estado */}
+            <div className="flex flex-wrap gap-2">
+              {[
+                { key: 'racha', label: '🔥 Solo con racha activa', value: soloRacha, set: setSoloRacha },
+                { key: 'dormidas', label: '💤 Solo dormidas >30d', value: soloDormidas, set: setSoloDormidas },
+                { key: 'meta', label: '🎯 Solo con meta semanal', value: soloMeta, set: setSoloMeta },
+              ].map(f => (
+                <button
+                  key={f.key}
+                  type="button"
+                  role="checkbox"
+                  aria-checked={f.value}
+                  onClick={() => {
+                    playClick()
+                    f.set(!f.value)
+                  }}
+                  className={`min-h-[40px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all border ${
+                    f.value
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-muted hover:bg-muted/80 text-muted-foreground border-transparent'
+                  }`}
+                >
+                  <span aria-hidden="true">{f.value ? '☑' : '☐'}</span>
+                  <span>{f.label}</span>
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
         {/* Content */}
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4" aria-busy="true" aria-live="polite">
@@ -250,8 +360,33 @@ export default function HabilidadesPage() {
               <SkeletonCard key={i} />
             ))}
           </div>
+        ) : error ? (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            role="alert"
+            className="text-center py-20 bg-card rounded-3xl border border-dashed border-destructive/40"
+          >
+            <div className="text-6xl mb-4 opacity-40">⚠️</div>
+            <h3 className="text-xl font-semibold text-foreground mb-2">
+              No se pudieron cargar tus habilidades
+            </h3>
+            <p className="text-muted-foreground max-w-md mx-auto mb-6">
+              Hubo un problema al conectar con el servidor. Tus datos están a salvo; inténtalo de nuevo.
+            </p>
+            <Button
+              onClick={() => {
+                playClick()
+                fetchHabilidades()
+              }}
+              size="lg"
+              className="gap-2"
+            >
+              ↻ Reintentar
+            </Button>
+          </motion.div>
         ) : habilidades.length === 0 ? (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className="text-center py-20 bg-card rounded-3xl border border-dashed border-border"
@@ -274,7 +409,9 @@ export default function HabilidadesPage() {
           </motion.div>
         ) : filteredHabilidades.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
-            No tienes habilidades en esta categoría
+            {searchQuery.trim() || soloRacha || soloDormidas || soloMeta
+              ? 'Ninguna habilidad coincide con tu búsqueda o filtros'
+              : 'No tienes habilidades en esta categoría'}
           </div>
         ) : (
           <>
@@ -298,6 +435,7 @@ export default function HabilidadesPage() {
                       <SelectItem value="creacion-asc">Más antiguas</SelectItem>
                       <SelectItem value="tiempo-desc">Más practicadas</SelectItem>
                       <SelectItem value="tiempo-asc">Menos practicadas</SelectItem>
+                      <SelectItem value="practica-asc">Últimas practicadas</SelectItem>
                       <SelectItem value="nombre-asc">Nombre (A-Z)</SelectItem>
                     </SelectContent>
                   </Select>

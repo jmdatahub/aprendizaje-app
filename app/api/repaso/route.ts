@@ -87,7 +87,7 @@ export async function GET(request: Request) {
       success: true, 
       data: { preguntas } 
     })
-  } catch (e: any) {
+  } catch (e) {
     console.error('[repaso] error inesperado', e)
     return NextResponse.json<ApiResponse>({ 
       success: false,

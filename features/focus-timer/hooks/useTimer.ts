@@ -66,7 +66,7 @@ export function useTimer(initialMinutes = 25, initialSeconds = 0): UseTimerRetur
     })
   }, [clearTimer])
 
-  const start = useCallback((m?: number | any, s?: number | any) => {
+  const start = useCallback((m?: number, s?: number) => {
     clearTimer()
     const targetMins = typeof m === "number" ? m : minutes
     const targetSecs = typeof s === "number" ? s : seconds
@@ -135,6 +135,7 @@ export function useTimer(initialMinutes = 25, initialSeconds = 0): UseTimerRetur
 
   useEffect(() => {
     if (status === "idle") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- resyncs the displayed countdown to the configured minutes/seconds whenever the user adjusts the duration while idle; timeLeft is independent state that must mirror these inputs only in the idle phase, so it can't be plain derived render state
       setTimeLeft(minutes * 60 + seconds)
     }
   }, [minutes, seconds, status])

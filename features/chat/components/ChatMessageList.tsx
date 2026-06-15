@@ -26,7 +26,6 @@ export function ChatMessageList({
   recommendations,
   recommendationsLoading,
   onTopicClick,
-  viewMode,
   onSpeak,
   suggestedTopics,
 }: ChatMessageListProps) {
@@ -105,15 +104,15 @@ export function ChatMessageList({
                   <div className="prose prose-sm dark:prose-invert max-w-none chat-prose text-foreground">
                     <ReactMarkdown
                       components={{
-                        p: ({node, ...props}) => <p className="mb-3 last:mb-0 leading-relaxed" {...props} />,
-                        ul: ({node, ...props}) => <ul className="my-3 list-disc pl-4 space-y-1.5" {...props} />,
-                        ol: ({node, ...props}) => <ol className="my-3 list-decimal pl-4 space-y-1.5" {...props} />,
-                        li: ({node, ...props}) => <li className="pl-1" {...props} />,
-                        h1: ({node, ...props}) => <h1 className="text-lg font-bold mt-4 mb-2" {...props} />,
-                        h2: ({node, ...props}) => <h2 className="text-base font-bold mt-3 mb-2" {...props} />,
-                        h3: ({node, ...props}) => <h3 className="text-sm font-bold mt-3 mb-1" {...props} />,
-                        strong: ({node, ...props}) => <strong className="font-semibold text-foreground" {...props} />,
-                        code: ({node, ...props}) => <code className="bg-muted/50 px-1 py-0.5 rounded text-xs font-mono text-primary" {...props} />,
+                        p: ({...props}) => <p className="mb-3 last:mb-0 leading-relaxed" {...props} />,
+                        ul: ({...props}) => <ul className="my-3 list-disc pl-4 space-y-1.5" {...props} />,
+                        ol: ({...props}) => <ol className="my-3 list-decimal pl-4 space-y-1.5" {...props} />,
+                        li: ({...props}) => <li className="pl-1" {...props} />,
+                        h1: ({...props}) => <h1 className="text-lg font-bold mt-4 mb-2" {...props} />,
+                        h2: ({...props}) => <h2 className="text-base font-bold mt-3 mb-2" {...props} />,
+                        h3: ({...props}) => <h3 className="text-sm font-bold mt-3 mb-1" {...props} />,
+                        strong: ({...props}) => <strong className="font-semibold text-foreground" {...props} />,
+                        code: ({...props}) => <code className="bg-muted/50 px-1 py-0.5 rounded text-xs font-mono text-primary" {...props} />,
                       }}
                     >
                       {/* Pre-process: Force double newlines for cleaner spacing if needed, but be careful not to break code blocks */}

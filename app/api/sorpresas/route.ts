@@ -389,13 +389,6 @@ function pick(arr: string[], i: number) {
   return arr[((i % arr.length) + arr.length) % arr.length]
 }
 
-interface SorpresasResponse extends ApiResponse {
-  chiste?: string;
-  sorpresa?: string;
-  seed?: number;
-  sector?: string;
-}
-
 export async function GET(request: Request) {
   try {
     // Rate limit: 30 req/min per IP — endpoint may polish text via OpenAI
@@ -454,13 +447,13 @@ export async function GET(request: Request) {
           const parsed = JSON.parse(text)
           if (parsed?.chiste) chiste = String(parsed.chiste)
           if (parsed?.sorpresa) sorpresa = String(parsed.sorpresa)
-        } catch (_) {
+        } catch {
           // si no es JSON, intenta separar líneas
           const lines = text.split(/\n+/).map((s) => s.trim()).filter(Boolean)
           if (lines[0]) chiste = lines[0]
           if (lines[1]) sorpresa = lines[1]
         }
-      } catch (_) {
+      } catch {
         // fallback: mantener local
       }
     }
@@ -477,8 +470,8 @@ export async function GET(request: Request) {
     })
     res.cookies.set(cookieKey, String(idx), { path: '/', maxAge: 60 * 60 * 24 })
     return res
-  } catch (e: any) {
-    console.error('[sorpresas GET] Error:', e?.message)
+  } catch (e) {
+    console.error('[sorpresas GET] Error:', e instanceof Error ? e.message : String(e))
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',

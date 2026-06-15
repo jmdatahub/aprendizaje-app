@@ -5,7 +5,7 @@ import { ApiResponse } from '@/shared/types/api'
 // This endpoint now delegates to /api/aprender/generate or /api/aprender/save
 export async function POST(req: Request) {
   try {
-    const body = await req.json().catch(() => ({} as any))
+    const body = await req.json().catch(() => ({} as Record<string, unknown>))
     const { confirmar } = body || {}
 
     // Prepare internal request to the specialized endpoint
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(result, { status: response.status })
 
-  } catch (e: any) {
+  } catch (e) {
     console.error('[API /api/aprender] Legacy wrapper error:', e)
     return NextResponse.json<ApiResponse>({ 
       success: false, 

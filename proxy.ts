@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-export function middleware(request: NextRequest) {
+// Renamed from `middleware.ts` per Next.js 16 (the `middleware` file convention
+// is deprecated in favour of `proxy`). Behaviour is unchanged.
+export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl
   const response = NextResponse.next()
 

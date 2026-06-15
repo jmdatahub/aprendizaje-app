@@ -20,6 +20,18 @@ export type Pregunta = {
   opciones?: string[]
 }
 
+// Minimal shape of a stored learning item used for test generation
+type LearningItem = { id: string; title: string; summary: string }
+
+// Raw question object as returned by the AI generator (loosely shaped)
+type RawPregunta = {
+  enunciado?: string
+  tiempo?: number
+  titulo_tema?: string
+  tipo?: string
+  opciones?: string[]
+}
+
 interface UseWeeklyTestReturn {
   testStatus: TestStatus;
   testData: Pregunta[];
@@ -87,7 +99,7 @@ export function useWeeklyTest(): UseWeeklyTestReturn {
            console.warn("Watchdog detected stuck generation. Forcing fallback.");
            
            // Force fallback generation logic (duplicated safety)
-           const allItems: any[] = [];
+           const allItems: LearningItem[] = [];
            try {
              SECTOR_IDS.forEach(sectorId => {
                try {
@@ -145,7 +157,7 @@ export function useWeeklyTest(): UseWeeklyTestReturn {
     setTestError(null);
     
     // Define allItems in outer scope for fallback access
-    const allItems: any[] = [];
+    const allItems: LearningItem[] = [];
 
     try {
       // Collect learning items from localStorage
@@ -208,8 +220,8 @@ export function useWeeklyTest(): UseWeeklyTestReturn {
           setTimeout(() => reject(new Error("Timeout generating test")), 10000); // 10s timeout
         });
 
-        // Race against AI 
-        const response: any = await Promise.race([
+        // Race against AI
+        const response: { respuesta?: string; content?: string } = await Promise.race([
           sendChatMessage(
             [{ role: 'user', content: prompt }], 
             'Eres un profesor experto que crea exámenes precisos. JSON Only.', 
@@ -219,7 +231,7 @@ export function useWeeklyTest(): UseWeeklyTestReturn {
         ]);
         
         // Fix: Declare parsed variable properly
-        let parsed: any[] = [];
+        let parsed: RawPregunta[] = [];
         try {
           const text = response.respuesta || response.content || "[]";
           const jsonMatch = text.match(/\[.*\]/s);
@@ -244,7 +256,7 @@ export function useWeeklyTest(): UseWeeklyTestReturn {
           throw new Error("Error al procesar la respuesta del generador de exámenes.");
         }
 
-        parsed.forEach((p: any, i: number) => {
+        parsed.forEach((p: RawPregunta, i: number) => {
           const originalItem = selectedItems.find(s => s.title === p.titulo_tema) || selectedItems[i % selectedItems.length];
           
           if (p.enunciado) {
@@ -306,7 +318,7 @@ export function useWeeklyTest(): UseWeeklyTestReturn {
       // If we reached here, AI returned 0 valid questions. Proceed to fallback.
       console.warn("AI returned 0 valid questions. Using fallback.");
 
-    } catch (e: any) {
+    } catch (e) {
       console.warn("Error generating weekly test with AI, falling back to local generation", e);
     }
 

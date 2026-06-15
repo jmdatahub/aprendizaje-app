@@ -26,10 +26,10 @@ export async function GET() {
     if (errorHabilidades) throw errorHabilidades
 
     // 3. Procesar datos para el frontend
-    const activityLog: { date: string, type: 'learning' | 'practice', details?: any }[] = []
+    const activityLog: { date: string, type: 'learning' | 'practice', details?: { duration: number, skillId: string } }[] = []
 
     // Aprendizajes
-    ;(aprendizajes || []).forEach((a: any) => {
+    ;(aprendizajes || []).forEach((a: { created_at: string }) => {
       activityLog.push({
         date: a.created_at,
         type: 'learning'
@@ -39,7 +39,7 @@ export async function GET() {
     // Sesiones
     const skillsStats: Record<string, { id: string, name: string, totalSeconds: number, sessionsCount: number }> = {}
 
-    habilidades?.forEach((h: any) => {
+    habilidades?.forEach((h: { id: string, nombre: string, sesiones_practica?: { fecha: string, duracion_segundos: number }[] }) => {
       skillsStats[h.id] = {
         id: h.id,
         name: h.nombre,
@@ -47,8 +47,11 @@ export async function GET() {
         sessionsCount: 0
       }
 
-      if (h.sesiones && Array.isArray(h.sesiones)) {
-        h.sesiones.forEach((s: any) => {
+      // Supabase embeds the related rows under the relation name `sesiones_practica`,
+      // not `sesiones` — reading the wrong key left practice stats permanently empty.
+      const sesiones = h.sesiones_practica
+      if (sesiones && Array.isArray(sesiones)) {
+        sesiones.forEach((s: { fecha: string, duracion_segundos: number }) => {
           activityLog.push({
             date: s.fecha,
             type: 'practice',

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '@/shared/contexts/AppContext';
 import { LearningCanvas } from './LearningCanvas';
 import { SECTORES_DATA } from '@/shared/constants/sectores';
+import { useEscapeKey } from '@/shared/hooks/useEscapeKey';
 
 interface SaveLearningModalProps {
   isOpen: boolean;
@@ -62,6 +63,8 @@ export function SaveLearningModal({
     setMounted(true);
     return () => setMounted(false);
   }, []);
+
+  useEscapeKey(onClose, isOpen);
 
   useEffect(() => {
     if (isOpen) {

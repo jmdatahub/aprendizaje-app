@@ -24,13 +24,7 @@ interface Agregado {
   total: number;
 }
 
-interface AprendizajesResponse extends ApiResponse {
-  data?: AprendizajeData[];
-  agregados?: Agregado[];
-  progreso?: number[];
-}
-
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const supabase = getSupabaseAnon()
     
@@ -70,7 +64,7 @@ export async function GET(request: Request) {
       if (eProg) {
         console.warn('[API /api/aprendizajes] Warning fetching progreso (might not exist yet):', eProg.message)
       } else if (Array.isArray(progData)) {
-        progreso = progData.map((p: any) => p.sector_id).filter((x: any): x is number => typeof x === 'number')
+        progreso = progData.map((p: { sector_id: unknown }) => p.sector_id).filter((x: unknown): x is number => typeof x === 'number')
       }
     } catch (err) {
       console.warn('[API /api/aprendizajes] Error in progreso block:', err)
@@ -84,8 +78,8 @@ export async function GET(request: Request) {
         progreso 
       }
     })
-  } catch (e: any) {
-    console.error('[aprendizajes GET] Error:', e?.message)
+  } catch (e) {
+    console.error('[aprendizajes GET] Error:', e instanceof Error ? e.message : String(e))
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',

@@ -1,8 +1,22 @@
-import * as Tone from 'tone'
+// Tone.js (~150KB) is heavy and only needed when a sound actually plays. We
+// import it lazily via dynamic import() so it is code-split out of every page's
+// initial bundle (it used to be eagerly bundled everywhere via `playClick`).
+import type * as ToneNS from 'tone'
+
+let toneModule: typeof import('tone') | null = null
+let tonePromise: Promise<typeof import('tone')> | null = null
+
+async function loadTone(): Promise<typeof import('tone')> {
+  if (toneModule) return toneModule
+  if (!tonePromise) tonePromise = import('tone')
+  toneModule = await tonePromise
+  return toneModule
+}
 
 // Click de botón
 export const playClick = async () => {
   try {
+    const Tone = await loadTone();
     await Tone.start();
     const synth = new Tone.Synth({
       oscillator: { type: 'sine' },
@@ -19,6 +33,7 @@ export const playClick = async () => {
 // Éxito/Desbloqueo (acorde ascendente)
 export const playSuccess = async () => {
   try {
+    const Tone = await loadTone()
     await Tone.start()
     const synth = new Tone.Synth({
       oscillator: { type: 'triangle' },
@@ -38,6 +53,7 @@ export const playSuccess = async () => {
 // Error suave
 export const playError = async () => {
   try {
+    const Tone = await loadTone()
     await Tone.start()
     const synth = new Tone.Synth({
       oscillator: { type: 'sawtooth' },
@@ -53,6 +69,7 @@ export const playError = async () => {
 // Notificación
 export const playNotification = async () => {
   try {
+    const Tone = await loadTone()
     await Tone.start()
     const synth = new Tone.Synth({
       oscillator: { type: 'sine' },
@@ -70,6 +87,7 @@ export const playNotification = async () => {
 // Mensaje de chat (suave, tipo WhatsApp)
 export const playMessage = async () => {
   try {
+    const Tone = await loadTone();
     await Tone.start();
     const synth = new Tone.Synth({
       oscillator: { type: 'sine' },
@@ -90,6 +108,7 @@ export const playMessage = async () => {
 // Sonido de cuenta atrás (pitido clásico de reloj digital)
 export const playTick = async () => {
   try {
+    const Tone = await loadTone();
     await Tone.start();
     const synth = new Tone.Synth({
       oscillator: { type: 'sine' },
@@ -105,17 +124,17 @@ export const playTick = async () => {
 };
 
 // Música de fondo: Ambiente sintético suave (sin samples externos para evitar errores)
-let backgroundMusic: Tone.Loop | null = null
-let bgSynth: Tone.PolySynth | null = null
+let bgSynth: ToneNS.PolySynth | null = null
 let isPlaying = false
 
 export const startBackgroundMusic = async () => {
   if (isPlaying) return
-  
+
   try {
+    const Tone = await loadTone()
     await Tone.start()
     await Tone.Transport.start()
-    
+
     // Sintetizador polifónico para acordes suaves
     bgSynth = new Tone.PolySynth(Tone.Synth, {
       oscillator: { type: "sine" },
@@ -126,7 +145,7 @@ export const startBackgroundMusic = async () => {
         release: 2
       }
     }).toDestination();
-    
+
     bgSynth.volume.value = -25; // Muy suave de fondo
 
     // Acordes largos y espaciados para ambiente "general"
@@ -143,10 +162,10 @@ export const startBackgroundMusic = async () => {
 
     part.loop = true;
     part.loopEnd = "16m";
-    
+
     Tone.Transport.bpm.value = 60;
     isPlaying = true;
-    
+
   } catch (error) {
     console.error('Error starting background music:', error)
   }
@@ -154,15 +173,18 @@ export const startBackgroundMusic = async () => {
 
 export const stopBackgroundMusic = () => {
   try {
-    Tone.Transport.stop();
-    Tone.Transport.cancel(); // Limpiar eventos programados
-    
+    // Tone is only loaded once music has started, so if it was never loaded
+    // there is nothing to stop.
+    if (!toneModule) return
+    toneModule.Transport.stop();
+    toneModule.Transport.cancel(); // Limpiar eventos programados
+
     if (bgSynth) {
       bgSynth.releaseAll();
       bgSynth.dispose();
       bgSynth = null;
     }
-    
+
     isPlaying = false;
   } catch (error) {
     console.error('Error stopping background music:', error)
@@ -171,7 +193,7 @@ export const stopBackgroundMusic = () => {
 // Sonido de procesamiento (whoosh suave)
 export const playProcessing = async () => {
   try {
-    await Tone.start();
+    const Tone = await loadTone();
     const filter = new Tone.Filter(200, "lowpass").toDestination();
     const noise = new Tone.Noise("pink").connect(filter);
 

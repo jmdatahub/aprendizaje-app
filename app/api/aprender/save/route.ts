@@ -6,7 +6,7 @@ export const runtime = 'nodejs'
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json().catch(() => ({} as any))
+    const body = await req.json().catch(() => ({} as Record<string, unknown>))
     const { conversacion, titulo, resumen, sectorId } = body || {}
 
     if (!titulo || !resumen) {
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
         if (!m || typeof m !== 'object') {
           return NextResponse.json<ApiResponse>({ success: false, error: 'INVALID_REQUEST', message: 'Entrada inválida' }, { status: 400 })
         }
-        const t = (m as any).texto
+        const t = (m as { texto?: unknown }).texto
         if (t !== undefined && (typeof t !== 'string' || t.length > 4000)) {
           return NextResponse.json<ApiResponse>({ success: false, error: 'INVALID_REQUEST', message: 'Entrada con texto demasiado largo' }, { status: 400 })
         }
@@ -78,8 +78,8 @@ export async function POST(req: Request) {
       data: { id: data?.id } 
     })
 
-  } catch (e: any) {
-    console.error('[aprender/save] Unexpected error:', e?.message || 'unknown')
+  } catch (e) {
+    console.error('[aprender/save] Unexpected error:', e instanceof Error ? e.message : 'unknown')
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',

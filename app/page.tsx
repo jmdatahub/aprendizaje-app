@@ -14,8 +14,15 @@ import { UnlockModal } from "@/features/sectores/components/UnlockModal"
 import { SectorWithProgress } from "@/features/sectores/types"
 import { SECTORES_DATA } from "@/shared/constants/sectores"
 import { calculateGamificationStats, GamificationStats } from "@/shared/utils/gamification"
+import { isDue } from "@/lib/srs"
 import { LearningStreak } from "@/features/stats/components/LearningStreak"
 import { ChevronDown } from "lucide-react"
+
+type PendingItem = {
+  id: string;
+  sectorName: string;
+  sectorIcon: string;
+}
 
 export default function Home() {
   const router = useRouter()
@@ -49,13 +56,15 @@ export default function Home() {
       clearInterval(interval)
       if (timeoutId) clearTimeout(timeoutId)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- headlines is a fixed in-component array of constant strings, so headlines.length never changes; the carousel interval is meant to be set up once on mount
   }, [])
 
   const [showTestOverlay, setShowTestOverlay] = useState(false)
   const [selectedLockedSector, setSelectedLockedSector] = useState<SectorWithProgress | null>(null)
-  const [pendingItems, setPendingItems] = useState<any[]>([])
+  const [pendingItems, setPendingItems] = useState<PendingItem[]>([])
   const [sectorCounts, setSectorCounts] = useState<Record<string, number>>({})
   const [stats, setStats] = useState<GamificationStats>({ currentStreak: 0, uniqueDaysThisYear: 0, isTodayLearned: false })
+  const [dueTodayCount, setDueTodayCount] = useState(0)
 
   const handleTestSemanal = () => {
     playClick()
@@ -80,7 +89,14 @@ export default function Home() {
 
   useEffect(() => {
     const counts: Record<string, number> = {};
-    const allPending: any[] = [];
+    const allPending: PendingItem[] = [];
+    // Collect every saved learning's date so the streak/year stats are computed
+    // from the SAME source learnings are persisted to (localStorage), not from the
+    // Supabase `aprendizajes` table — which the save flow never writes to.
+    const allDates: string[] = [];
+    // Count SRS-due learnings ("Repasar hoy") from the same localStorage source.
+    let dueToday = 0;
+    const now = new Date();
     let decayedIds: string[] = [];
     try {
       decayedIds = JSON.parse(localStorage.getItem('decayed_items') || '[]');
@@ -89,7 +105,7 @@ export default function Home() {
       decayedIds = [];
     }
 
-    SECTORES_DATA.forEach((sector: any) => {
+    SECTORES_DATA.forEach((sector) => {
       try {
         const key = `sector_data_${sector.id}`;
         const stored = localStorage.getItem(key);
@@ -99,11 +115,16 @@ export default function Home() {
           const sectorItems = data.items || [];
           counts[sector.id] = sectorItems.length;
 
+          for (const item of sectorItems) {
+            if (item?.date) allDates.push(item.date);
+            if (isDue(item?.srs, now)) dueToday++;
+          }
+
           if (decayedIds.length > 0) {
-            const sectorPending = sectorItems.filter((item: any) => decayedIds.includes(item.id));
+            const sectorPending = sectorItems.filter((item: { id: string }) => decayedIds.includes(item.id));
             if (sectorPending.length > 0) {
-              allPending.push(...sectorPending.map((item: any) => ({ 
-                ...item, 
+              allPending.push(...sectorPending.map((item: { id: string }) => ({
+                ...item,
                 sectorName: t(`sectors.${sector.key}`),
                 sectorIcon: sector.icono
               })));
@@ -119,25 +140,9 @@ export default function Home() {
     });
     setSectorCounts(counts);
     setPendingItems(allPending);
+    setStats(calculateGamificationStats(allDates));
+    setDueTodayCount(dueToday);
   }, [t]);
-
-  // Fetch all aprendizajes for stats calculation
-  useEffect(() => {
-    async function fetchStats() {
-      try {
-        const res = await fetch('/api/aprendizajes')
-        const json = await res.json()
-        if (json.success && json.data?.items && Array.isArray(json.data.items)) {
-          const dates = json.data.items.map((a: any) => a.created_at)
-          const calcStats = calculateGamificationStats(dates)
-          setStats(calcStats)
-        }
-      } catch (err) {
-        console.error("Error fetching stats data:", err)
-      }
-    }
-    fetchStats()
-  }, []);
 
   const handleEmpezarAprender = () => {
     playClick()
@@ -315,7 +320,7 @@ export default function Home() {
                 )}
               </div>
               
-              <div onClick={handleTestSemanal} className="cursor-pointer relative group">
+              <button type="button" onClick={handleTestSemanal} aria-label={t('home.weekly_test')} className="cursor-pointer relative group appearance-none bg-transparent border-0 p-0">
                 <div className={`px-4 py-2 rounded-full text-sm font-medium transition-all border shadow-sm flex items-center gap-2
                   ${testStatus === 'ready' 
                     ? 'bg-indigo-100 text-indigo-700 border-indigo-200 animate-pulse hover:bg-indigo-200' 
@@ -337,7 +342,7 @@ export default function Home() {
                   testStatus === 'generating' ? t('home.test_generating') :
                   t('home.weekly_test')}
                 </div>
-              </div>
+              </button>
 
               <Link href="/juegos-matematicos" onClick={() => playClick()}>
                 <div className="px-4 py-2 bg-card hover:bg-accent rounded-full text-sm font-medium text-muted-foreground hover:text-foreground transition-colors border border-border/60 hover:border-border shadow-sm hover:shadow-md">
@@ -368,6 +373,22 @@ export default function Home() {
               </Link>
             )}
 
+            {/* Repaso espaciado: aprendizajes que vencen hoy según SM-2 */}
+            {dueTodayCount > 0 && (
+              <Link href="/aprendizajes" onClick={() => playClick()} className="w-full" aria-label={`Repasar hoy: ${dueTodayCount} aprendizajes`}>
+                <div className="flex items-center justify-between p-3 bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded-xl border border-indigo-200 dark:border-indigo-900/40 transition-all group">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl">📅</span>
+                    <div>
+                      <h3 className="text-sm font-bold text-indigo-800 dark:text-indigo-400">Repasar hoy</h3>
+                      <p className="text-[10px] text-indigo-600 dark:text-indigo-500">{dueTodayCount} {dueTodayCount === 1 ? 'aprendizaje toca' : 'aprendizajes tocan'} repaso</p>
+                    </div>
+                  </div>
+                  <span className="text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition-transform">→</span>
+                </div>
+              </Link>
+            )}
+
             {/* Streak */}
             <div className="w-full max-w-4xl animate-in slide-in-from-bottom-4 duration-1000">
               <LearningStreak streak={stats.currentStreak} yearlyCount={stats.uniqueDaysThisYear} />
@@ -377,7 +398,7 @@ export default function Home() {
             <div className="mt-4 w-full">
               <p className="text-center text-xs text-muted-foreground/60 mb-5 uppercase tracking-[0.2em] font-medium">{t('home.explore_by_topic')}</p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
-                {SECTORES_DATA.map((sector: any) => {
+                {SECTORES_DATA.map((sector) => {
                   const count = sectorCounts[sector.id] || 0;
                   const isLocked = count === 0;
                   const sectorName = t(`sectors.${sector.key}`);
@@ -511,16 +532,16 @@ export default function Home() {
                 )}
               </div>
               
-              <div onClick={handleTestSemanal} className="cursor-pointer">
+              <button type="button" onClick={handleTestSemanal} aria-label={t('home.weekly_test')} className="cursor-pointer appearance-none bg-transparent border-0 p-0">
                 <div className={`px-4 py-2 rounded-full text-xs font-medium transition-all border shadow-sm flex items-center gap-2
-                  ${testStatus === 'ready' 
-                    ? 'bg-indigo-100 text-indigo-700 border-indigo-200 animate-pulse' 
+                  ${testStatus === 'ready'
+                    ? 'bg-indigo-100 text-indigo-700 border-indigo-200 animate-pulse'
                     : 'bg-card text-muted-foreground border-border'
                   }
                 `}>
                    <span>⚡</span> {t('home.weekly_test')}
                 </div>
-              </div>
+              </button>
 
               <Link href="/juegos-matematicos" onClick={() => playClick()}>
                 <div className="px-4 py-2 bg-card active:bg-accent rounded-full text-xs font-medium text-muted-foreground active:text-foreground transition-colors border border-border shadow-sm">
@@ -551,6 +572,22 @@ export default function Home() {
               </Link>
             )}
 
+            {/* Repaso espaciado: aprendizajes que vencen hoy según SM-2 */}
+            {dueTodayCount > 0 && (
+              <Link href="/aprendizajes" onClick={() => playClick()} className="w-full" aria-label={`Repasar hoy: ${dueTodayCount} aprendizajes`}>
+                <div className="flex items-center justify-between p-3 bg-indigo-50 dark:bg-indigo-900/20 active:bg-indigo-100 dark:active:bg-indigo-900/30 rounded-xl border border-indigo-200 dark:border-indigo-900/40 transition-all">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl">📅</span>
+                    <div>
+                      <h3 className="text-sm font-bold text-indigo-800 dark:text-indigo-400">Repasar hoy</h3>
+                      <p className="text-[10px] text-indigo-600 dark:text-indigo-500">{dueTodayCount} {dueTodayCount === 1 ? 'aprendizaje' : 'aprendizajes'}</p>
+                    </div>
+                  </div>
+                  <span className="text-indigo-600 dark:text-indigo-400">→</span>
+                </div>
+              </Link>
+            )}
+
             {/* Streak */}
             <div className="w-full animate-in slide-in-from-bottom-4 duration-1000">
               <LearningStreak streak={stats.currentStreak} yearlyCount={stats.uniqueDaysThisYear} />
@@ -560,7 +597,7 @@ export default function Home() {
             <div className="mt-4 w-full">
               <p className="text-center text-xs text-muted-foreground/60 mb-5 uppercase tracking-[0.2em] font-medium">{t('home.explore_by_topic')}</p>
               <div className="grid grid-cols-2 gap-2.5">
-                {SECTORES_DATA.map((sector: any) => {
+                {SECTORES_DATA.map((sector) => {
                   const count = sectorCounts[sector.id] || 0;
                   const isLocked = count === 0;
                   const sectorName = t(`sectors.${sector.key}`);

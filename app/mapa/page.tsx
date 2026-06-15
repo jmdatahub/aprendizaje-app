@@ -18,9 +18,16 @@ import { SECTORES_DATA } from "@/shared/constants/sectores"
 
 const SECTOR_IDS = SECTORES_DATA.map(s => s.id);
 
+type PendingItem = {
+  id: string;
+  title: string;
+  sectorName: string;
+  sectorId: string;
+}
+
 export default function Mapa() {
   const router = useRouter()
-  const { t, settings, testStatus, generateWeeklyTest } = useApp()
+  const { t, testStatus, generateWeeklyTest } = useApp()
   
   // Modal state
   const [selectedSector, setSelectedSector] = useState<SectorWithProgress | null>(null)
@@ -37,7 +44,7 @@ export default function Mapa() {
   const [daysToNextRepaso, setDaysToNextRepaso] = useState(0)
 
   // Pending reviews state
-  const [pendingItems, setPendingItems] = useState<any[]>([])
+  const [pendingItems, setPendingItems] = useState<PendingItem[]>([])
   const [sectorAlerts, setSectorAlerts] = useState<Record<string, number>>({})
   const [showPendingReviews, setShowPendingReviews] = useState(false)
 
@@ -50,6 +57,7 @@ export default function Mapa() {
       const ym = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`
       const key = `repaso_done_${ym}`
       const done = localStorage.getItem(key) === '1'
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrates state once from localStorage on mount; client-only (localStorage is undefined during SSR) so a lazy initializer isn't usable
       setRepasoDone(done)
       
       const next = new Date(now)
@@ -62,7 +70,7 @@ export default function Mapa() {
 
       // Pending Reviews Logic
       const decayedIds = JSON.parse(localStorage.getItem('decayed_items') || '[]');
-      const newPendingItems: any[] = [];
+      const newPendingItems: PendingItem[] = [];
       const newAlerts: Record<string, number> = {};
 
       if (decayedIds.length > 0) {
@@ -73,10 +81,10 @@ export default function Mapa() {
             if (stored) {
               const data = JSON.parse(stored);
               if (data && Array.isArray(data.items)) {
-                const sectorPending = data.items.filter((item: any) => decayedIds.includes(item.id));
+                const sectorPending = data.items.filter((item: { id: string }) => decayedIds.includes(item.id));
                 if (sectorPending.length > 0) {
                   newAlerts[sectorId] = sectorPending.length;
-                  newPendingItems.push(...sectorPending.map((item: any) => ({ ...item, sectorId })));
+                  newPendingItems.push(...sectorPending.map((item: { id: string; title: string; sectorName: string }) => ({ ...item, sectorId })));
                 }
               }
             }
@@ -299,7 +307,7 @@ export default function Mapa() {
                 const stored = localStorage.getItem(key);
                 if (stored) {
                   const data = JSON.parse(stored);
-                  const item = data.items.find((i: any) => i.id === learningId);
+                  const item = data.items.find((i: { id: string; summary?: string }) => i.id === learningId);
                   if (item) {
                     const params = new URLSearchParams();
                     if (item.summary) params.set('tema', item.summary); // Using summary as topic/context
@@ -378,7 +386,7 @@ export default function Mapa() {
                     <Card className="border-amber-200 bg-amber-50/50 hover:bg-amber-100/80 transition-all hover:shadow-md cursor-pointer">
                       <CardContent className="p-3 relative overflow-hidden">
                         {/* Worn effect overlay */}
-                        <div className="absolute inset-0 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/aged-paper.png')] opacity-20 mix-blend-multiply"></div>
+                        <div className="absolute inset-0 pointer-events-none bg-[url('/paper-texture.svg')] opacity-20 mix-blend-multiply"></div>
                         
                         <div className="relative z-10 flex items-center gap-3">
                           <div className="text-2xl shrink-0">

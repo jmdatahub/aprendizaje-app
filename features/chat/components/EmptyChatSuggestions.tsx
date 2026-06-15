@@ -41,7 +41,7 @@ export function EmptyChatSuggestions() {
             transition={{ duration: 0.5, ease: "easeInOut" }}
             className="text-2xl md:text-3xl font-semibold text-muted-foreground/50 tracking-tight leading-snug"
           >
-            "{suggestions[index]}"
+            &quot;{suggestions[index]}&quot;
           </motion.p>
         </AnimatePresence>
       </div>

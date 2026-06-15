@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useApp } from "@/shared/contexts/AppContext";
+import { useEscapeKey } from "@/shared/hooks/useEscapeKey";
 
 interface TestDetailModalProps {
   isOpen: boolean;
@@ -9,19 +10,36 @@ interface TestDetailModalProps {
   exam: {
     score: number;
     total_questions: number;
-    questions_data: any[];
+    questions_data: {
+      esCorrecta: boolean;
+      enunciado: string;
+      respuestaUsuario: string | null;
+      feedback: string;
+    }[];
     created_at: string;
   } | null;
+  /** Promedio histórico normalizado (0-10) para la sección de comparación. Opcional. */
+  avgScore?: number;
 }
 
-export function TestDetailModal({ isOpen, onClose, exam }: TestDetailModalProps) {
-  const { t, formatDate } = useApp();
+export function TestDetailModal({ isOpen, onClose, exam, avgScore }: TestDetailModalProps) {
+  const { formatDate } = useApp();
+
+  useEscapeKey(onClose, isOpen);
 
   if (!isOpen || !exam) return null;
 
+  // Comparación: nota de este examen (0-10) vs promedio histórico (0-10).
+  const examScore10 =
+    exam.total_questions > 0 ? (exam.score / exam.total_questions) * 10 : 0;
+  const hasAvg = typeof avgScore === 'number' && Number.isFinite(avgScore) && avgScore > 0;
+  const compareDelta = hasAvg ? examScore10 - (avgScore as number) : 0;
+  const compareDir: 'up' | 'down' | 'flat' =
+    !hasAvg || Math.abs(compareDelta) < 0.05 ? 'flat' : compareDelta > 0 ? 'up' : 'down';
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-2xl max-h-[90vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-full sm:max-w-2xl max-h-[90vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
         
         {/* Header */}
         <div className="p-6 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
@@ -58,6 +76,39 @@ export function TestDetailModal({ isOpen, onClose, exam }: TestDetailModalProps)
             </div>
           </div>
 
+          {/* Comparación: este examen vs promedio histórico */}
+          {hasAvg && (
+            <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border border-gray-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+              <div className="min-w-0">
+                <p className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Comparación</p>
+                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">
+                  Esta nota{' '}
+                  <span className="font-bold text-gray-900 dark:text-white">{examScore10.toFixed(1)}</span>
+                  {' '}vs promedio{' '}
+                  <span className="font-bold text-gray-900 dark:text-white">{(avgScore as number).toFixed(1)}</span>
+                </p>
+              </div>
+              <div
+                className={`flex items-center gap-1.5 shrink-0 px-3 py-1.5 rounded-full font-bold text-sm ${
+                  compareDir === 'up'
+                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                    : compareDir === 'down'
+                    ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                    : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
+                }`}
+              >
+                <span aria-hidden="true">
+                  {compareDir === 'up' ? '↗︎' : compareDir === 'down' ? '↘︎' : '→'}
+                </span>
+                <span className="tabular-nums">
+                  {compareDir === 'flat'
+                    ? 'En la media'
+                    : `${compareDelta > 0 ? '+' : ''}${compareDelta.toFixed(1)}`}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Questions List */}
           <div className="space-y-4">
             {exam.questions_data.map((p, idx) => (
@@ -84,7 +135,7 @@ export function TestDetailModal({ isOpen, onClose, exam }: TestDetailModalProps)
                 <div className="mb-3 space-y-2">
                   <div>
                     <p className="text-[10px] font-bold text-gray-400 uppercase mb-0.5">Tu respuesta</p>
-                    <p className="text-sm text-gray-700 dark:text-gray-300 italic">"{p.respuestaUsuario || 'Sin respuesta'}"</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 italic">&quot;{p.respuestaUsuario || 'Sin respuesta'}&quot;</p>
                   </div>
                   <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-gray-100 dark:border-slate-700">
                     <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase mb-1">Feedback del Tutor</p>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import type { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
@@ -8,12 +9,12 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [status, setStatus] = useState('')
   const [statusType, setStatusType] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
-  const [sessionInfo, setSessionInfo] = useState<any>(null)
+  const [sessionInfo, setSessionInfo] = useState<Session | null>(null)
 
   useEffect(() => {
     ;(async () => {
       try {
-        const s = await (supabase as any)?.auth?.getSession?.()
+        const s = await supabase.auth.getSession()
         setSessionInfo(s?.data?.session || null)
       } catch {}
     })()
@@ -24,7 +25,7 @@ export default function Login() {
     setStatusType('loading')
     setStatus('Enviando enlace…')
     try {
-      const { error } = await (supabase as any)?.auth?.signInWithOtp?.({
+      const { error } = await supabase.auth.signInWithOtp({
         email,
         options: { emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined },
       })
@@ -43,7 +44,7 @@ export default function Login() {
 
   const signOut = async () => {
     try {
-      await (supabase as any)?.auth?.signOut?.()
+      await supabase.auth.signOut()
       setSessionInfo(null)
       setStatusType('idle')
       setStatus('Sesión cerrada')

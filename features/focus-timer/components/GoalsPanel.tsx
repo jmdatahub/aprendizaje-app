@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Trash2, Target, TrendingUp } from "lucide-react"
+import { Plus, Trash2 } from "lucide-react"
 
 interface Goal {
   id: string

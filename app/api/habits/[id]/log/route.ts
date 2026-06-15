@@ -46,8 +46,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     return NextResponse.json({ success: true, action })
-  } catch (e: any) {
-    console.error('[habits/[id]/log] Error:', e?.message)
+  } catch (e) {
+    console.error('[habits/[id]/log] Error:', e instanceof Error ? e.message : String(e))
     return NextResponse.json({ success: false, error: 'INTERNAL_ERROR' }, { status: 500 })
   }
 }

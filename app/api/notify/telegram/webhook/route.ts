@@ -141,8 +141,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true })
 
-  } catch (e: any) {
-    console.error('[Telegram Webhook Error]:', e?.message || 'unknown')
+  } catch (e) {
+    console.error('[Telegram Webhook Error]:', e instanceof Error ? e.message : 'unknown')
     return NextResponse.json({ ok: false }, { status: 500 })
   }
 }
@@ -161,8 +161,8 @@ async function handleSummary(chatId: string, token: string) {
     return
   }
 
-  const pending = habits.filter(h => !h.habit_logs?.some((l: any) => l.completed_at === todayStr))
-  const completed = habits.filter(h => h.habit_logs?.some((l: any) => l.completed_at === todayStr))
+  const pending = habits.filter(h => !h.habit_logs?.some((l: { completed_at: string }) => l.completed_at === todayStr))
+  const completed = habits.filter(h => h.habit_logs?.some((l: { completed_at: string }) => l.completed_at === todayStr))
 
   let msg = `📅 *Estado de hoy*\n\n`
 
@@ -214,7 +214,7 @@ async function handleDoneMenu(chatId: string, text: string, token: string) {
     .eq('telegram_chat_id', chatId)
     .limit(50)
 
-  const pending = habits?.filter(h => !h.habit_logs?.some((l: any) => l.completed_at === todayStr)) || []
+  const pending = habits?.filter(h => !h.habit_logs?.some((l: { completed_at: string }) => l.completed_at === todayStr)) || []
 
   if (pending.length === 0) {
     await sendTelegramMessage(chatId, "¡No tienes tareas pendientes! 🌟", token)

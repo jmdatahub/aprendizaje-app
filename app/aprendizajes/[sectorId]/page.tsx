@@ -2,7 +2,8 @@
 
 // Pagina: aprendizajes por sector
 // - Lee sectorId con useParams
-// - Llama a /api/aprendizajes y filtra por sector_id
+// - Carga los aprendizajes desde localStorage (`sector_data_<sectorId>`), la fuente de
+//   verdad real de esta app (el flujo de guardado no escribe en Supabase)
 // - Renderiza cards tipo carpeta; al hacer clic, muestra el resumen completo en un panel sencillo
 // - Incluye volver al mapa e ir al chat con el tema del sector
 
@@ -47,7 +48,7 @@ export default function SectorAprendizajesPage() {
   const { t, formatDate } = useApp()
   const sectorId = params?.sectorId;
   
-  const sectorInfo: any = useMemo(() => {
+  const sectorInfo = useMemo(() => {
     if (!sectorId) return null;
     // Find by ID (string)
     let found = SECTORES_DATA.find(s => s.id === sectorId);
@@ -124,7 +125,7 @@ export default function SectorAprendizajesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
 
-  const handleStartEdit = (e: React.MouseEvent, item: any) => {
+  const handleStartEdit = (e: React.MouseEvent, item: { id: string; title: string }) => {
     e.stopPropagation();
     setEditingId(item.id);
     setEditTitle(item.title);
@@ -150,7 +151,7 @@ export default function SectorAprendizajesPage() {
       const stored = localStorage.getItem(sectorKey);
       if (stored) {
         const data = JSON.parse(stored);
-        data.items = data.items.map((it: any) => 
+        data.items = data.items.map((it: { id: string }) =>
           it.id === id ? { ...it, title: editTitle.trim() } : it
         );
         localStorage.setItem(sectorKey, JSON.stringify(data));
@@ -378,7 +379,7 @@ export default function SectorAprendizajesPage() {
                   exit={{ opacity: 0 }}
                   className="text-center py-12 text-gray-500"
                 >
-                  No se encontraron resultados para "{searchQuery}"
+                  No se encontraron resultados para &quot;{searchQuery}&quot;
                 </motion.div>
               ) : (
                 <motion.div 
@@ -419,7 +420,7 @@ export default function SectorAprendizajesPage() {
                         >
                           {/* Worn effect overlay for items needing review */}
                           {needsReview && (
-                            <div className="absolute inset-0 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/aged-paper.png')] opacity-30 mix-blend-multiply"></div>
+                            <div className="absolute inset-0 pointer-events-none bg-[url('/paper-texture.svg')] opacity-30 mix-blend-multiply"></div>
                           )}
                           
                           <div className="relative z-10">

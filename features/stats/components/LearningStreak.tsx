@@ -11,9 +11,6 @@ interface LearningStreakProps {
 
 export function LearningStreak({ streak, yearlyCount }: LearningStreakProps) {
   const { t, settings } = useApp();
-  
-  const streakPercent = Math.min((streak / settings.streakGoal) * 100, 100);
-  const yearlyPercent = Math.min((yearlyCount / settings.yearlyGoal) * 100, 100);
 
   return (
     <Link href="/progreso" className="relative group flex flex-col md:flex-row items-center justify-center gap-4 md:gap-6 py-3 px-4 rounded-2xl bg-slate-50/50 dark:bg-slate-900/30 border border-gray-100 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-900/50 transition-colors cursor-pointer text-decoration-none">

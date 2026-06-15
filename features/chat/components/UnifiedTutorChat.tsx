@@ -6,7 +6,7 @@ import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognitio
 import { motion, AnimatePresence, useAnimation } from "framer-motion";
 import { useTts } from "@/features/voice/hooks/useTts";
 import { useSoundEffects } from "@/features/gamification/hooks/useSoundEffects";
-import { Chat, chatStorage } from "@/features/chat/services/chatStorage";
+import { chatStorage } from "@/features/chat/services/chatStorage";
 import { generateRecommendations } from "@/features/ia/services/openai";
 import { useTranslation } from "@/features/i18n/hooks/useTranslation";
 import { SaveLearningModal } from "@/features/learning/components/SaveLearningModal";
@@ -35,27 +35,22 @@ interface UnifiedTutorChatProps {
 
 export function UnifiedTutorChat({
   initialChatId,
-  initialContext,
   initialTopic,
-  initialMode = 'normal',
   initialSector,
   autostart = false,
-  onClose,
   embedded = false,
   linkedLearningId
 }: UnifiedTutorChatProps) {
   const { t } = useTranslation();
   const searchParams = useSearchParams();
-  const { speak, stop, isSpeaking } = useTts();
+  const { speak, stop } = useTts();
   const { playClick, playSuccess, playError, playMessage } = useSoundEffects();
   
   // Voice recognition
   const {
     transcript,
     listening,
-    resetTranscript,
-    browserSupportsSpeechRecognition,
-    isMicrophoneAvailable
+    resetTranscript
   } = useSpeechRecognition();
 
   // UI State
@@ -128,8 +123,8 @@ export function UnifiedTutorChat({
       );
     })
     .sort((a, b) => {
-      let valA: any = a.updatedAt;
-      let valB: any = b.updatedAt;
+      let valA: string | number = a.updatedAt;
+      let valB: string | number = b.updatedAt;
 
       if (sortBy === 'title') {
         valA = a.title || "";
@@ -167,6 +162,7 @@ export function UnifiedTutorChat({
         animate: true 
       }]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial-setup effect must run only when the chat identity changes (initialChatId/autostart/tema); chatLogic and handleTopicClick are recreated each render and including them would re-trigger setup and clobber the user's messages
   }, [initialChatId, autostart, tema]);
 
   // Voice Input Handling

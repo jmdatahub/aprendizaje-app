@@ -1,8 +1,6 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { cn } from "@/lib/utils";
-import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
 
 interface ChatHeaderProps {
@@ -25,7 +23,6 @@ export function ChatHeader({
   setIsSidebarOpen,
   sector,
   messagesLength,
-  summaryLoading,
   onSaveChat,
   onSaveLearning,
   onShare,
@@ -39,6 +36,7 @@ export function ChatHeader({
   const [mounted, setMounted] = useState(false);
   
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sets a client-only "mounted" flag once on mount to gate SSR/hydration-sensitive rendering; intentional one-time render
     setMounted(true);
   }, []);
 

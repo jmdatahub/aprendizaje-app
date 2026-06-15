@@ -5,7 +5,7 @@ import { Plus, Trash2, CheckCircle2, Circle } from "lucide-react"
 
 export type TodoTier = "S" | "A" | "B" | "C"
 
-interface Todo {
+export interface Todo {
   id: string
   text: string
   description?: string
@@ -33,7 +33,7 @@ export function TodoList({ onSelect }: TodoListProps) {
       const saved = localStorage.getItem("focus_timer_todos")
       // Migration for old todos without tier
       const parsed = saved ? JSON.parse(saved) : []
-      return parsed.map((t: any) => ({ ...t, tier: t.tier || "A" }))
+      return parsed.map((t: Todo) => ({ ...t, tier: t.tier || "A" }))
     }
     return []
   })

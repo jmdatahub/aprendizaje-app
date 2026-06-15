@@ -1,6 +1,5 @@
 "use client"
 
-import { TreePine } from "lucide-react"
 
 interface ForestAnimationProps {
   progress: number // 0 to 1
@@ -10,7 +9,6 @@ interface ForestAnimationProps {
 
 export function ForestAnimation({ progress, isActive, isCompleted }: ForestAnimationProps) {
   // Trees grow slightly or sky changes color
-  const treeCount = 5
   const opacity = 1 - progress
 
   return (

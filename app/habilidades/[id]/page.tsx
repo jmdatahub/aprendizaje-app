@@ -65,6 +65,7 @@ export default function HabilidadDetallePage({
 
   useEffect(() => {
     fetchHabilidad()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally re-fetches only when the route `id` changes; fetchHabilidad is a stable closure and adding it would force an unstable dep that re-runs the fetch on every render
   }, [id])
 
   const fetchHabilidad = async () => {

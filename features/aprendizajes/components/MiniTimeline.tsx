@@ -9,13 +9,13 @@ type TimelineItem = {
   sectorIcon: string;
 };
 
-interface MiniTimelineProps {
-  items: TimelineItem[];
-  onItemClick: (item: any) => void;
+interface MiniTimelineProps<T extends TimelineItem> {
+  items: T[];
+  onItemClick: (item: T) => void;
 }
 
-export function MiniTimeline({ items, onItemClick }: MiniTimelineProps) {
-  const { t, formatDate } = useApp();
+export function MiniTimeline<T extends TimelineItem>({ items, onItemClick }: MiniTimelineProps<T>) {
+  const { formatDate } = useApp();
   if (items.length === 0) return null;
 
   // Process items to find candidates for buckets
@@ -25,7 +25,7 @@ export function MiniTimeline({ items, onItemClick }: MiniTimelineProps) {
 
   const sorted = [...items].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  const timelineData: { label: string; item: TimelineItem }[] = [];
+  const timelineData: { label: string; item: T }[] = [];
 
   // 1. Today
   const todayItem = sorted.find(i => {
@@ -90,7 +90,7 @@ export function MiniTimeline({ items, onItemClick }: MiniTimelineProps) {
           
           <button
             onClick={() => { playClick(); onItemClick(entry.item); }}
-            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors group"
+            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors group px-1 py-2 min-h-[40px] rounded-lg hover:bg-muted/50"
           >
             <div className="w-2 h-2 rounded-full bg-primary group-hover:scale-125 transition-transform" />
             <span className="font-medium text-muted-foreground uppercase tracking-wide text-[10px]">{entry.label}</span>

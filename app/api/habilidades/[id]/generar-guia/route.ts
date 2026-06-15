@@ -136,8 +136,8 @@ Sé específico para esta habilidad. Máximo 400 palabras.`
       data: { guia }
     })
 
-  } catch (e: any) {
-    console.error('[API generar-guia] Fatal error:', e?.message)
+  } catch (e) {
+    console.error('[API generar-guia] Fatal error:', e instanceof Error ? e.message : String(e))
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',

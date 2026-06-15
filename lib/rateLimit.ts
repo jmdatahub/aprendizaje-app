@@ -87,9 +87,9 @@ async function rateLimitUpstash(
     }
     if (count > max) return { success: false, remaining: 0 }
     return { success: true, remaining: max - count }
-  } catch (err: any) {
+  } catch (err) {
     // Fail-open with a console warning so rate limit can't take the whole API down.
-    console.warn('[rateLimit] Upstash unavailable, falling back to allow:', err?.message || 'unknown')
+    console.warn('[rateLimit] Upstash unavailable, falling back to allow:', err instanceof Error ? err.message : String(err))
     return { success: true, remaining: max - 1 }
   }
 }

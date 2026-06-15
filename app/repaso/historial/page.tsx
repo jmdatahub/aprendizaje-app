@@ -6,16 +6,23 @@ import { useApp } from "@/shared/contexts/AppContext";
 import { playClick } from "@/shared/utils/sounds";
 import { TestDetailModal } from "@/features/test-semanal/components/TestDetailModal";
 
+interface QuestionData {
+  esCorrecta: boolean;
+  enunciado: string;
+  respuestaUsuario: string | null;
+  feedback: string;
+}
+
 interface ExamRecord {
   id: string;
   score: number;
   total_questions: number;
-  questions_data: any[];
+  questions_data: QuestionData[];
   created_at: string;
 }
 
 export default function HistorialPage() {
-  const { t, formatDate } = useApp();
+  const { formatDate } = useApp();
   const [history, setHistory] = useState<ExamRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +38,7 @@ export default function HistorialPage() {
         } else {
           setError(json.error);
         }
-      } catch (err) {
+      } catch {
         setError("No se pudo conectar con el servidor.");
       } finally {
         setLoading(false);
@@ -40,9 +47,47 @@ export default function HistorialPage() {
     fetchHistory();
   }, []);
 
-  const avgScore = history.length > 0 
+  const avgScore = history.length > 0
     ? (history.reduce((acc, curr) => acc + (curr.score / curr.total_questions), 0) / history.length) * 10
     : 0;
+
+  // Tendencia real: último examen (history[0], el más reciente) vs promedio histórico.
+  const lastScore = history.length > 0
+    ? (history[0].score / history[0].total_questions) * 10
+    : 0;
+  const trendDelta = lastScore - avgScore;
+  const trendPct = avgScore > 0 ? (trendDelta / avgScore) * 100 : 0;
+  // Umbral pequeño para considerar "estable" (plano)
+  const trendDir: 'up' | 'down' | 'flat' =
+    history.length < 2 || Math.abs(trendDelta) < 0.05
+      ? 'flat'
+      : trendDelta > 0
+      ? 'up'
+      : 'down';
+
+  // Mini sparkline: últimos 6-8 exámenes en orden cronológico (antiguo → reciente).
+  const sparkScores = history
+    .slice(0, 8)
+    .map((r) => (r.score / r.total_questions) * 10)
+    .reverse();
+  const sparkW = 120;
+  const sparkH = 36;
+  const sparkPath = (() => {
+    if (sparkScores.length < 2) return '';
+    const max = 10;
+    const min = 0;
+    const range = max - min || 1;
+    const stepX = sparkW / (sparkScores.length - 1);
+    return sparkScores
+      .map((s, i) => {
+        const x = i * stepX;
+        const y = sparkH - ((s - min) / range) * sparkH;
+        return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
+      })
+      .join(' ');
+  })();
+  const sparkColor =
+    trendDir === 'up' ? '#22c55e' : trendDir === 'down' ? '#ef4444' : '#64748b';
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 pb-12 pb-mobile-nav">
@@ -50,12 +95,13 @@ export default function HistorialPage() {
       <div className="bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link 
-              href="/" 
+            <Link
+              href="/"
               onClick={() => playClick()}
+              aria-label="Volver al inicio"
               className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full transition-colors"
             >
-              <svg className="w-6 h-6 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 text-gray-600 dark:text-gray-400" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </Link>
@@ -80,7 +126,67 @@ export default function HistorialPage() {
           </div>
           <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Tendencia</p>
-            <span className="text-3xl font-bold text-green-500">↗︎</span>
+            <div className="flex items-end justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`text-3xl font-bold ${
+                    trendDir === 'up'
+                      ? 'text-green-500'
+                      : trendDir === 'down'
+                      ? 'text-red-500'
+                      : 'text-slate-400'
+                  }`}
+                  aria-hidden="true"
+                >
+                  {trendDir === 'up' ? '↗︎' : trendDir === 'down' ? '↘︎' : '→'}
+                </span>
+                {history.length >= 2 && (
+                  <span
+                    className={`text-sm font-semibold ${
+                      trendDir === 'up'
+                        ? 'text-green-500'
+                        : trendDir === 'down'
+                        ? 'text-red-500'
+                        : 'text-slate-400'
+                    }`}
+                  >
+                    {trendDir === 'flat'
+                      ? 'Estable'
+                      : `${trendDelta > 0 ? '+' : ''}${trendPct.toFixed(0)}%`}
+                  </span>
+                )}
+              </div>
+              {sparkPath && (
+                <svg
+                  width={sparkW}
+                  height={sparkH}
+                  viewBox={`0 0 ${sparkW} ${sparkH}`}
+                  className="shrink-0 overflow-visible"
+                  role="img"
+                  aria-label={`Tendencia de las últimas ${sparkScores.length} notas`}
+                >
+                  <path
+                    d={sparkPath}
+                    fill="none"
+                    stroke={sparkColor}
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <circle
+                    cx={sparkW}
+                    cy={sparkH - (sparkScores[sparkScores.length - 1] / 10) * sparkH}
+                    r="2.5"
+                    fill={sparkColor}
+                  />
+                </svg>
+              )}
+            </div>
+            <p className="sr-only">
+              {trendDir === 'flat'
+                ? 'La nota se mantiene estable respecto al promedio.'
+                : `Tu última nota está ${trendDir === 'up' ? 'por encima' : 'por debajo'} del promedio histórico.`}
+            </p>
           </div>
         </div>
 
@@ -134,10 +240,11 @@ export default function HistorialPage() {
         </div>
       </main>
 
-      <TestDetailModal 
-        isOpen={!!selectedExam} 
-        onClose={() => setSelectedExam(null)} 
-        exam={selectedExam} 
+      <TestDetailModal
+        isOpen={!!selectedExam}
+        onClose={() => setSelectedExam(null)}
+        exam={selectedExam}
+        avgScore={avgScore}
       />
     </div>
   );

@@ -14,10 +14,10 @@ interface UnlockModalProps {
   onClose: () => void
 }
 
-interface SurpriseResponse extends ApiResponse<{
+type SurpriseResponse = ApiResponse<{
   chiste: string;
   sorpresa: string;
-}> {}
+}>
 
 export function UnlockModal({ sector, onClose }: UnlockModalProps) {
   const router = useRouter()
@@ -48,24 +48,6 @@ export function UnlockModal({ sector, onClose }: UnlockModalProps) {
     } finally {
       setLoading(false)
     }
-  }
-
-  const handleUnlock = () => {
-    if (!sector) return
-
-    try {
-      sessionStorage.setItem(
-        'aprende_intro',
-        JSON.stringify({
-          tema: sector.nombre,
-          chiste: surprise?.chiste || '',
-          sorpresa: surprise?.sorpresa || '',
-        })
-      )
-    } catch {}
-
-    router.push(`/aprender?tema=${encodeURIComponent(sector.nombre)}&autostart=1`)
-    onClose()
   }
 
   // Load surprise when modal opens

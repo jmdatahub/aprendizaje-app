@@ -9,11 +9,12 @@ import {
   NIVELES_HABILIDAD
 } from '@/shared/constants/habilidades'
 import { playClick } from '@/shared/utils/sounds'
+import { useEscapeKey } from '@/shared/hooks/useEscapeKey'
 
-interface EditSkillModalProps {
+interface EditSkillModalProps<T extends object = Record<string, unknown>> {
   isOpen: boolean
   onClose: () => void
-  onUpdated: (habilidad: any) => void
+  onUpdated: (habilidad: T) => void
   habilidad: {
     id: string
     nombre: string
@@ -24,7 +25,7 @@ interface EditSkillModalProps {
   }
 }
 
-export function EditSkillModal({ isOpen, onClose, onUpdated, habilidad }: EditSkillModalProps) {
+export function EditSkillModal<T extends object = Record<string, unknown>>({ isOpen, onClose, onUpdated, habilidad }: EditSkillModalProps<T>) {
   const [nombre, setNombre] = useState('')
   const [categorias, setCategorias] = useState<string[]>([])
   const [descripcion, setDescripcion] = useState('')
@@ -43,6 +44,8 @@ export function EditSkillModal({ isOpen, onClose, onUpdated, habilidad }: EditSk
       setObjetivoSemanal(habilidad.objetivo_semanal_minutos ? (habilidad.objetivo_semanal_minutos / 60).toString() : '')
     }
   }, [isOpen, habilidad])
+
+  useEscapeKey(onClose, isOpen)
 
   const toggleCategoria = (catId: string) => {
     playClick()
@@ -84,7 +87,7 @@ export function EditSkillModal({ isOpen, onClose, onUpdated, habilidad }: EditSk
       } else {
         setError(data.message || 'Error al actualizar')
       }
-    } catch (e) {
+    } catch {
       setError('Error de conexión')
     } finally {
       setLoading(false)

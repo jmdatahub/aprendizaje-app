@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseForRequest } from '@/lib/supabaseRoute'
+import { isValidUUID } from '@/lib/validate'
 import { ApiResponse } from '@/shared/types/api'
 
 export const runtime = 'nodejs'
@@ -10,10 +11,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     const supabase = getSupabaseForRequest(request)
     const { id } = await params
-    if (!id) return NextResponse.json<ApiResponse>({ success: false, error: 'INVALID_REQUEST', message: 'Falta id' }, { status: 400 })
-    
+    if (!isValidUUID(id)) return NextResponse.json<ApiResponse>({ success: false, error: 'INVALID_REQUEST', message: 'id inválido' }, { status: 400 })
+
     const body = await request.json().catch(() => ({}))
-    const aprendizajeId = body?.aprendizajeId ?? null
+    // aprendizajeId is an optional link to a saved learning. Accept null or a
+    // bounded id (uuid or short numeric string); reject objects/oversized blobs.
+    const rawAprendizajeId = body?.aprendizajeId
+    let aprendizajeId: string | number | null = null
+    if (rawAprendizajeId !== undefined && rawAprendizajeId !== null) {
+      if (typeof rawAprendizajeId === 'number' && Number.isInteger(rawAprendizajeId)) {
+        aprendizajeId = rawAprendizajeId
+      } else if (typeof rawAprendizajeId === 'string' && rawAprendizajeId.length > 0 && rawAprendizajeId.length <= 64) {
+        aprendizajeId = rawAprendizajeId
+      } else {
+        return NextResponse.json<ApiResponse>({ success: false, error: 'INVALID_REQUEST', message: 'aprendizajeId inválido' }, { status: 400 })
+      }
+    }
 
     const { error } = await supabase
       .from('chats')
@@ -23,8 +36,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (error) throw new Error(error.message)
 
     return NextResponse.json<ApiResponse>({ success: true })
-  } catch (e: any) {
-    console.error('[chats/[id]/close] Error:', e?.message)
+  } catch (e) {
+    console.error('[chats/[id]/close] Error:', e instanceof Error ? e.message : String(e))
     return NextResponse.json<ApiResponse>({ success: false, error: 'INTERNAL_ERROR', message: 'An internal error occurred' }, { status: 500 })
   }
 }

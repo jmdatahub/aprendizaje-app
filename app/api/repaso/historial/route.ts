@@ -19,8 +19,8 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({ success: true, data })
-  } catch (e: any) {
-    console.error('[repaso/historial GET] Error:', e?.message)
+  } catch (e) {
+    console.error('[repaso/historial GET] Error:', e instanceof Error ? e.message : String(e))
     return NextResponse.json({ success: false, error: 'INTERNAL_ERROR' }, { status: 500 })
   }
 }
@@ -63,8 +63,8 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: true, data })
-  } catch (e: any) {
-    console.error('[repaso/historial POST] Error:', e?.message)
+  } catch (e) {
+    console.error('[repaso/historial POST] Error:', e instanceof Error ? e.message : String(e))
     return NextResponse.json({ success: false, error: 'INTERNAL_ERROR' }, { status: 500 })
   }
 }

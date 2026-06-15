@@ -24,7 +24,6 @@ export function TimePicker({ value, onChange, disabled }: TimePickerProps) {
     }, [])
 
     const hours = Array.from({ length: 24 }, (_, i) => i)
-    const minutes = Array.from({ length: 12 }, (_, i) => i * 5) // Steps of 5 minutes: 00, 05, 10...
 
     const formatTime = (h: number, m: number) => {
         return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`

@@ -1,9 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { X, Trophy, Calendar, Flame, Target, Star, Activity, CheckCircle2, XCircle, ChevronLeft, ChevronRight, LayoutGrid, CalendarDays, Trash2, Bell, BellOff, Clock, MessageSquare, Play } from "lucide-react"
-import { format, eachDayOfInterval, subDays, isSameDay, isAfter, startOfYear, endOfYear, differenceInDays, startOfMonth, endOfMonth, getDay, setYear, isBefore } from "date-fns"
+import { X, Trophy, Calendar, Flame, Target, Star, Activity, CheckCircle2, XCircle, ChevronLeft, ChevronRight, LayoutGrid, CalendarDays, Trash2, Bell, BellOff, Clock, MessageSquare, Play, type LucideIcon } from "lucide-react"
+import { format, eachDayOfInterval, subDays, isAfter, startOfYear, endOfYear, differenceInDays, endOfMonth, getDay, setYear, isBefore } from "date-fns"
 import { es } from "date-fns/locale"
+import { useEscapeKey } from "@/shared/hooks/useEscapeKey"
 
 export type HabitCategory = "health" | "study" | "work" | "mindfulness" | "finance" | "social" | "other"
 
@@ -30,7 +31,7 @@ interface HabitDetailModalProps {
   onUpdate: (habit: Habit) => void
 }
 
-const CATEGORY_ICONS: Record<HabitCategory, any> = {
+const CATEGORY_ICONS: Record<HabitCategory, LucideIcon> = {
   health: Activity,
   study: Star,
   work: Target,
@@ -51,6 +52,8 @@ const CATEGORY_COLORS: Record<HabitCategory, string> = {
 }
 
 export function HabitDetailModal({ habit, onClose, onDelete, onToggleToday, onUpdate }: HabitDetailModalProps) {
+  useEscapeKey(onClose, true)
+
   const Icon = CATEGORY_ICONS[habit.category] || CheckCircle2
   const colorClass = CATEGORY_COLORS[habit.category] || CATEGORY_COLORS.other
   
@@ -64,7 +67,7 @@ export function HabitDetailModal({ habit, onClose, onDelete, onToggleToday, onUp
     onUpdate({ ...habit, withNotification: !notificationsEnabled })
   }
 
-  const updateSettings = (key: keyof Habit, value: any) => {
+  const updateSettings = <K extends keyof Habit,>(key: K, value: Habit[K]) => {
     onUpdate({ ...habit, [key]: value })
   }
 

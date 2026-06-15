@@ -92,7 +92,7 @@ export function Achievements({ sesiones, tiempoTotal, nivel }: AchievementsProps
     return ACHIEVEMENT_DEFINITIONS.map(def => {
       let unlocked = false
       let progress = 0
-      let maxProgress = typeof def.requirement === 'number' ? def.requirement : undefined
+      const maxProgress = typeof def.requirement === 'number' ? def.requirement : undefined
       
       if (def.type === 'racha') {
         progress = racha

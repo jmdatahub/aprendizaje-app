@@ -49,8 +49,8 @@ export async function GET() {
       success: true,
       data: { items }
     })
-  } catch (e: any) {
-    console.error('[habilidades/trash GET] Error:', e?.message)
+  } catch (e) {
+    console.error('[habilidades/trash GET] Error:', e instanceof Error ? e.message : String(e))
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',
@@ -88,8 +88,8 @@ export async function DELETE() {
       message: `${data?.length || 0} habilidades eliminadas permanentemente`,
       data: { deleted: data?.length || 0 }
     })
-  } catch (e: any) {
-    console.error('[habilidades/trash DELETE] Error:', e?.message)
+  } catch (e) {
+    console.error('[habilidades/trash DELETE] Error:', e instanceof Error ? e.message : String(e))
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',

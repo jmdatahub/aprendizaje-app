@@ -27,8 +27,8 @@ export async function GET(request: Request) {
     if (error) throw error
 
     return NextResponse.json({ success: true, data })
-  } catch (e: any) {
-    console.error('[recordatorios GET] Error:', e?.message || 'unknown')
+  } catch (e) {
+    console.error('[recordatorios GET] Error:', e instanceof Error ? e.message : 'unknown')
     return NextResponse.json({
       success: false,
       error: 'INTERNAL_ERROR',
@@ -70,8 +70,8 @@ export async function POST(request: Request) {
     if (error) throw error
 
     return NextResponse.json({ success: true, data })
-  } catch (e: any) {
-    console.error('[recordatorios POST] Error:', e?.message || 'unknown')
+  } catch (e) {
+    console.error('[recordatorios POST] Error:', e instanceof Error ? e.message : 'unknown')
     return NextResponse.json({
       success: false,
       error: 'INTERNAL_ERROR',

@@ -84,8 +84,8 @@ Si la instrucción no tiene sentido, devuelve el texto original.`
       engine: 'openai-gpt-4o-mini'
     })
 
-  } catch (error: any) {
-    console.error('[aprender/edit] Error:', error?.message || 'unknown')
+  } catch (error) {
+    console.error('[aprender/edit] Error:', error instanceof Error ? error.message : 'unknown')
     return NextResponse.json<EditResponse>({
       success: false,
       error: 'INTERNAL_ERROR',

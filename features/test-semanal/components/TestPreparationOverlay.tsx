@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useEscapeKey } from "@/shared/hooks/useEscapeKey";
 
 interface TestPreparationOverlayProps {
   isOpen: boolean;
@@ -25,7 +26,10 @@ export function TestPreparationOverlay({ isOpen, status, error, onRetry, onClose
       }, 2500);
       return () => clearInterval(interval);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- interval only needs to (re)start on status change; messages.length is stable for the lifetime of the overlay
   }, [status]);
+
+  useEscapeKey(onClose, isOpen);
 
   if (!isOpen) return null;
   if (status === 'idle' && !error) return null;

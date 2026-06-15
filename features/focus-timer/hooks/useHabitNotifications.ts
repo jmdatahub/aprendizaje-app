@@ -20,6 +20,9 @@ export function useHabitNotifications(habits: HabitMinimal[], telegramConfig?: {
     if (typeof window !== 'undefined') {
        // Check existing permission
        if ('Notification' in window) {
+          // NOTE: reads the browser Notification permission once on mount; window/Notification
+          // are client-only so this can't be a lazy initializer (would break SSR). The
+          // set-state-in-effect lint is already covered by the react-hooks disable further below.
           setPermission(Notification.permission)
        }
        
@@ -140,6 +143,7 @@ export function useHabitNotifications(habits: HabitMinimal[], telegramConfig?: {
      const interval = setInterval(checkAndNotifyAuto, 60000)
      checkAndNotifyAuto() // Run on mount too
      return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the deps list every value checkAndNotifyAuto reads (habits/permission/notificationTime/telegramConfig); the effect recreates the interval (capturing the fresh closure) only when those change. Adding checkAndNotifyAuto (redefined every render) would tear down and rebuild the 60s interval on every render.
   }, [habits, permission, notificationTime, telegramConfig]) // Re-run if config changes
 
   const sendNotificationNow = () => {

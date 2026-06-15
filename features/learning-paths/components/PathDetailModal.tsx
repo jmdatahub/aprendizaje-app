@@ -2,6 +2,7 @@ import React from 'react';
 import { LearningPath, PathStep } from '../types';
 import { Button } from '@/components/ui/button';
 import { playClick } from '@/shared/utils/sounds';
+import { useEscapeKey } from '@/shared/hooks/useEscapeKey';
 
 interface PathDetailModalProps {
   path: LearningPath;
@@ -11,6 +12,8 @@ interface PathDetailModalProps {
 }
 
 export function PathDetailModal({ path, onClose, onStartStep, onDeletePath }: PathDetailModalProps) {
+  useEscapeKey(onClose, true);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
       <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
@@ -42,8 +45,7 @@ export function PathDetailModal({ path, onClose, onStartStep, onDeletePath }: Pa
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {path.steps.map((step, index) => {
             const isCurrent = index === path.currentStepIndex && !path.completed;
-            const isLocked = index > path.currentStepIndex && !step.completed;
-            
+
             return (
               <div 
                 key={step.id} 
@@ -79,7 +81,7 @@ export function PathDetailModal({ path, onClose, onStartStep, onDeletePath }: Pa
                         {step.title}
                       </h3>
                       <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 italic">
-                        "{step.description}"
+                        &quot;{step.description}&quot;
                       </p>
                       <div className="mt-2 text-xs font-medium text-gray-400 uppercase">
                         {step.sectorName}

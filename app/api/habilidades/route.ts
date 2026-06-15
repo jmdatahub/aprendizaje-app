@@ -48,8 +48,8 @@ export async function GET() {
       success: true,
       data: { items: data || [] }
     })
-  } catch (e: any) {
-    console.error('[habilidades GET] Fatal error:', e?.message)
+  } catch (e) {
+    console.error('[habilidades GET] Fatal error:', e instanceof Error ? e.message : String(e))
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',
@@ -122,8 +122,8 @@ export async function POST(request: Request) {
       success: true,
       data
     })
-  } catch (e: any) {
-    console.error('[habilidades POST] Fatal error:', e?.message)
+  } catch (e) {
+    console.error('[habilidades POST] Fatal error:', e instanceof Error ? e.message : String(e))
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'INTERNAL_ERROR',

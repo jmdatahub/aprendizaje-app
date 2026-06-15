@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion'
 import { formatearTiempo } from '@/shared/constants/habilidades'
+import { useEscapeKey } from '@/shared/hooks/useEscapeKey'
 
 interface Sesion {
   id: string
@@ -21,9 +22,11 @@ export function SessionHistoryModal({
   isOpen, 
   onClose, 
   sesiones, 
-  nombreHabilidad 
+  nombreHabilidad
 }: SessionHistoryModalProps) {
-  
+
+  useEscapeKey(onClose, isOpen)
+
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr)
     return date.toLocaleDateString('es-ES', {

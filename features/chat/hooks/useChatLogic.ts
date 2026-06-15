@@ -23,7 +23,7 @@ interface UseChatLogicOptions {
   onSpeak?: (text: string) => void;
   onStop?: () => void;
   autoPlay?: boolean;
-  t: (key: string, params?: Record<string, any>) => string;
+  t: (key: string, params?: Record<string, string>) => string;
 }
 
 interface UseChatLogicReturn {
@@ -82,6 +82,7 @@ export function useChatLogic(options: UseChatLogicOptions): UseChatLogicReturn {
   // Load chats on mount
   useEffect(() => {
     refreshChats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run-once-on-mount hydration; refreshChats is stable (empty-dep useCallback) so omitting it cannot cause staleness
   }, []);
 
   const refreshChats = useCallback(() => {
@@ -95,6 +96,7 @@ export function useChatLogic(options: UseChatLogicOptions): UseChatLogicReturn {
       setPendingQueue(prev => prev.slice(1));
       processQueue([...messages, nextMsg]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- queue drains on pendingQueue/messages changes only; processQueue is recreated each render and adding it would re-run this effect on unrelated dep churn (savedChats, t, detailLevel), risking duplicate sends. The effect closure already captures the latest processQueue at each render.
   }, [pendingQueue, messages]);
 
   // Filter & Sort (simplified - returns all for now, sorting in component)

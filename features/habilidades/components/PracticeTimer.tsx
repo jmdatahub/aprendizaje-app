@@ -38,6 +38,7 @@ export function PracticeTimer({ onSessionEnd, isActive, onStart, onStop }: Pract
         clearInterval(intervalRef.current)
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- segundos is read only to seed startTimeRef on (re)activation; adding it would recreate the interval every tick
   }, [isActive])
 
   const handleStart = () => {

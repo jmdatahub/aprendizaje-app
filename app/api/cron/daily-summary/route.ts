@@ -58,8 +58,8 @@ ${userHabits.map(h => `▫️ ${h.text} ${(h.streak > 0 ? `🔥${h.streak}` : ''
 
     return NextResponse.json({ success: true, processed: results.length, details: results })
 
-  } catch (e: any) {
-    console.error('[Cron daily-summary] Error:', e?.message || 'unknown')
+  } catch (e) {
+    console.error('[Cron daily-summary] Error:', e instanceof Error ? e.message : 'unknown')
     return NextResponse.json({ success: false, error: 'CRON_ERROR' }, { status: 500 })
   }
 }

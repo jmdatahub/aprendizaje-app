@@ -13,7 +13,7 @@ export async function fetchSectores(): Promise<Sector[]> {
  * Returns the string ids defined in shared/constants/sectores so it lines up
  * with the API and the rest of the app.
  */
-export async function fetchUnlockedSectors(token?: string): Promise<string[]> {
+export async function fetchUnlockedSectors(): Promise<string[]> {
   if (typeof window === 'undefined') return []
 
   const { SECTORES_DATA } = await import('@/shared/constants/sectores')

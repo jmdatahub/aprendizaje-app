@@ -28,8 +28,6 @@ export function calculateGamificationStats(dates: (string | Date)[]): Gamificati
     uniqueDatesSet.add(dateStr);
   });
 
-  const sortedUniqueDates = Array.from(uniqueDatesSet).sort((a, b) => b.localeCompare(a)); // Descending
-  
   const todayStr = new Date().toLocaleDateString('en-CA');
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
@@ -42,8 +40,9 @@ export function calculateGamificationStats(dates: (string | Date)[]): Gamificati
   
   // A streak is active if today OR yesterday was a learning day
   if (isTodayLearned || isYesterdayLearned) {
-    let checkDate = isTodayLearned ? new Date() : yesterday;
-    
+    // Clone so the loop's setDate() mutations never alias `yesterday`.
+    const checkDate = isTodayLearned ? new Date() : new Date(yesterday);
+
     while (true) {
       const checkStr = checkDate.toLocaleDateString('en-CA');
       if (uniqueDatesSet.has(checkStr)) {
