@@ -117,7 +117,8 @@ export default function Home() {
 
           for (const item of sectorItems) {
             if (item?.date) allDates.push(item.date);
-            if (isDue(item?.srs, now)) dueToday++;
+            // "Repasar hoy" unificado: SRS vencido O pendiente del test semanal (decayed_items).
+            if (isDue(item?.srs, now) || (item?.id && decayedIds.includes(item.id))) dueToday++;
           }
 
           if (decayedIds.length > 0) {
@@ -357,25 +358,9 @@ export default function Home() {
               </Link>
             </div>
 
-            {/* Pendientes */}
-            {pendingItems.length > 0 && (
-              <Link href="/aprendizajes?pending=true" onClick={() => playClick()} className="w-full">
-                <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded-xl border border-amber-200 dark:border-amber-900/40 transition-all group">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xl animate-bounce">⚠️</span>
-                    <div>
-                      <h3 className="text-sm font-bold text-amber-800 dark:text-amber-400">{t('home.pending_reviews')}</h3>
-                      <p className="text-[10px] text-amber-600 dark:text-amber-500">Tienes {pendingItems.length} temas para repasar</p>
-                    </div>
-                  </div>
-                  <span className="text-amber-600 dark:text-amber-400 group-hover:translate-x-1 transition-transform">→</span>
-                </div>
-              </Link>
-            )}
-
-            {/* Repaso espaciado: aprendizajes que vencen hoy según SM-2 */}
+            {/* Repasar hoy (unificado): SRS vencidos + pendientes del test → sesión guiada */}
             {dueTodayCount > 0 && (
-              <Link href="/aprendizajes" onClick={() => playClick()} className="w-full" aria-label={`Repasar hoy: ${dueTodayCount} aprendizajes`}>
+              <Link href="/repaso/hoy" onClick={() => playClick()} className="w-full" aria-label={`Repasar hoy: ${dueTodayCount} aprendizajes`}>
                 <div className="flex items-center justify-between p-3 bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded-xl border border-indigo-200 dark:border-indigo-900/40 transition-all group">
                   <div className="flex items-center gap-3">
                     <span className="text-xl">📅</span>
@@ -556,25 +541,9 @@ export default function Home() {
               </Link>
             </div>
 
-            {/* Pendientes */}
-            {pendingItems.length > 0 && (
-              <Link href="/aprendizajes?pending=true" onClick={() => playClick()} className="w-full">
-                <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-900/20 active:bg-amber-100 dark:active:bg-amber-900/30 rounded-xl border border-amber-200 dark:border-amber-900/40 transition-all">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xl animate-bounce">⚠️</span>
-                    <div>
-                      <h3 className="text-sm font-bold text-amber-800 dark:text-amber-400">{t('home.pending_reviews')}</h3>
-                      <p className="text-[10px] text-amber-600 dark:text-amber-500">{pendingItems.length} temas</p>
-                    </div>
-                  </div>
-                  <span className="text-amber-600 dark:text-amber-400">→</span>
-                </div>
-              </Link>
-            )}
-
-            {/* Repaso espaciado: aprendizajes que vencen hoy según SM-2 */}
+            {/* Repasar hoy (unificado): SRS vencidos + pendientes del test → sesión guiada */}
             {dueTodayCount > 0 && (
-              <Link href="/aprendizajes" onClick={() => playClick()} className="w-full" aria-label={`Repasar hoy: ${dueTodayCount} aprendizajes`}>
+              <Link href="/repaso/hoy" onClick={() => playClick()} className="w-full" aria-label={`Repasar hoy: ${dueTodayCount} aprendizajes`}>
                 <div className="flex items-center justify-between p-3 bg-indigo-50 dark:bg-indigo-900/20 active:bg-indigo-100 dark:active:bg-indigo-900/30 rounded-xl border border-indigo-200 dark:border-indigo-900/40 transition-all">
                   <div className="flex items-center gap-3">
                     <span className="text-xl">📅</span>
