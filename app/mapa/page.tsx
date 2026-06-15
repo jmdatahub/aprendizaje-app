@@ -69,7 +69,13 @@ export default function Mapa() {
       setRepasoRequired(day === 1 && !done)
 
       // Pending Reviews Logic
-      const decayedIds = JSON.parse(localStorage.getItem('decayed_items') || '[]');
+      // Parseo defensivo: si decayed_items está corrupto, lo ignoramos en vez de
+      // romper el resto del cálculo de estado (pendientes/alertas).
+      let decayedIds: string[] = [];
+      try {
+        const parsed = JSON.parse(localStorage.getItem('decayed_items') || '[]');
+        if (Array.isArray(parsed)) decayedIds = parsed;
+      } catch { /* dato corrupto: continúa sin pendientes */ }
       const newPendingItems: PendingItem[] = [];
       const newAlerts: Record<string, number> = {};
 

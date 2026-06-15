@@ -420,9 +420,34 @@ debido hoy → calificar el recuerdo → reprogramar según la curva de olvido.
 |---|-----------|---------|--------|------------|
 | 44 | P2 medición/UX | `app/page.tsx` | Indicador **"📅 Repasar hoy (N)"** en la home (desktop y móvil) que cuenta los aprendizajes con SRS vencido (`isDue` sobre `sector_data_*`) y enlaza a `/aprendizajes`. Aditivo, a11y (`aria-label`), solo se muestra si N>0. | typecheck ✓, lint 0, build ✓, **runtime ✓ (cuenta 1 con 1 vencido + 1 futuro excluido; sin errores)** |
 
+### Ronda 15 — Auditoría profunda (robustez de datos, móvil, a11y) tras el "commit"
+
+Re-análisis con agentes en paralelo de los workflows (repaso, localStorage, móvil, a11y). El "límite"
+de rondas previas era sobre **features de alto valor**; esta pasada encontró **defectos reales adicionales**
+seguros de corregir sin Supabase. Todo verificado: **typecheck ✓ · lint 0 · 52 tests ✓ · build ✓ · runtime ✓**.
+
+| # | Severidad | Archivo | Cambio | Validación |
+|---|-----------|---------|--------|------------|
+| 45 | P1 datos | `app/mapa/page.tsx` | Parseo **defensivo** de `decayed_items` (try/catch + `Array.isArray`): un dato corrupto ya no tumba todo el cálculo de estado. | **runtime ✓ (sembrado JSON corrupto → /mapa renderiza sin error)** |
+| 46 | P2 datos | `features/chat/services/chatStorage.ts` | Búsqueda de chats con optional chaining (`c.title?`, `m.content?`): no crashea si un mensaje viene sin `content`. | typecheck ✓ |
+| 47 | P2 datos/UX | `features/chat/hooks/useLearningDraft.ts` | Detecta `QuotaExceededError` al guardar y muestra mensaje claro (liberar espacio) en vez de error genérico — relevante en móvil con chats largos. | typecheck ✓ |
+| 48 | P2 móvil | `app/repaso/page.tsx` | Botón "Salir" del test con `env(safe-area-inset-top)` (no se oculta tras el notch del iPhone); chips de "pregunta marcada" 24px → 36px (táctil). | build ✓ |
+| 49 | P2 móvil | `app/juegos-matematicos/page.tsx` | Botón info "i" 36px → 40px (estándar táctil de la app). | **runtime ✓ (40×40 en viewport 375px)** |
+| 50 | P3 móvil/a11y | `app/aprendizajes/page.tsx` | Estrella de favorito: `min-w/min-h 40px` + `aria-label`. | typecheck ✓ |
+| 51 | P3 móvil/a11y | `features/test-semanal/components/TestPreparationOverlay.tsx` | Botón cerrar ~32px → 44px + `aria-label`. | build ✓ |
+| 52 | P2 a11y | `features/focus-timer/components/SoundSettings.tsx` | `aria-label` en 5 botones de solo-icono (cerrar, eliminar sonido, preview play/pause). | typecheck ✓ |
+| 53 | P3 a11y | `features/chat/components/ChatInput.tsx` | Micrófono de escritorio: `aria-label` (antes solo `title`). | typecheck ✓ |
+| 54 | P3 a11y | `features/repaso/components/CollapsibleReviewSection.tsx` | `aria-expanded` en la cabecera colapsable. | typecheck ✓ |
+
+**Hallazgo arquitectónico (NO tocado — decisión de producto):** coexisten **dos** sistemas de repaso —
+el nuevo **SRS** (`lib/srs.ts`, por item vencido) y el legacy **`decayed_items`** (fallos del test semanal) —
+mostrados como dos chips separados en la home, sin un flujo de "sesión de repaso" guiada. Además
+`app/aprendizajes/[sectorId]/page.tsx` no muestra los botones SRS (solo la vista agregada). Consolidar o
+clarificar estos dos modelos es una decisión de Jorge → ver §6.1.
+
 ### ⏸️ LÍMITE DE TRABAJO IN-HANDS ALCANZADO (2026-06-15)
 
-Tras 14 rondas, **está hecho y validado TODO lo de alto valor que se puede completar de forma segura
+Tras 15 rondas, **está hecho y validado TODO lo de alto valor que se puede completar de forma segura
 sin Supabase y sin decisiones de producto de Jorge.** Estado global: **typecheck ✓ · lint 0 · 52 tests ✓ · build ✓**.
 
 Lo que QUEDA requiere acción de Jorge:

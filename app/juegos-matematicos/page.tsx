@@ -692,7 +692,7 @@ export default function JuegosMatematicos() {
                         }}
                         aria-label="Información sobre modo Smart"
                         aria-expanded={showSmartInfo}
-                        className="absolute top-1.5 right-1.5 w-9 h-9 rounded-full bg-gray-200 dark:bg-slate-600 text-gray-600 dark:text-gray-300 text-xs font-bold flex items-center justify-center hover:bg-gray-300 dark:hover:bg-slate-500 active:scale-95 transition-transform"
+                        className="absolute top-1.5 right-1.5 w-10 h-10 rounded-full bg-gray-200 dark:bg-slate-600 text-gray-600 dark:text-gray-300 text-sm font-bold flex items-center justify-center hover:bg-gray-300 dark:hover:bg-slate-500 active:scale-95 transition-transform"
                       >
                         i
                       </button>

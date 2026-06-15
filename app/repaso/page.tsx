@@ -397,9 +397,10 @@ export default function RepasoPage() {
       
       return (
           <div className="min-h-screen bg-slate-900 text-white flex flex-col">
-              <Link 
-                  href="/" 
+              <Link
+                  href="/"
                   onClick={() => { playClick(); stopBackgroundMusic() }}
+                  style={{ top: 'max(1rem, env(safe-area-inset-top))' }}
                   className="fixed top-4 left-4 z-50 bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-lg"
               >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -531,9 +532,10 @@ export default function RepasoPage() {
       
       return (
       <div className="min-h-screen bg-amber-50 flex flex-col">
-          <Link 
-              href="/" 
+          <Link
+              href="/"
               onClick={() => { playClick(); stopBackgroundMusic() }}
+              style={{ top: 'max(1rem, env(safe-area-inset-top))' }}
               className="fixed top-4 left-4 z-50 bg-amber-800 hover:bg-amber-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-lg"
           >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -576,7 +578,7 @@ export default function RepasoPage() {
                                   const element = document.getElementById(`question-${idx}`);
                                   element?.scrollIntoView({ behavior: 'smooth' });
                               }}
-                              className="w-6 h-6 rounded-full bg-yellow-500 text-white text-xs font-bold flex items-center justify-center shrink-0 hover:bg-yellow-600"
+                              className="w-9 h-9 rounded-full bg-yellow-500 text-white text-sm font-bold flex items-center justify-center shrink-0 hover:bg-yellow-600"
                           >
                               {idx + 1}
                           </button>

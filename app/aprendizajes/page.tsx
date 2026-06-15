@@ -994,11 +994,12 @@ function AprendizajesContent() {
                             {!isFocusMode && (
                                 <button
                                     onClick={(e) => handleToggleFavorite(e, seleccionado)}
-                                    className={`p-2 rounded-full transition-all ${
-                                        seleccionado.isFavorite 
-                                        ? 'text-yellow-400 hover:text-yellow-500 bg-yellow-400/10' 
+                                    className={`p-2 rounded-full transition-all min-w-[40px] min-h-[40px] inline-flex items-center justify-center ${
+                                        seleccionado.isFavorite
+                                        ? 'text-yellow-400 hover:text-yellow-500 bg-yellow-400/10'
                                         : 'text-muted-foreground/40 hover:text-yellow-400 hover:bg-muted'
                                     }`}
+                                    aria-label={seleccionado.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
                                     title={seleccionado.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
                                 >
                                     <svg className="w-6 h-6" fill={seleccionado.isFavorite ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">

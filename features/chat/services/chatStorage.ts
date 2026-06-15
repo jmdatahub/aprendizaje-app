@@ -99,9 +99,9 @@ class ChatStorageService {
 
     if (filters.text) {
       const lowerText = filters.text.toLowerCase();
-      chats = chats.filter(c => 
-        c.title.toLowerCase().includes(lowerText) || 
-        c.messages.some(m => m.content.toLowerCase().includes(lowerText))
+      chats = chats.filter(c =>
+        c.title?.toLowerCase().includes(lowerText) ||
+        c.messages?.some(m => m.content?.toLowerCase().includes(lowerText))
       );
     }
 

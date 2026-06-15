@@ -127,6 +127,7 @@ export function ChatInput({
             "rounded-full w-10 h-10 flex items-center justify-center bg-muted hover:bg-muted/70 text-muted-foreground hover:text-foreground transition-colors flex-shrink-0",
             listening && "bg-red-500/10 text-red-500 animate-pulse"
           )}
+          aria-label={listening ? "Detener escucha" : "Activar voz"}
           title={listening ? "Detener escucha" : "Activar voz"}
         >
           {listening ? "🛑" : "🎤"}

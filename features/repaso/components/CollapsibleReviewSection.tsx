@@ -36,6 +36,7 @@ export function CollapsibleReviewSection({ items }: CollapsibleReviewSectionProp
             playClick()
             setIsOpen(!isOpen)
           }}
+          aria-expanded={isOpen}
           className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-red-50 to-white hover:bg-red-50/80 transition-colors"
         >
           <div className="flex items-center gap-3">

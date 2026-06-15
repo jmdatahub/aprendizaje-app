@@ -168,7 +168,13 @@ export function useLearningDraft(options: UseLearningDraftOptions): UseLearningD
     } catch (e) {
       console.error('Error saving learning', e);
       onPlayError?.();
-      alert('No se ha podido guardar el aprendizaje, inténtalo de nuevo');
+      // Mensaje específico si se agota la cuota de localStorage (frecuente en móvil
+      // con chats largos): así el usuario sabe que debe liberar espacio.
+      const isQuota = e instanceof DOMException &&
+        (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED');
+      alert(isQuota
+        ? 'No hay espacio de almacenamiento suficiente. Elimina aprendizajes o chats antiguos e inténtalo de nuevo.'
+        : 'No se ha podido guardar el aprendizaje, inténtalo de nuevo');
     }
   }, [activeChatId, messages, onChatDeleted, onPlayError, onPlaySuccess, onRefreshChats]);
 

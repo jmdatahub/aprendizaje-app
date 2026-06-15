@@ -102,11 +102,12 @@ export function SoundSettings({
             <Volume2 className="text-indigo-400 w-6 h-6" />
             Ajustes de Sonido
           </h2>
-          <button 
+          <button
             onClick={() => {
               onStopAmbient()
               onClose()
-            }} 
+            }}
+            aria-label="Cerrar ajustes de sonido"
             className="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-white"
           >
             <X className="w-6 h-6" />
@@ -172,7 +173,7 @@ export function SoundSettings({
                   >
                     {name}
                   </button>
-                  <button onClick={() => removeCustomSound(name)} className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition-all">
+                  <button onClick={() => removeCustomSound(name)} aria-label={`Eliminar sonido ${name}`} className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition-all">
                     <Trash2 className="w-3 h-3" />
                   </button>
                 </div>
@@ -235,6 +236,7 @@ export function SoundSettings({
                           e.stopPropagation();
                           handleToggleAmbientPreview(s.id);
                       }}
+                      aria-label={isPreviewingAmbient === s.id ? `Detener vista previa de ${s.label}` : `Escuchar vista previa de ${s.label}`}
                       className={`p-1.5 rounded-lg transition-all ${
                         isPreviewingAmbient === s.id
                           ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30" 
@@ -273,6 +275,7 @@ export function SoundSettings({
                         e.stopPropagation();
                         handleToggleAmbientPreview(name);
                       }}
+                      aria-label={isPreviewingAmbient === name ? `Detener vista previa de ${name}` : `Escuchar vista previa de ${name}`}
                       className={`p-1.5 rounded-lg transition-all ${
                         isPreviewingAmbient === name
                           ? "bg-emerald-500 text-white" 
@@ -281,11 +284,12 @@ export function SoundSettings({
                     >
                       {isPreviewingAmbient === name ? <X className="w-3 h-3" /> : <Play className="w-3 h-3 fill-current" />}
                     </button>
-                    <button 
+                    <button
                       onClick={(e) => {
                           e.stopPropagation();
                           removeCustomAmbient(name);
                       }}
+                      aria-label={`Eliminar sonido ${name}`}
                       className="p-1 px-2 text-slate-600 hover:text-red-400 transition-all opacity-0 group-hover:opacity-100"
                     >
                       <Trash2 className="w-3 h-3" />
