@@ -8,6 +8,7 @@ import { useApp } from '@/shared/contexts/AppContext'
 import { playClick, playSuccess } from '@/shared/utils/sounds'
 import { loadDueReviewItems, applyReview, type ReviewItem } from '@/lib/review'
 import { reviewSrs, type ReviewGrade } from '@/lib/srs'
+import { triggerSync } from '@/features/learning/services/learningsSync'
 
 /** Convierte un intervalo en días a una etiqueta humana en español. */
 function intervalLabel(days: number): string {
@@ -51,6 +52,7 @@ export default function RepasoHoyPage() {
   const handleGrade = useCallback((grade: ReviewGrade) => {
     if (!current) return
     applyReview(current.sectorId, current.id, grade, new Date())
+    triggerSync()
     if (grade === 'again') { setAgainCount(c => c + 1); playClick() } else { playSuccess() }
     setReviewedCount(c => c + 1)
     setRevealed(false)

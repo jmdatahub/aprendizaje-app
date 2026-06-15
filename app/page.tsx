@@ -15,6 +15,7 @@ import { SectorWithProgress } from "@/features/sectores/types"
 import { SECTORES_DATA } from "@/shared/constants/sectores"
 import { calculateGamificationStats, GamificationStats } from "@/shared/utils/gamification"
 import { isDue } from "@/lib/srs"
+import { syncLearnings } from "@/features/learning/services/learningsSync"
 import { LearningStreak } from "@/features/stats/components/LearningStreak"
 import { ChevronDown } from "lucide-react"
 
@@ -65,6 +66,8 @@ export default function Home() {
   const [sectorCounts, setSectorCounts] = useState<Record<string, number>>({})
   const [stats, setStats] = useState<GamificationStats>({ currentStreak: 0, uniqueDaysThisYear: 0, isTodayLearned: false })
   const [dueTodayCount, setDueTodayCount] = useState(0)
+  // Se incrementa cuando termina un sync con Supabase, para recalcular los contadores.
+  const [syncTick, setSyncTick] = useState(0)
 
   const handleTestSemanal = () => {
     playClick()
@@ -143,7 +146,16 @@ export default function Home() {
     setPendingItems(allPending);
     setStats(calculateGamificationStats(allDates));
     setDueTodayCount(dueToday);
-  }, [t]);
+  }, [t, syncTick]);
+
+  // Sincroniza aprendizajes con Supabase al abrir la app (trae los de otros
+  // dispositivos); al terminar, recalcula los contadores vía syncTick.
+  useEffect(() => {
+    void syncLearnings();
+    const onSynced = () => setSyncTick((n) => n + 1);
+    window.addEventListener('learnings-synced', onSynced);
+    return () => window.removeEventListener('learnings-synced', onSynced);
+  }, []);
 
   const handleEmpezarAprender = () => {
     playClick()

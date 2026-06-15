@@ -490,7 +490,31 @@ de usuario** (0 aprendizajes; solo 9 sectores estáticos ya hardcodeados). Decis
 en **Vercel** (Project → Settings → Environment Variables) y redeploy, para que la app desplegada use el
 backend nuevo. **Siguiente oportunidad:** migración localStorage→Supabase de aprendizajes + mediciones server-side.
 
-### ⏸️ LÍMITE DE TRABAJO IN-HANDS ALCANZADO (2026-06-15) — *(superado en R17: Supabase ya está activo)*
+### ✅ Ronda 18 — Sincronización de aprendizajes entre dispositivos (la migración)
+
+Los aprendizajes vivían SOLO en localStorage (sin sync entre móvil y ordenador). Implementada la
+sincronización contra Supabase, **aditiva y tolerante a fallos** (si Supabase cae, la app sigue con localStorage).
+
+- **Tabla `learnings`** (`docs/migrations/2026_06_learnings_sync.sql`): clave = `id` del cliente (texto) para
+  upsert idempotente; campos completos (srs jsonb, review_history, tags, is_favorite, personal_note,
+  updated_at, deleted_at). RLS pública.
+- **Endpoint `POST /api/learnings/sync`**: recibe los items locales, hace upsert solo de los nuevos/más
+  recientes (**last-write-wins** por `updated_at`) y devuelve la verdad remota. + `DELETE /api/learnings/[id]` (tombstone).
+- **Capa cliente** `features/learning/services/learningsSync.ts`: `syncLearnings()` (sube todo lo local +
+  baja el merge y reconstruye el estado), `triggerSync()` (debounced tras mutaciones), coalescing de syncs.
+- **Wiring**: `updatedAt` + `triggerSync()` al crear (useLearningDraft), al repasar (lib/review.applyReview
+  en la sesión, y persistReviewHistory en la lista) y al marcar favorito; **sync-on-load** en home y en
+  `/aprendizajes` (con recarga al terminar vía evento `learnings-synced`).
+- **Verificado runtime cross-device**: dispositivo A crea LOCALSYNC_1 → sube; dispositivo B (localStorage
+  borrado) → al recargar **recupera los 3 aprendizajes desde Supabase con el estado SRS intacto**. Datos de
+  prueba limpiados. typecheck ✓ · lint 0 · 52 tests ✓ · build ✓.
+
+**Limitaciones conocidas (siguiente iteración):** los borrados desde la papelera legacy (TrashModal, vía
+tabla Supabase `aprendizajes` antigua) no propagan tombstone al nuevo `learnings` (el endpoint DELETE existe
+pero no hay flujo de borrado local activo conectado). La vista por-sector no dispara sync en sus propias
+mutaciones (sí refleja lo sincronizado al leer localStorage).
+
+### ⏸️ LÍMITE DE TRABAJO IN-HANDS ALCANZADO (2026-06-15) — *(superado en R17-R18: Supabase activo + sync + desplegado)*
 
 Tras 16 rondas, **está hecho y validado TODO lo de alto valor que se puede completar de forma segura
 sin Supabase y sin decisiones de producto de Jorge.** Estado global: **typecheck ✓ · lint 0 · 52 tests ✓ · build ✓**.

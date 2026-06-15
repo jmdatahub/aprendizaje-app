@@ -19,6 +19,7 @@ import { useApp } from "@/shared/contexts/AppContext"
 
 import { SECTORES_DATA } from "@/shared/constants/sectores"
 import { reviewSrs, isDue, type SrsState, type ReviewGrade } from "@/lib/srs"
+import { syncLearnings, triggerSync } from "@/features/learning/services/learningsSync"
 import { needsReview } from "@/lib/review"
 
 type ReviewEntry = {
@@ -160,6 +161,15 @@ function AprendizajesContent() {
     loadItemsFromStorage();
   }, [loadItemsFromStorage])
 
+  // Sincroniza con Supabase al entrar (trae aprendizajes de otros dispositivos)
+  // y recarga la lista cuando el sync termina.
+  useEffect(() => {
+    void syncLearnings();
+    const onSynced = () => loadItemsFromStorage();
+    window.addEventListener('learnings-synced', onSynced);
+    return () => window.removeEventListener('learnings-synced', onSynced);
+  }, [loadItemsFromStorage]);
+
   // Fecha corta tipo "Jun 10" (independiente del modo relativo/absoluto de formatDate)
   const formatShortDate = useCallback((date: string) => {
     const d = new Date(date)
@@ -193,9 +203,10 @@ function AprendizajesContent() {
             const data = JSON.parse(stored);
             if (data && Array.isArray(data.items)) {
                 const updatedItems = data.items.map((it: { id: string }) =>
-                    it.id === item.id ? { ...it, isFavorite: newStatus } : it
+                    it.id === item.id ? { ...it, isFavorite: newStatus, updatedAt: new Date().toISOString() } : it
                 );
                 localStorage.setItem(key, JSON.stringify({ ...data, items: updatedItems }));
+                triggerSync();
             }
         }
         playClick();
@@ -216,10 +227,11 @@ function AprendizajesContent() {
         if (data && Array.isArray(data.items)) {
           const updatedItems = data.items.map((it: { id: string }) =>
             it.id === item.id
-              ? { ...it, reviewHistory: history, ...(srs ? { srs } : {}) }
+              ? { ...it, reviewHistory: history, ...(srs ? { srs } : {}), updatedAt: new Date().toISOString() }
               : it
           );
           localStorage.setItem(key, JSON.stringify({ ...data, items: updatedItems }));
+          triggerSync();
         }
       }
     } catch (e) {

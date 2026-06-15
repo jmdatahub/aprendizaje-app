@@ -6,6 +6,7 @@ import { createAprendizajeDraft } from "@/features/learning/services/learningSer
 import { updatePathProgress } from "@/features/learning-paths/services/learningPathsStorage";
 import { SECTORES_DATA } from "@/shared/constants/sectores";
 import { initSrs } from "@/lib/srs";
+import { triggerSync } from "@/features/learning/services/learningsSync";
 
 function createId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -138,9 +139,14 @@ export function useLearningDraft(options: UseLearningDraftOptions): UseLearningD
         // SRS (repetición espaciada): inicializa el aprendizaje como "debido ya"
         // para que entre en la cola de "Repasar hoy" hasta su primer repaso.
         srs: initSrs(new Date()),
+        // Marca de tiempo para la sincronización entre dispositivos (last-write-wins).
+        updatedAt: new Date().toISOString(),
       });
 
       localStorage.setItem(sectorKey, JSON.stringify(sectorData));
+
+      // Sincroniza el nuevo aprendizaje a Supabase (entre dispositivos). No bloquea.
+      triggerSync();
 
       // If this learning was started from a learning-path step, mark that step
       // complete now (closes the start→learn→save→progress loop that was never

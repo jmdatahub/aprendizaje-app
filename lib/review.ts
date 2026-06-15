@@ -122,7 +122,8 @@ export function applyReview(
           if (it.id !== itemId) return it
           newSrs = reviewSrs(it.srs, grade, now)
           const reviewHistory = [...(it.reviewHistory || []), { date: now.toISOString() }]
-          return { ...it, srs: newSrs, reviewHistory }
+          // updatedAt para la sincronización entre dispositivos (last-write-wins).
+          return { ...it, srs: newSrs, reviewHistory, updatedAt: now.toISOString() }
         })
         localStorage.setItem(key, JSON.stringify(data))
       }
