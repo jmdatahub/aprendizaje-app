@@ -56,13 +56,25 @@ function readSector(sectorId: string): LocalLearning[] {
 
 function writeSector(sectorId: string, items: LocalLearning[]) {
   const key = SECTOR_KEY(sectorId)
-  let existing: Record<string, unknown> = {}
   try {
-    existing = JSON.parse(localStorage.getItem(key) || '{}') || {}
-  } catch {
-    existing = {}
+    let existing: Record<string, unknown> = {}
+    try {
+      existing = JSON.parse(localStorage.getItem(key) || '{}') || {}
+    } catch {
+      existing = {}
+    }
+    localStorage.setItem(key, JSON.stringify({ ...existing, items }))
+  } catch (e) {
+    // QuotaExceededError u otro: no rompemos el sync, conservamos lo que había.
+    console.error('[syncLearnings] no se pudo escribir el sector', sectorId, e)
   }
-  localStorage.setItem(key, JSON.stringify({ ...existing, items }))
+}
+
+/** ms de una marca de tiempo (updatedAt/date); 0 si no es válida. */
+function ts(v?: string | null): number {
+  if (!v) return 0
+  const t = new Date(v).getTime()
+  return isNaN(t) ? 0 : t
 }
 
 function localToRemote(it: LocalLearning, sectorId: string) {
@@ -129,18 +141,43 @@ export async function syncLearnings(): Promise<{ ok: boolean; pulled?: number }>
       const data = await res.json()
       const remote: RemoteLearning[] = Array.isArray(data?.items) ? data.items : []
 
-      // Reconstruir local desde la verdad remota (excluye borrados).
-      const bySector = new Map<string, LocalLearning[]>()
+      // Agrupar lo remoto por sector (incluye tombstones para poder borrar).
+      const remoteBySector = new Map<string, RemoteLearning[]>()
       for (const r of remote) {
-        if (r.deleted_at) continue
-        const arr = bySector.get(r.sector_id) || []
-        arr.push(remoteToLocal(r))
-        bySector.set(r.sector_id, arr)
+        if (!r?.id || !r?.sector_id) continue
+        const arr = remoteBySector.get(r.sector_id) || []
+        arr.push(r)
+        remoteBySector.set(r.sector_id, arr)
       }
-      // Solo reescribimos sectores presentes en remoto (todo lo local ya se subió,
-      // así que cualquier sector con items locales aparece en remoto).
-      for (const s of SECTORES_DATA) {
-        if (bySector.has(s.id)) writeSector(s.id, bySector.get(s.id) as LocalLearning[])
+
+      // MERGE (no reemplazo) por sector: unión por id con last-write-wins.
+      // Relee local FRESCO (evita carreras con escrituras concurrentes) y NUNCA
+      // descarta un item local que no esté en remoto (p.ej. recién creado y aún
+      // sin subir, o más allá del límite del select). Así el sync no puede perder datos.
+      const sectorIds = new Set<string>([...SECTORES_DATA.map((s) => s.id), ...remoteBySector.keys()])
+      for (const sid of sectorIds) {
+        const local = readSector(sid)
+        const remoteRows = remoteBySector.get(sid) || []
+        if (local.length === 0 && remoteRows.length === 0) continue
+
+        const byId = new Map<string, LocalLearning>()
+        for (const it of local) if (it?.id) byId.set(it.id, it)
+
+        for (const r of remoteRows) {
+          const existing = byId.get(r.id)
+          if (r.deleted_at) {
+            // Tombstone: borra en local salvo que local sea más nuevo que el borrado.
+            const localUpd = ts(existing?.updatedAt ?? existing?.date)
+            if (!existing || localUpd <= ts(r.deleted_at)) byId.delete(r.id)
+            continue
+          }
+          // Vivo: gana el más reciente (si no hay local, entra el remoto).
+          const localUpd = ts(existing?.updatedAt ?? existing?.date)
+          if (!existing || ts(r.updated_at) >= localUpd) byId.set(r.id, remoteToLocal(r))
+          // si local es más nuevo, se conserva y se subirá en el próximo sync
+        }
+
+        writeSector(sid, Array.from(byId.values()))
       }
 
       try {

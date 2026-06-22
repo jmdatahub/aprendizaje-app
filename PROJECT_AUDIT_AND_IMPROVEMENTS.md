@@ -514,7 +514,27 @@ tabla Supabase `aprendizajes` antigua) no propagan tombstone al nuevo `learnings
 pero no hay flujo de borrado local activo conectado). La vista por-sector no dispara sync en sus propias
 mutaciones (sí refleja lo sincronizado al leer localStorage).
 
-### ⏸️ LÍMITE DE TRABAJO IN-HANDS ALCANZADO (2026-06-15) — *(superado en R17-R18: Supabase activo + sync + desplegado)*
+### ✅ Ronda 19 — Auditoría profunda de cierre (robustez del sync + higiene)
+
+Re-auditoría en profundidad con agentes en paralelo (sync, regresiones/coherencia, higiene de repo). Hallazgos
+reales corregidos, sin romper nada (verificado typecheck ✓ · lint 0 · 52 tests ✓ · build ✓ · runtime cross-device ✓):
+
+- **Sync sin pérdida de datos (P1)**: `syncLearnings` reconstruía local **reemplazando** con lo remoto → en una
+  carrera (crear algo mientras hay un sync en vuelo) o si el `select` truncara, podía perder un item local.
+  Ahora hace **MERGE** (unión por id con LWW; relee local fresco; nunca descarta un item local ausente en remoto).
+  `writeSector` con try/catch (no rompe por QuotaExceededError). Verificado: push, pull en dispositivo nuevo,
+  LWW (gana el más reciente) y preservación de item local.
+- **Vista por-sector sincroniza (P2)**: `app/aprendizajes/[sectorId]/page.tsx` ahora hace sync-on-load + recarga
+  al terminar, y dispara sync al repasar/editar título. Antes quedaba desincronizada del resto.
+- **Higiene**: desrastreados `pass/*.txt` (vacíos, ya en `.gitignore`; 0 bytes en todo el historial, sin secreto
+  filtrado) y eliminado `app/favicon.ico.bak` redundante. Verificado: **sin secretos en archivos trackeados**,
+  `.env*`/`.vercel`/`.supabase-backup` ignorados, `pg` NO en package.json, sin refs Supabase hardcodeadas en código.
+
+**Deuda menor restante (no rompe, documentada):** la tabla Supabase vieja `aprendizajes` sigue huérfana
+(la UI usa localStorage + tabla nueva `learnings`); endpoints legacy `/api/aprender/save` sin llamadores;
+borrados desde la papelera legacy no propagan tombstone al `learnings`.
+
+### ⏸️ LÍMITE DE TRABAJO IN-HANDS ALCANZADO (2026-06-15) — *(superado en R17-R19: Supabase activo + sync robusto + desplegado)*
 
 Tras 16 rondas, **está hecho y validado TODO lo de alto valor que se puede completar de forma segura
 sin Supabase y sin decisiones de producto de Jorge.** Estado global: **typecheck ✓ · lint 0 · 52 tests ✓ · build ✓**.

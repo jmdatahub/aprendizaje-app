@@ -21,6 +21,7 @@ import { useApp } from "@/shared/contexts/AppContext"
 import { SECTORES_DATA } from "@/shared/constants/sectores"
 import { isDue, type SrsState, type ReviewGrade } from "@/lib/srs"
 import { applyReview } from "@/lib/review"
+import { syncLearnings, triggerSync } from "@/features/learning/services/learningsSync"
 import { playClick } from "@/shared/utils/sounds"
 
 const COLOR_CLASSES: Record<string, string> = {
@@ -125,12 +126,31 @@ export default function SectorAprendizajesPage() {
     }
   }, []);
 
+  // Sincroniza con Supabase al entrar y recarga ESTE sector cuando termina
+  // (trae aprendizajes creados/repasados en otros dispositivos).
+  useEffect(() => {
+    if (!sectorInfo) return;
+    void syncLearnings();
+    const reload = () => {
+      try {
+        const raw = localStorage.getItem(`sector_data_${sectorInfo.id}`);
+        if (raw) {
+          const data = JSON.parse(raw);
+          if (data && Array.isArray(data.items)) setItems(data.items);
+        }
+      } catch { /* noop */ }
+    };
+    window.addEventListener('learnings-synced', reload);
+    return () => window.removeEventListener('learnings-synced', reload);
+  }, [sectorInfo]);
+
   // Califica el aprendizaje seleccionado (repaso unificado): recalcula su SRS,
   // lo quita de pendientes y refresca el estado local. Misma lógica que la lista
   // agregada y la sesión guiada (lib/review.applyReview).
   const handleGradeSelected = (grade: ReviewGrade) => {
     if (!seleccionado || !sectorInfo) return;
     const newSrs = applyReview(sectorInfo.id, seleccionado.id, grade, new Date());
+    triggerSync();
     playClick();
     setItems(prev => prev.map(it => it.id === seleccionado.id ? { ...it, srs: newSrs ?? it.srs } : it));
     setPendingReviewIds(prev => prev.filter(id => id !== seleccionado.id));
@@ -168,9 +188,10 @@ export default function SectorAprendizajesPage() {
       if (stored) {
         const data = JSON.parse(stored);
         data.items = data.items.map((it: { id: string }) =>
-          it.id === id ? { ...it, title: editTitle.trim() } : it
+          it.id === id ? { ...it, title: editTitle.trim(), updatedAt: new Date().toISOString() } : it
         );
         localStorage.setItem(sectorKey, JSON.stringify(data));
+        triggerSync();
       }
     } catch (e) {
       console.error("Error saving edited title", e);
