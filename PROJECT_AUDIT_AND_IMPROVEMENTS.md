@@ -530,9 +530,14 @@ reales corregidos, sin romper nada (verificado typecheck ✓ · lint 0 · 52 tes
   filtrado) y eliminado `app/favicon.ico.bak` redundante. Verificado: **sin secretos en archivos trackeados**,
   `.env*`/`.vercel`/`.supabase-backup` ignorados, `pg` NO en package.json, sin refs Supabase hardcodeadas en código.
 
+**Borrado de aprendizajes con sync (añadido tras R19):** la lista de aprendizajes (modal de detalle) ahora
+tiene botón **Eliminar** con confirmación → quita de localStorage + tombstone en `learnings`
+(`pushLearningDeletion` → `DELETE /api/learnings/[id]`) + sync; el MERGE elimina el item en el resto de
+dispositivos. Verificado runtime: borrar → tombstone remoto → otro dispositivo lo elimina al sincronizar.
+
 **Deuda menor restante (no rompe, documentada):** la tabla Supabase vieja `aprendizajes` sigue huérfana
-(la UI usa localStorage + tabla nueva `learnings`); endpoints legacy `/api/aprender/save` sin llamadores;
-borrados desde la papelera legacy no propagan tombstone al `learnings`.
+(la UI usa localStorage + tabla nueva `learnings`); endpoints legacy `/api/aprender/save` sin llamadores
+(se dejan por seguridad: borrarlos no aporta y podría romper algún consumidor no detectado).
 
 ### ⏸️ LÍMITE DE TRABAJO IN-HANDS ALCANZADO (2026-06-15) — *(superado en R17-R19: Supabase activo + sync robusto + desplegado)*
 

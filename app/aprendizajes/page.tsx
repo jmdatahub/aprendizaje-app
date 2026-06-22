@@ -19,7 +19,7 @@ import { useApp } from "@/shared/contexts/AppContext"
 
 import { SECTORES_DATA } from "@/shared/constants/sectores"
 import { reviewSrs, isDue, type SrsState, type ReviewGrade } from "@/lib/srs"
-import { syncLearnings, triggerSync } from "@/features/learning/services/learningsSync"
+import { syncLearnings, triggerSync, pushLearningDeletion } from "@/features/learning/services/learningsSync"
 import { needsReview } from "@/lib/review"
 
 type ReviewEntry = {
@@ -213,6 +213,35 @@ function AprendizajesContent() {
     } catch (e) {
         console.error("Error updating favorite status", e);
     }
+  };
+
+  // Elimina un aprendizaje: lo quita de localStorage y del estado, y propaga el
+  // borrado al resto de dispositivos (tombstone en Supabase + sync). Pide confirmación.
+  const handleDeleteLearning = (item: Item) => {
+    if (typeof window !== 'undefined' &&
+        !window.confirm(`¿Eliminar "${item.title}"? También se borrará en tus otros dispositivos.`)) {
+      return;
+    }
+    try {
+      const key = `sector_data_${item.sectorId}`;
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        const data = JSON.parse(stored);
+        if (data && Array.isArray(data.items)) {
+          data.items = data.items.filter((it: { id: string }) => it.id !== item.id);
+          localStorage.setItem(key, JSON.stringify(data));
+        }
+      }
+    } catch (e) {
+      console.error("Error deleting learning", e);
+    }
+    setItems(prev => prev.filter(i => i.id !== item.id));
+    setPendingReviewIds(prev => prev.filter(id => id !== item.id));
+    handleCloseModal();
+    setIsFocusMode(false);
+    playClick();
+    // Propaga el borrado: tombstone en remoto y luego sync (el merge lo elimina en otros dispositivos).
+    void pushLearningDeletion(item.id).then(() => triggerSync());
   };
 
   // Persiste el reviewHistory (y opcionalmente el estado SRS) de un item concreto
@@ -1013,7 +1042,20 @@ function AprendizajesContent() {
                                     </svg>
                                 </button>
                             )}
-                            
+
+                            {!isFocusMode && (
+                                <button
+                                    onClick={() => handleDeleteLearning(seleccionado)}
+                                    aria-label="Eliminar aprendizaje"
+                                    title="Eliminar aprendizaje"
+                                    className="p-2 rounded-full transition-all min-w-[40px] min-h-[40px] inline-flex items-center justify-center text-muted-foreground/40 hover:text-red-500 hover:bg-red-500/10"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </button>
+                            )}
+
                             <button
                               onClick={() => { playClick(); handleCloseModal(); setIsFocusMode(false); }}
                               aria-label="Cerrar"
