@@ -1,0 +1,16 @@
+[Unit]
+Description=Aprendizaje Telegram Agent (bot dedicado, Claude Agent SDK)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/aprendizaje-telegram-agent
+ExecStart=/usr/bin/node index.mjs
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+MemoryMax=2G
+
+[Install]
+WantedBy=multi-user.target
