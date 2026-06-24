@@ -539,7 +539,23 @@ dispositivos. Verificado runtime: borrar → tombstone remoto → otro dispositi
 (la UI usa localStorage + tabla nueva `learnings`); endpoints legacy `/api/aprender/save` sin llamadores
 (se dejan por seguridad: borrarlos no aporta y podría romper algún consumidor no detectado).
 
-### ⏸️ LÍMITE DE TRABAJO IN-HANDS ALCANZADO (2026-06-15) — *(superado en R17-R19: Supabase activo + sync robusto + desplegado)*
+### ✅ Ronda 20 — Fix: modales a pantalla completa en escritorio (clase Tailwind dinámica)
+
+Reportado por Jorge: el modal de Ajustes salía **enorme (ancho completo) en escritorio**. Causa raíz en
+`shared/components/Sheet.tsx`: construía la clase de ancho máximo dinámicamente (`md:${desktopMaxWidth}`),
+y **Tailwind no genera clases construidas en runtime** → la regla `md:max-w-*` nunca existía → el panel
+quedaba `w-full`. Afectaba a TODOS los modales basados en `Sheet` (Ajustes, ComingSoon, ShareChat, Unlock).
+**Fix:** mapa con clases LITERALES (`md:max-w-sm…3xl`) que Tailwind sí detecta, traduciendo el prop.
+**Verificado runtime:** escritorio 1280px → panel 448px (`max-w-md`, centrado); móvil 375px → 375px
+(bottom-sheet completo, sin romper). typecheck ✓ · lint 0 · build ✓.
+
+**Auditoría de todos los modales (a petición de Jorge):** el resto (no-`Sheet`) usan `max-w-*` literales y
+están bien (TestDetailModal `sm:max-w-2xl`, NewSkill/EditSkill `max-w-md`, SaveLearning `md:max-w-6xl`,
+FocusTimer/Habit `max-w-sm/md`, TrashModal `max-w-lg`, detalle de aprendizaje `max-w-4xl`). Único caso
+adicional del mismo patrón (clase dinámica) detectado pero NO de tamaño: `ChatSidebar.tsx:271` arma
+`bg-${color}`/`text-${color}` (colores de chat) — cosmético, fuera del alcance reportado, anotado.
+
+### ⏸️ LÍMITE DE TRABAJO IN-HANDS ALCANZADO (2026-06-15) — *(superado en R17-R20: Supabase activo + sync robusto + desplegado + UI de modales corregida)*
 
 Tras 16 rondas, **está hecho y validado TODO lo de alto valor que se puede completar de forma segura
 sin Supabase y sin decisiones de producto de Jorge.** Estado global: **typecheck ✓ · lint 0 · 52 tests ✓ · build ✓**.

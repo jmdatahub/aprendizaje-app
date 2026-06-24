@@ -26,6 +26,19 @@ interface SheetProps {
 const FOCUSABLE = 'a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])'
 const TRANSITION_MS = 280
 
+// IMPORTANTE: Tailwind solo genera clases que aparecen LITERALES en el código fuente.
+// Antes se construía `md:${desktopMaxWidth}` dinámicamente → Tailwind no la generaba →
+// el panel quedaba a ancho completo en escritorio. Este mapa contiene las clases
+// literales (md:max-w-*) para que sí se generen, y traduce el prop a la clase correcta.
+const DESKTOP_MAX_W: Record<string, string> = {
+  "max-w-sm": "md:max-w-sm",
+  "max-w-md": "md:max-w-md",
+  "max-w-lg": "md:max-w-lg",
+  "max-w-xl": "md:max-w-xl",
+  "max-w-2xl": "md:max-w-2xl",
+  "max-w-3xl": "md:max-w-3xl",
+}
+
 /**
  * Universal sheet/modal primitive.
  * - Mobile (< md): bottom sheet, swipe-down to dismiss, respects safe area.
@@ -45,6 +58,7 @@ export function Sheet({
   className = "",
   footer,
 }: SheetProps) {
+  const desktopMaxWidthClass = DESKTOP_MAX_W[desktopMaxWidth] ?? "md:max-w-lg"
   const panelRef = useRef<HTMLDivElement>(null)
   const previouslyFocused = useRef<Element | null>(null)
   // eslint-disable-next-line react-hooks/purity -- Math.random runs once inside useRef's initializer to mint a stable id; the value is frozen via .current for the component's lifetime, not recomputed per render
@@ -173,7 +187,7 @@ export function Sheet({
           relative w-full bg-card text-foreground shadow-2xl flex flex-col
           border-t border-border md:border
           rounded-t-2xl md:rounded-2xl
-          md:m-4 md:w-full md:${desktopMaxWidth}
+          md:m-4 md:w-full ${desktopMaxWidthClass}
           ${desktopVariant === "side-right" ? "md:mr-0 md:ml-auto md:rounded-r-none md:h-full md:max-h-screen" : ""}
           ${className}
           will-change-transform transition-transform duration-[280ms] ease-out
