@@ -84,10 +84,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Only port 443 is allowed' }, { status: 400 })
     }
 
+    // Pasar el secret_token: así Telegram incluye la cabecera
+    // `X-Telegram-Bot-Api-Secret-Token` en cada update y el webhook puede
+    // validarla. Sin esto, el webhook (que exige el secreto) rechazaría todo.
+    const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET
     const res = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: parsedUrl.toString() })
+      body: JSON.stringify({
+        url: parsedUrl.toString(),
+        ...(webhookSecret ? { secret_token: webhookSecret } : {}),
+        allowed_updates: ['message', 'callback_query'],
+      })
     })
     const data = await res.json()
 

@@ -1,0 +1,17 @@
+{
+  "name": "aprendizaje-agent",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Agente de la app de aprendizajes para el VPS (mismo patrón que el CRM): MCP in-process de aprendizajes para el asistente general + servidor del cerebro para la app. Sin API de pago (Claude Agent SDK con la suscripción del host).",
+  "scripts": {
+    "brain": "node brain-server.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "latest",
+    "zod": "latest"
+  }
+}

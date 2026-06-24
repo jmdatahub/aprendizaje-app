@@ -1,0 +1,17 @@
+[Unit]
+Description=Aprendizajes Brain Server (IA para la app, sin coste de API)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/aprendizaje-brain
+# Carga el .env (Node >= 20). Para Node 18 usa dotenv en el script.
+ExecStart=/usr/bin/node --env-file=/opt/aprendizaje-brain/.env brain-server.mjs
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+MemoryMax=2G
+
+[Install]
+WantedBy=multi-user.target
