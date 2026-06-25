@@ -13,10 +13,9 @@ import { TestPreparationOverlay } from "@/features/test-semanal/components/TestP
 import { UnlockModal } from "@/features/sectores/components/UnlockModal"
 import { SectorWithProgress } from "@/features/sectores/types"
 import { SECTORES_DATA } from "@/shared/constants/sectores"
-import { calculateGamificationStats, GamificationStats } from "@/shared/utils/gamification"
 import { isDue } from "@/lib/srs"
 import { syncLearnings } from "@/features/learning/services/learningsSync"
-import { LearningStreak } from "@/features/stats/components/LearningStreak"
+import { HomeDashboard } from "@/features/stats/components/HomeDashboard"
 import { ChevronDown } from "lucide-react"
 
 type PendingItem = {
@@ -64,7 +63,6 @@ export default function Home() {
   const [selectedLockedSector, setSelectedLockedSector] = useState<SectorWithProgress | null>(null)
   const [pendingItems, setPendingItems] = useState<PendingItem[]>([])
   const [sectorCounts, setSectorCounts] = useState<Record<string, number>>({})
-  const [stats, setStats] = useState<GamificationStats>({ currentStreak: 0, uniqueDaysThisYear: 0, isTodayLearned: false })
   const [dueTodayCount, setDueTodayCount] = useState(0)
   // Se incrementa cuando termina un sync con Supabase, para recalcular los contadores.
   const [syncTick, setSyncTick] = useState(0)
@@ -93,11 +91,7 @@ export default function Home() {
   useEffect(() => {
     const counts: Record<string, number> = {};
     const allPending: PendingItem[] = [];
-    // Collect every saved learning's date so the streak/year stats are computed
-    // from the SAME source learnings are persisted to (localStorage), not from the
-    // Supabase `aprendizajes` table — which the save flow never writes to.
-    const allDates: string[] = [];
-    // Count SRS-due learnings ("Repasar hoy") from the same localStorage source.
+    // Count SRS-due learnings ("Repasar hoy") from localStorage (la misma fuente que el dashboard).
     let dueToday = 0;
     const now = new Date();
     let decayedIds: string[] = [];
@@ -119,7 +113,6 @@ export default function Home() {
           counts[sector.id] = sectorItems.length;
 
           for (const item of sectorItems) {
-            if (item?.date) allDates.push(item.date);
             // "Repasar hoy" unificado: SRS vencido O pendiente del test semanal (decayed_items).
             if (isDue(item?.srs, now) || (item?.id && decayedIds.includes(item.id))) dueToday++;
           }
@@ -144,7 +137,6 @@ export default function Home() {
     });
     setSectorCounts(counts);
     setPendingItems(allPending);
-    setStats(calculateGamificationStats(allDates));
     setDueTodayCount(dueToday);
   }, [t, syncTick]);
 
@@ -386,9 +378,9 @@ export default function Home() {
               </Link>
             )}
 
-            {/* Streak */}
+            {/* Dashboard de métricas */}
             <div className="w-full max-w-4xl animate-in slide-in-from-bottom-4 duration-1000">
-              <LearningStreak streak={stats.currentStreak} yearlyCount={stats.uniqueDaysThisYear} />
+              <HomeDashboard />
             </div>
 
             {/* Grid */}
@@ -569,9 +561,9 @@ export default function Home() {
               </Link>
             )}
 
-            {/* Streak */}
+            {/* Dashboard de métricas */}
             <div className="w-full animate-in slide-in-from-bottom-4 duration-1000">
-              <LearningStreak streak={stats.currentStreak} yearlyCount={stats.uniqueDaysThisYear} />
+              <HomeDashboard />
             </div>
 
             {/* Grid */}
