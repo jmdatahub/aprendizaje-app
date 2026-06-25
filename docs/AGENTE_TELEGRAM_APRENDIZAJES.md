@@ -74,7 +74,8 @@ Gestión (buscar/editar/borrar, recordatorios, hábitos). Detalle: `SYSTEM_PROMP
 
 ### B) App sin coste de API
 1. `agent/install.sh` → despliega `brain-server` (systemd) en `/opt/aprendizaje-brain`.
-2. Exponerlo por HTTPS (Caddy con un subdominio, p.ej. `brain.soulia.info`).
+2. Exponerlo por HTTPS (Caddy). En producción se usa `https://72-61-181-36.sslip.io`
+   (hostname neutro atado a la IP del VPS; independiente de Soul IA).
 3. En Vercel: `BRAIN_BASE_URL`, `BRAIN_TOKEN`, `BRAIN_MODEL=sonnet` + redeploy.
 
 ---

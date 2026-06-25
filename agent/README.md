@@ -51,11 +51,11 @@ curl -s http://127.0.0.1:8788/health   # {"ok":true}
 Luego **exponlo por HTTPS** (Vercel debe llegar). Con dominio propio + Caddy:
 ```
 # /etc/caddy/Caddyfile
-brain.tudominio.com {
+72-61-181-36.sslip.io {
     reverse_proxy localhost:8788
 }
 ```
-Y en **Vercel** añade `BRAIN_BASE_URL=https://brain.tudominio.com`, `BRAIN_TOKEN`,
+Y en **Vercel** añade `BRAIN_BASE_URL=https://72-61-181-36.sslip.io`, `BRAIN_TOKEN`,
 `BRAIN_MODEL=sonnet` y redeploy. Si no pones `BRAIN_BASE_URL`, la app sigue con
 OpenAI/stub como antes.
 
