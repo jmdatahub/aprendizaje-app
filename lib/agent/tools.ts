@@ -19,6 +19,7 @@ import { randomUUID } from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { initSrs, reviewSrs, isDue, daysUntilDue, type SrsState, type ReviewGrade } from '@/lib/srs'
 import { SECTORES_DATA } from '@/shared/constants/sectores'
+import { calcularNivel, formatearTiempo } from '@/shared/constants/habilidades'
 
 // --------------------------------------------------------------------------
 // Tipos
@@ -518,17 +519,109 @@ export const TOOLS: ToolDef[] = [
   // ------------------------- HABILIDADES / RECORDATORIOS -----------------
   {
     name: 'list_skills',
-    description: 'Lista las habilidades (prácticas) registradas, con su nivel. Útil para vincular recordatorios de práctica.',
+    description: 'Lista las habilidades (prácticas) registradas, con su nivel y tiempo total practicado. Úsala para encontrar el id de una habilidad (p.ej. "Piano") antes de cronometrar o registrar práctica.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     async handler(_args, { supabase }) {
       const { data, error } = await supabase
         .from('habilidades')
-        .select('id,nombre,nivel')
+        .select('id,nombre,nivel,tiempo_total_segundos')
         .is('deleted_at', null)
         .order('nombre', { ascending: true })
         .limit(500)
       if (error) throw new ToolError(error.message)
-      return { count: (data || []).length, items: data || [] }
+      const items = ((data || []) as { id: string; nombre: string; nivel: string; tiempo_total_segundos: number | null }[]).map((h) => ({
+        id: h.id,
+        nombre: h.nombre,
+        nivel: h.nivel,
+        tiempo_total: formatearTiempo(Number(h.tiempo_total_segundos || 0)),
+      }))
+      return { count: items.length, items }
+    },
+  },
+  {
+    name: 'create_skill',
+    description: 'Crea una habilidad de práctica nueva (p.ej. "Piano", "Inglés", "Correr") si no existe aún. Devuelve su id para luego cronometrar o registrar sesiones. Empieza en nivel novato con 0 tiempo.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        nombre: { type: 'string', description: 'Nombre de la habilidad.' },
+        categoria: { type: 'string', description: 'Opcional: deportes, musica, arte, programacion, idiomas, cocina, bienestar, gaming, otra.' },
+      },
+      required: ['nombre'],
+      additionalProperties: false,
+    },
+    async handler(args, { supabase, now }) {
+      const nombre = requireString(args, 'nombre', 255)
+      const categoria = optString(args, 'categoria', 50)
+      const { data, error } = await supabase
+        .from('habilidades')
+        .insert({
+          nombre,
+          categorias: categoria ? [categoria] : [],
+          tiempo_total_segundos: 0,
+          nivel: calcularNivel(0).id,
+          updated_at: now.toISOString(),
+        })
+        .select('id,nombre,nivel')
+        .single()
+      if (error) throw new ToolError(error.message)
+      return { created: true, skill: data }
+    },
+  },
+  {
+    name: 'log_practice_session',
+    description:
+      'Registra una sesión de práctica YA TERMINADA de una habilidad: guarda la duración (en segundos) y actualiza el tiempo total y el nivel. Para cronometrar en vivo desde Telegram usa start_practice/stop_practice (que llaman a esta al final).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        habilidad_id: { type: 'string', description: 'UUID de la habilidad.' },
+        duracion_segundos: { type: 'number', description: 'Duración en segundos (1 a 86400).' },
+        resumen: { type: 'string', description: 'Opcional: qué practicaste.' },
+      },
+      required: ['habilidad_id', 'duracion_segundos'],
+      additionalProperties: false,
+    },
+    async handler(args, { supabase, now }) {
+      const habilidad_id = requireString(args, 'habilidad_id', 36)
+      const dur = Number(args.duracion_segundos)
+      if (!Number.isFinite(dur) || dur <= 0 || dur > 86400) {
+        throw new ToolError('duracion_segundos debe estar entre 1 y 86400 (24h).')
+      }
+      const duracion = Math.round(dur)
+      const resumen = optString(args, 'resumen', 2000) ?? null
+
+      const { data: hab, error: getErr } = await supabase
+        .from('habilidades')
+        .select('tiempo_total_segundos')
+        .eq('id', habilidad_id)
+        .is('deleted_at', null)
+        .maybeSingle()
+      if (getErr) throw new ToolError(getErr.message)
+      if (!hab) throw new ToolError('No existe una habilidad con ese id.')
+
+      const previo = Number((hab as { tiempo_total_segundos: number | null }).tiempo_total_segundos || 0)
+      const nuevoTotal = Math.min(previo + duracion, 1_000_000_000)
+      const nuevoNivel = calcularNivel(nuevoTotal)
+
+      const { error: insErr } = await supabase
+        .from('sesiones_practica')
+        .insert({ habilidad_id, duracion_segundos: duracion, resumen })
+      if (insErr) throw new ToolError(insErr.message)
+
+      await supabase
+        .from('habilidades')
+        .update({ tiempo_total_segundos: nuevoTotal, nivel: nuevoNivel.id, updated_at: now.toISOString() })
+        .eq('id', habilidad_id)
+
+      return {
+        saved: true,
+        duracion_segundos: duracion,
+        duracion_texto: formatearTiempo(duracion),
+        nuevo_tiempo_total: nuevoTotal,
+        nuevo_tiempo_total_texto: formatearTiempo(nuevoTotal),
+        nivel: nuevoNivel.id,
+      }
     },
   },
   {

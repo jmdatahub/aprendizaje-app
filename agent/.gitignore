@@ -2,3 +2,6 @@ node_modules/
 .env
 mcp.config.json
 *.log
+sessions.json
+voice.json
+practice_timers.json
