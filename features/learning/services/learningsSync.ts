@@ -156,6 +156,9 @@ export async function syncLearnings(): Promise<{ ok: boolean; pulled?: number }>
       // sin subir, o más allá del límite del select). Así el sync no puede perder datos.
       const sectorIds = new Set<string>([...SECTORES_DATA.map((s) => s.id), ...remoteBySector.keys()])
       for (const sid of sectorIds) {
+        // Ignora sectores reservados (p.ej. `__vocab_en__`, vocabulario de idiomas):
+        // viven en la misma tabla `learnings` pero los gestiona vocabSync, no esta capa.
+        if (sid.startsWith('__')) continue
         const local = readSector(sid)
         const remoteRows = remoteBySector.get(sid) || []
         if (local.length === 0 && remoteRows.length === 0) continue

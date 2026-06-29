@@ -1,11 +1,16 @@
 /**
  * Sincronización de vocabulario entre dispositivos.
  *
- * Espejo de features/learning/services/learningsSync.ts pero para la tabla
- * `vocabulary`. Sube todo lo local + baja la verdad remota (last-write-wins por
- * `updatedAt`) y reconstruye el estado local con un MERGE por id que nunca pierde
- * datos. Tolerante a fallos: si Supabase no responde, la app sigue con
- * localStorage.
+ * IMPORTANTE: el vocabulario se ESPEJA en la tabla `learnings` ya existente en
+ * producción (bajo un sector reservado `__vocab_en__`), NO en una tabla nueva.
+ * Motivo: la app real corre en un proyecto Supabase al que no se le puede
+ * aplicar DDL desde aquí; reutilizar `learnings` evita depender de crear una
+ * tabla. El sector reservado es invisible para el resto de la app (no está en
+ * SECTORES_DATA y learningsSync lo ignora explícitamente).
+ *
+ * Cada palabra se serializa: word→title, translation→summary, y el resto de
+ * campos en `content` como JSON. Sube todo lo local + baja la verdad remota
+ * (last-write-wins por updatedAt) con un MERGE por id que nunca pierde datos.
  */
 import { initSrs, type SrsState } from '@/lib/srs'
 import type { VocabWord, VocabLang } from '../types'
@@ -13,27 +18,20 @@ import type { VocabWord, VocabLang } from '../types'
 const DEFAULT_LANG: VocabLang = 'en'
 const KEY = (lang: VocabLang) => `vocab_data_${lang}`
 
-interface RemoteVocab {
+/** Fila de la tabla `learnings` (subconjunto que usamos). */
+interface LearningRow {
   id: string
-  lang?: string | null
-  word?: string | null
-  translation?: string | null
-  part_of_speech?: string | null
-  phonetic?: string | null
-  example?: string | null
-  example_translation?: string | null
-  cefr?: string | null
-  synonyms?: string[] | null
-  notes?: string | null
-  status?: string | null
-  source?: string | null
+  sector_id: string
+  title?: string | null
+  summary?: string | null
+  content?: string | null
+  tags?: string[] | null
+  is_favorite?: boolean | null
+  personal_note?: string | null
   srs?: unknown
-  lapses?: number | null
   review_history?: unknown
-  learned_at?: string | null
-  mastered_at?: string | null
-  created_at?: string | null
-  updated_at?: string | null
+  item_date?: string | null
+  updated_at?: string
   deleted_at?: string | null
 }
 
@@ -62,53 +60,75 @@ function ts(v?: string | null): number {
   return isNaN(t) ? 0 : t
 }
 
-function localToRemote(it: VocabWord): RemoteVocab {
-  return {
-    id: it.id,
-    lang: it.lang,
-    word: it.word,
-    translation: it.translation,
-    part_of_speech: it.partOfSpeech,
+/** Sector reservado para el vocabulario dentro de la tabla `learnings`. */
+function reservedSector(lang: VocabLang): string {
+  return `__vocab_${lang}__`
+}
+
+/** VocabWord -> fila de `learnings`. */
+function localToRemote(it: VocabWord): LearningRow {
+  const extra = {
+    partOfSpeech: it.partOfSpeech,
     phonetic: it.phonetic ?? null,
-    example: it.example ?? null,
-    example_translation: it.exampleTranslation ?? null,
+    example: it.example ?? '',
+    exampleTranslation: it.exampleTranslation ?? null,
     cefr: it.cefr ?? null,
     synonyms: it.synonyms ?? [],
     notes: it.notes ?? null,
+    lang: it.lang,
     status: it.status,
     source: it.source,
-    srs: it.srs ?? null,
     lapses: it.lapses ?? 0,
+    learnedAt: it.learnedAt ?? null,
+    masteredAt: it.masteredAt ?? null,
+    createdAt: it.createdAt,
+  }
+  return {
+    id: it.id,
+    sector_id: reservedSector(it.lang),
+    title: it.word,
+    summary: it.translation,
+    content: JSON.stringify(extra),
+    tags: [it.cefr ?? '', it.partOfSpeech].filter(Boolean),
+    is_favorite: false,
+    personal_note: it.phonetic ?? null,
+    srs: it.srs ?? null,
     review_history: it.reviewHistory ?? [],
-    learned_at: it.learnedAt ?? null,
-    mastered_at: it.masteredAt ?? null,
-    created_at: it.createdAt ?? null,
+    item_date: it.createdAt ?? null,
     updated_at: it.updatedAt ?? it.createdAt ?? new Date(0).toISOString(),
     deleted_at: it.deletedAt ?? null,
   }
 }
 
-function remoteToLocal(r: RemoteVocab): VocabWord {
+/** Fila de `learnings` -> VocabWord. */
+function remoteToLocal(r: LearningRow): VocabWord {
+  let extra: Record<string, unknown> = {}
+  try {
+    extra = r.content ? JSON.parse(r.content) : {}
+  } catch {
+    extra = {}
+  }
+  const str = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined)
   return {
     id: r.id,
-    lang: (r.lang as VocabLang) || 'en',
-    word: r.word ?? '',
-    translation: r.translation ?? '',
-    partOfSpeech: (r.part_of_speech as VocabWord['partOfSpeech']) || 'other',
-    phonetic: r.phonetic ?? undefined,
-    example: r.example ?? '',
-    exampleTranslation: r.example_translation ?? undefined,
-    cefr: (r.cefr as VocabWord['cefr']) ?? undefined,
-    synonyms: Array.isArray(r.synonyms) ? r.synonyms : undefined,
-    notes: r.notes ?? undefined,
-    status: (r.status as VocabWord['status']) || 'new',
-    source: (r.source as VocabWord['source']) || 'manual',
+    lang: (str(extra.lang) as VocabLang) || 'en',
+    word: r.title ?? '',
+    translation: r.summary ?? '',
+    partOfSpeech: (str(extra.partOfSpeech) as VocabWord['partOfSpeech']) || 'other',
+    phonetic: str(extra.phonetic) ?? r.personal_note ?? undefined,
+    example: str(extra.example) ?? '',
+    exampleTranslation: str(extra.exampleTranslation),
+    cefr: (str(extra.cefr) as VocabWord['cefr']) ?? undefined,
+    synonyms: Array.isArray(extra.synonyms) ? (extra.synonyms as string[]) : undefined,
+    notes: str(extra.notes),
+    status: (str(extra.status) as VocabWord['status']) || 'new',
+    source: (str(extra.source) as VocabWord['source']) || 'manual',
     srs: (r.srs as SrsState) ?? initSrs(new Date()),
-    lapses: typeof r.lapses === 'number' ? r.lapses : 0,
+    lapses: typeof extra.lapses === 'number' ? (extra.lapses as number) : 0,
     reviewHistory: Array.isArray(r.review_history) ? (r.review_history as VocabWord['reviewHistory']) : [],
-    learnedAt: r.learned_at ?? undefined,
-    masteredAt: r.mastered_at ?? undefined,
-    createdAt: r.created_at ?? r.updated_at ?? new Date().toISOString(),
+    learnedAt: str(extra.learnedAt),
+    masteredAt: str(extra.masteredAt),
+    createdAt: str(extra.createdAt) ?? r.item_date ?? r.updated_at ?? new Date().toISOString(),
     updatedAt: r.updated_at ?? new Date().toISOString(),
     deletedAt: r.deleted_at ?? null,
   }
@@ -134,7 +154,7 @@ export async function syncVocab(lang: VocabLang = DEFAULT_LANG): Promise<{ ok: b
       })
       if (!res.ok) return { ok: false }
       const data = await res.json()
-      const remote: RemoteVocab[] = Array.isArray(data?.items) ? data.items : []
+      const remote: LearningRow[] = Array.isArray(data?.items) ? data.items : []
 
       // MERGE por id con last-write-wins. Relee local fresco (evita carreras).
       const local = readAll(lang)

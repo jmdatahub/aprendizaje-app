@@ -739,6 +739,9 @@ export const TOOLS: ToolDef[] = [
   },
 
   // ----------------------------- IDIOMAS (vocabulario) -------------------
+  // El vocabulario se guarda en la MISMA tabla `learnings` (sector reservado
+  // `__vocab_en__`) para no depender de crear una tabla nueva. Los campos extra
+  // van serializados en `content` (JSON). Invisible para el resto de la app.
   {
     name: 'add_vocab_word',
     description:
@@ -765,35 +768,46 @@ export const TOOLS: ToolDef[] = [
       const VALID_CEFR = new Set(['A1', 'A2', 'B1', 'B2', 'C1', 'C2'])
       const pos = (optString(args, 'part_of_speech', 32) || 'other').toLowerCase()
       const cefrRaw = (optString(args, 'cefr', 4) || '').toUpperCase()
+      const cefr = VALID_CEFR.has(cefrRaw) ? cefrRaw : null
+      const partOfSpeech = VALID_POS.has(pos) ? pos : 'other'
+      const phonetic = optString(args, 'phonetic', 120) ?? null
       const nowIso = now.toISOString()
-      const row = {
-        id: randomUUID(),
-        lang: 'en',
-        word,
-        translation,
-        part_of_speech: VALID_POS.has(pos) ? pos : 'other',
-        phonetic: optString(args, 'phonetic', 120) ?? null,
-        example: optString(args, 'example', 600) ?? null,
-        example_translation: optString(args, 'example_translation', 600) ?? null,
-        cefr: VALID_CEFR.has(cefrRaw) ? cefrRaw : null,
+      const extra = {
+        partOfSpeech,
+        phonetic,
+        example: optString(args, 'example', 600) ?? '',
+        exampleTranslation: optString(args, 'example_translation', 600) ?? null,
+        cefr,
         synonyms: Array.isArray(args.synonyms)
           ? (args.synonyms as unknown[]).slice(0, 10).map((s) => String(s).slice(0, 80))
           : [],
         notes: null,
+        lang: 'en',
         status: 'new',
         source: 'telegram',
-        srs: initSrs(now),
         lapses: 0,
+        learnedAt: null,
+        masteredAt: null,
+        createdAt: nowIso,
+      }
+      const row = {
+        id: randomUUID(),
+        sector_id: '__vocab_en__',
+        title: word,
+        summary: translation,
+        content: JSON.stringify(extra),
+        tags: [cefr ?? '', partOfSpeech].filter(Boolean),
+        is_favorite: false,
+        personal_note: phonetic,
+        srs: initSrs(now),
         review_history: [],
-        learned_at: null,
-        mastered_at: null,
-        created_at: nowIso,
+        item_date: nowIso,
         updated_at: nowIso,
         deleted_at: null,
       }
-      const { error } = await supabase.from('vocabulary').insert(row)
+      const { error } = await supabase.from('learnings').insert(row)
       if (error) throw new ToolError(error.message)
-      return { created: true, id: row.id, word: row.word, translation: row.translation }
+      return { created: true, id: row.id, word, translation }
     },
   },
   {
@@ -811,16 +825,23 @@ export const TOOLS: ToolDef[] = [
       const onlyDue = args.only_due !== false
       const limit = Math.min(Math.max(Number(args.limit) || 50, 1), 200)
       const { data, error } = await supabase
-        .from('vocabulary')
-        .select('id,word,translation,cefr,status,srs')
-        .eq('lang', 'en')
+        .from('learnings')
+        .select('id,title,summary,content,srs')
+        .eq('sector_id', '__vocab_en__')
         .is('deleted_at', null)
         .order('updated_at', { ascending: false })
         .limit(500)
       if (error) throw new ToolError(error.message)
-      let rows = (data || []) as { id: string; word: string; translation: string; cefr: string | null; status: string; srs: SrsState | null }[]
-      if (onlyDue) rows = rows.filter((r) => r.status !== 'leech' && (r.status === 'new' || isDue(r.srs ?? undefined, now)))
-      const items = rows.slice(0, limit).map((r) => ({ id: r.id, word: r.word, translation: r.translation, cefr: r.cefr, status: r.status }))
+      const rows = (data || []) as { id: string; title: string; summary: string; content: string | null; srs: SrsState | null }[]
+      const parsed = rows.map((r) => {
+        let extra: Record<string, unknown> = {}
+        try { extra = r.content ? JSON.parse(r.content) : {} } catch { extra = {} }
+        return { id: r.id, word: r.title, translation: r.summary, cefr: (extra.cefr as string) ?? null, status: (extra.status as string) || 'new', srs: r.srs }
+      })
+      const filtered = onlyDue
+        ? parsed.filter((r) => r.status !== 'leech' && (r.status === 'new' || isDue(r.srs ?? undefined, now)))
+        : parsed
+      const items = filtered.slice(0, limit).map(({ id, word, translation, cefr, status }) => ({ id, word, translation, cefr, status }))
       return { count: items.length, items }
     },
   },
@@ -841,32 +862,38 @@ export const TOOLS: ToolDef[] = [
       const grade = requireString(args, 'grade', 10) as ReviewGrade
       if (!VALID_GRADES.has(grade)) throw new ToolError('grade inválido. Usa: again, good o easy.')
       const { data: row, error: selErr } = await supabase
-        .from('vocabulary')
-        .select('srs,lapses,status,learned_at,mastered_at,review_history')
+        .from('learnings')
+        .select('srs,content,review_history')
         .eq('id', id)
+        .eq('sector_id', '__vocab_en__')
         .is('deleted_at', null)
         .maybeSingle()
       if (selErr) throw new ToolError(selErr.message)
       if (!row) throw new ToolError('No existe una palabra con ese id (o está borrada).')
 
-      const r = row as { srs: SrsState | null; lapses: number | null; status: string; learned_at: string | null; mastered_at: string | null; review_history: unknown }
+      const r = row as { srs: SrsState | null; content: string | null; review_history: unknown }
+      let extra: Record<string, unknown> = {}
+      try { extra = r.content ? JSON.parse(r.content) : {} } catch { extra = {} }
+
       const srs = reviewSrs(r.srs ?? undefined, grade, now)
       const nowIso = now.toISOString()
-      const lapses = grade === 'again' ? (r.lapses ?? 0) + 1 : (r.lapses ?? 0)
-      let status = r.status || 'learning'
-      let learned_at = r.learned_at
-      let mastered_at = r.mastered_at
-      if (grade !== 'again' && !learned_at) learned_at = nowIso
-      if (srs.intervalDays >= 21 && !mastered_at) { mastered_at = nowIso; status = 'known' }
+      const lapses = grade === 'again' ? (Number(extra.lapses) || 0) + 1 : (Number(extra.lapses) || 0)
+      let status = (extra.status as string) || 'learning'
+      let learnedAt = (extra.learnedAt as string) || null
+      let masteredAt = (extra.masteredAt as string) || null
+      if (grade !== 'again' && !learnedAt) learnedAt = nowIso
+      if (srs.intervalDays >= 21 && !masteredAt) { masteredAt = nowIso; status = 'known' }
       else if (lapses >= 8) status = 'leech'
       else if (status !== 'known') status = 'learning'
       const history = Array.isArray(r.review_history) ? r.review_history : []
       const review_history = [...history, { date: nowIso, grade, dir: srs.reps < 2 ? 'recv' : 'prod' }]
+      const newContent = JSON.stringify({ ...extra, status, lapses, learnedAt, masteredAt })
 
       const { error } = await supabase
-        .from('vocabulary')
-        .update({ srs, lapses, status, learned_at, mastered_at, review_history, updated_at: nowIso })
+        .from('learnings')
+        .update({ srs, content: newContent, review_history, updated_at: nowIso })
         .eq('id', id)
+        .eq('sector_id', '__vocab_en__')
       if (error) throw new ToolError(error.message)
       return { reviewed: true, id, status, next_review_days: srs.intervalDays }
     },

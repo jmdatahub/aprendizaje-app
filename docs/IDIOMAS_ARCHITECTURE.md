@@ -1,13 +1,23 @@
 # Módulo "Idiomas" — Arquitectura y Plan (Vocabulario de Inglés)
 
-> Estado: **IMPLEMENTADO** (Fases 1, 2 y base de 3). Documento vivo.
+> Estado: **IMPLEMENTADO Y VERIFICADO EN PRODUCCIÓN** (Fases 1, 2 y base de 3).
 > Autor: planificado y construido con Claude Code. Fecha base: 2026-06-29.
 >
-> ⚠️ **Pendiente manual:** aplicar la migración `docs/migrations/2026_07_vocabulary.sql`
-> en Supabase (crea la tabla `vocabulary`) para que el sync cross-device y las
-> tools de Telegram funcionen. Sin ella, la app sigue funcionando en local
-> (localStorage) pero no sincroniza. Build/typecheck/tests en verde y flujo
-> (apuntar → practicar → métricas) verificado en navegador.
+> ✅ **Sin pasos manuales.** Decisión final: el vocabulario se sincroniza usando
+> la tabla `learnings` YA EXISTENTE en producción (sector reservado
+> `__vocab_en__`, campos extra en `content` como JSON), en lugar de una tabla
+> nueva. Motivo: el proyecto Supabase de producción (`shqkwxribvuktcxtuujr`)
+> está en una cuenta a la que no se le puede aplicar DDL desde estas
+> herramientas. Reutilizar `learnings` (RLS pública, ya accesible) hace que el
+> sync cross-device y las tools de Telegram funcionen sin crear nada.
+>
+> Verificado contra la BD real: subir → leer desde "otro dispositivo" → borrar
+> (tombstone) → OK; producción queda limpia. Build/typecheck/52 tests en verde;
+> flujo apuntar→practicar→métricas verificado en navegador.
+>
+> La migración `docs/migrations/2026_07_vocabulary.sql` queda como **mejora
+> futura OPCIONAL** (tabla dedicada `vocabulary` más limpia) si algún día hay
+> acceso DDL; migrar entonces sería copiar las filas de `__vocab_en__`.
 > Objetivo de Jorge: aprender **20 palabras de vocabulario a la semana (~3/día)**,
 > que él mismo propone, con buen vocabulario (B2–C2, nada básico), en contexto
 > (ejemplos), con seguimiento real y sincronizado entre móvil y PC.
