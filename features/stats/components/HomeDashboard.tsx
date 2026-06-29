@@ -16,12 +16,15 @@ import {
   BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell,
   LineChart, Line,
 } from "recharts"
-import { Flame, Clock, BookOpen, CalendarCheck, Zap, GraduationCap, TrendingUp, TrendingDown, Minus } from "lucide-react"
+import { Flame, Clock, BookOpen, CalendarCheck, Zap, GraduationCap, TrendingUp, TrendingDown, Minus, Languages, Play } from "lucide-react"
 import { SECTORES_DATA } from "@/shared/constants/sectores"
 import { calculateGamificationStats } from "@/shared/utils/gamification"
 import { formatearTiempo } from "@/shared/constants/habilidades"
 import { isDue } from "@/lib/srs"
 import { useApp } from "@/shared/contexts/AppContext"
+import { getVocabStats, getVocabPracticeDates } from "@/features/idiomas/services/vocabStats"
+import { syncVocab } from "@/features/idiomas/services/vocabSync"
+import type { VocabStats } from "@/features/idiomas/types"
 
 // ---------- Tipos ----------
 interface SkillLite { id: string; nombre: string; tiempo_total_segundos: number; nivel: string }
@@ -87,15 +90,32 @@ export function HomeDashboard() {
   const [learn, setLearn] = useState<{ dates: string[]; bySector: Record<string, number>; total: number; dueToday: number }>(
     { dates: [], bySector: {}, total: 0, dueToday: 0 }
   )
+  const [vocab, setVocab] = useState<VocabStats | null>(null)
+  const [vocabDates, setVocabDates] = useState<string[]>([])
+
+  const weeklyGoal = settings.vocabWeeklyGoal ?? 20
+  const dailyGoal = settings.vocabDailyGoal ?? 3
+
+  const refreshVocab = React.useCallback(() => {
+    setVocab(getVocabStats(new Date(), weeklyGoal, dailyGoal))
+    setVocabDates(getVocabPracticeDates())
+  }, [weeklyGoal, dailyGoal])
 
   // Recalcula los aprendizajes (localStorage) en cada sync.
   useEffect(() => {
     setLearn(readLearnings())
+    refreshVocab()
+    void syncVocab()
     const onSynced = () => setTick((n) => n + 1)
+    const onVocab = () => { setTick((n) => n + 1); refreshVocab() }
     window.addEventListener("learnings-synced", onSynced)
-    return () => window.removeEventListener("learnings-synced", onSynced)
-  }, [])
-  useEffect(() => { setLearn(readLearnings()) }, [tick])
+    window.addEventListener("vocab-synced", onVocab)
+    return () => {
+      window.removeEventListener("learnings-synced", onSynced)
+      window.removeEventListener("vocab-synced", onVocab)
+    }
+  }, [refreshVocab])
+  useEffect(() => { setLearn(readLearnings()); refreshVocab() }, [tick, refreshVocab])
 
   // Datos remotos (habilidades / práctica / exámenes).
   useEffect(() => {
@@ -128,7 +148,8 @@ export function HomeDashboard() {
     return () => { alive = false }
   }, [tick])
 
-  const gam = useMemo(() => calculateGamificationStats(learn.dates), [learn.dates])
+  // La racha es unificada: cuenta tanto aprendizajes como práctica de vocabulario.
+  const gam = useMemo(() => calculateGamificationStats([...learn.dates, ...vocabDates]), [learn.dates, vocabDates])
 
   // Tiempo de práctica total y de los últimos 7 días.
   const practice = useMemo(() => {
@@ -216,6 +237,41 @@ export function HomeDashboard() {
         <StatCard icon={<CalendarCheck className="w-4 h-4 text-violet-500" />} accent="bg-violet-500/10"
           label="Repasar hoy" value={learn.dueToday} sub={learn.dueToday > 0 ? "tocan repaso" : "al día ✓"} href={learn.dueToday > 0 ? "/repaso/hoy" : "/progreso"} />
       </div>
+
+      {/* Idiomas — vocabulario de inglés */}
+      {(settings.learningEnglish ?? true) && vocab && (
+        <Link href="/idiomas" className="block group">
+          <div className="bg-card border border-border/60 rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-border transition-all active:scale-[0.99]">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-rose-500/10 shrink-0">
+                <Languages className="w-4 h-4 text-rose-500" />
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-foreground">🇬🇧 Inglés · esta semana</h3>
+                  <span className="text-xs font-bold text-foreground tabular-nums">{vocab.weekLearned}/{vocab.weeklyGoal}</span>
+                </div>
+                <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden mt-1.5">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-rose-500 to-pink-500 transition-all"
+                    style={{ width: `${Math.min(100, vocab.weeklyGoal > 0 ? (vocab.weekLearned / vocab.weeklyGoal) * 100 : 0)}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  {vocab.dueToday > 0
+                    ? `${vocab.dueToday} para repasar · ${vocab.mastered} dominadas`
+                    : vocab.total === 0
+                      ? "Apunta tu primera palabra"
+                      : `Al día · ${vocab.mastered} dominadas`}
+                </p>
+              </div>
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-rose-500 shrink-0">
+                <Play className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Practicar</span>
+              </span>
+            </div>
+          </div>
+        </Link>
+      )}
 
       {/* Actividad 30 días */}
       <div className="bg-card border border-border/60 rounded-2xl p-4 shadow-sm">

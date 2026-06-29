@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, MessageCircle, BookOpen, Target, Timer } from "lucide-react"
+import { Home, MessageCircle, BookOpen, Target, Languages } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface NavItem {
@@ -18,7 +18,7 @@ const ITEMS: NavItem[] = [
   { href: "/aprender", icon: MessageCircle, label: "Aprender" },
   { href: "/aprendizajes", icon: BookOpen, label: "Notas", matches: (p) => p.startsWith("/aprendizajes") },
   { href: "/habilidades", icon: Target, label: "Skills", matches: (p) => p.startsWith("/habilidades") },
-  { href: "/focus-timer", icon: Timer, label: "Focus" },
+  { href: "/idiomas", icon: Languages, label: "Idiomas", matches: (p) => p.startsWith("/idiomas") },
 ]
 
 /**
@@ -32,6 +32,7 @@ export function MobileBottomNav() {
   const HIDDEN_ROUTES = [
     /^\/aprender/,            // chat: input fixed at bottom + virtual keyboard
     /^\/repaso/,              // weekly test: full focus
+    /^\/idiomas\/practica/,   // práctica de vocabulario: full focus
     /^\/login/,
   ]
   if (HIDDEN_ROUTES.some(re => re.test(pathname))) return null

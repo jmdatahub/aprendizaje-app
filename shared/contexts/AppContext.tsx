@@ -20,6 +20,15 @@ export interface AppSettings {
   dateFormat: DateFormat;
   streakGoal: number;
   yearlyGoal: number;
+  // --- Idiomas (vocabulario de inglés) ---
+  /** ¿Está activo el aprendizaje de inglés en el perfil? */
+  learningEnglish?: boolean;
+  /** Meta de palabras aprendidas por semana (por defecto 20). */
+  vocabWeeklyGoal?: number;
+  /** Palabras nuevas a introducir por día (por defecto 3). */
+  vocabDailyGoal?: number;
+  /** Nº de fallos para marcar una palabra como "atascada" (leech). */
+  vocabLeechThreshold?: number;
 }
 
 interface AppContextType {
@@ -45,7 +54,11 @@ const DEFAULT_SETTINGS: AppSettings = {
   darkMode: false,
   dateFormat: 'classic',
   streakGoal: 7,
-  yearlyGoal: 100
+  yearlyGoal: 100,
+  learningEnglish: true,
+  vocabWeeklyGoal: 20,
+  vocabDailyGoal: 3,
+  vocabLeechThreshold: 8
 };
 
 // Helper for nested keys

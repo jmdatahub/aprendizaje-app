@@ -202,6 +202,69 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </div>
           </div>
 
+          {/* Sección: Idiomas */}
+          <div className="space-y-4">
+            <h3 className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-[0.18em]">
+              Idiomas que aprendo
+            </h3>
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <label htmlFor="learning-english" className="text-sm font-medium text-foreground">🇬🇧 Inglés (vocabulario)</label>
+                <p className="text-xs text-muted-foreground">Practica vocabulario con repetición espaciada</p>
+              </div>
+              <button
+                type="button"
+                id="learning-english"
+                onClick={() => handleChange('learningEnglish', !(settings.learningEnglish ?? true))}
+                role="switch"
+                aria-checked={settings.learningEnglish ?? true}
+                aria-label={(settings.learningEnglish ?? true) ? 'Desactivar inglés' : 'Activar inglés'}
+                className={`
+                  relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95 shrink-0
+                  ${(settings.learningEnglish ?? true) ? 'bg-primary' : 'bg-muted-foreground/30'}
+                `}
+              >
+                <span
+                  className={`
+                    inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform
+                    ${(settings.learningEnglish ?? true) ? 'translate-x-6' : 'translate-x-1'}
+                  `}
+                />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-foreground">Palabras por semana</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                min="5"
+                max="100"
+                value={settings.vocabWeeklyGoal ?? 20}
+                onChange={(e) => handleChange('vocabWeeklyGoal', parseInt(e.target.value) || 20)}
+                aria-label="Palabras por semana"
+                className="w-20 px-3 py-2 bg-muted border border-border rounded-lg text-base md:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all text-center"
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-foreground">Palabras nuevas por día</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                min="1"
+                max="20"
+                value={settings.vocabDailyGoal ?? 3}
+                onChange={(e) => handleChange('vocabDailyGoal', parseInt(e.target.value) || 3)}
+                aria-label="Palabras nuevas por día"
+                className="w-20 px-3 py-2 bg-muted border border-border rounded-lg text-base md:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all text-center"
+              />
+            </div>
+          </div>
+
           {/* Sección: Apariencia */}
           <div className="space-y-4">
             <h3 className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-[0.18em]">

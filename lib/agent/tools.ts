@@ -737,6 +737,140 @@ export const TOOLS: ToolDef[] = [
       return { marked: true, text: (habit as { text: string }).text, streak: (habit as { streak: number }).streak + 1 }
     },
   },
+
+  // ----------------------------- IDIOMAS (vocabulario) -------------------
+  {
+    name: 'add_vocab_word',
+    description:
+      'Apunta una palabra de vocabulario de inglés para practicarla con repetición espaciada (entra en "practicar hoy"). Tú, con tu razonamiento, rellenas traducción al español, un ejemplo natural en contexto, la fonética IPA, el tipo y el nivel CEFR honesto (busca vocabulario B2-C2). Esta herramienta solo lo guarda.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        word: { type: 'string', description: 'Palabra o expresión en inglés.' },
+        translation: { type: 'string', description: 'Traducción natural al español.' },
+        part_of_speech: { type: 'string', description: 'noun, verb, adjective, adverb, phrasal_verb, idiom, expression u other.' },
+        phonetic: { type: 'string', description: 'Transcripción IPA, p.ej. /juːˈbɪkwɪtəs/ (opcional).' },
+        example: { type: 'string', description: 'Frase natural en inglés que use la palabra (opcional pero recomendado).' },
+        example_translation: { type: 'string', description: 'Traducción del ejemplo (opcional).' },
+        cefr: { type: 'string', description: 'Nivel CEFR: A1, A2, B1, B2, C1 o C2 (opcional).' },
+        synonyms: { type: 'array', items: { type: 'string' }, description: 'Sinónimos en inglés (opcional).' },
+      },
+      required: ['word', 'translation'],
+      additionalProperties: false,
+    },
+    async handler(args, { supabase, now }) {
+      const word = requireString(args, 'word', 120)
+      const translation = requireString(args, 'translation', 400)
+      const VALID_POS = new Set(['noun', 'verb', 'adjective', 'adverb', 'phrasal_verb', 'idiom', 'expression', 'other'])
+      const VALID_CEFR = new Set(['A1', 'A2', 'B1', 'B2', 'C1', 'C2'])
+      const pos = (optString(args, 'part_of_speech', 32) || 'other').toLowerCase()
+      const cefrRaw = (optString(args, 'cefr', 4) || '').toUpperCase()
+      const nowIso = now.toISOString()
+      const row = {
+        id: randomUUID(),
+        lang: 'en',
+        word,
+        translation,
+        part_of_speech: VALID_POS.has(pos) ? pos : 'other',
+        phonetic: optString(args, 'phonetic', 120) ?? null,
+        example: optString(args, 'example', 600) ?? null,
+        example_translation: optString(args, 'example_translation', 600) ?? null,
+        cefr: VALID_CEFR.has(cefrRaw) ? cefrRaw : null,
+        synonyms: Array.isArray(args.synonyms)
+          ? (args.synonyms as unknown[]).slice(0, 10).map((s) => String(s).slice(0, 80))
+          : [],
+        notes: null,
+        status: 'new',
+        source: 'telegram',
+        srs: initSrs(now),
+        lapses: 0,
+        review_history: [],
+        learned_at: null,
+        mastered_at: null,
+        created_at: nowIso,
+        updated_at: nowIso,
+        deleted_at: null,
+      }
+      const { error } = await supabase.from('vocabulary').insert(row)
+      if (error) throw new ToolError(error.message)
+      return { created: true, id: row.id, word: row.word, translation: row.translation }
+    },
+  },
+  {
+    name: 'list_vocab',
+    description: 'Lista palabras de vocabulario de inglés. Por defecto las que tocan repasar hoy; con only_due=false devuelve todas.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        only_due: { type: 'boolean', description: 'true (def.) = solo las vencidas/nuevas de hoy; false = todas.' },
+        limit: { type: 'number', description: 'Máximo de palabras a devolver (def. 50).' },
+      },
+      additionalProperties: false,
+    },
+    async handler(args, { supabase, now }) {
+      const onlyDue = args.only_due !== false
+      const limit = Math.min(Math.max(Number(args.limit) || 50, 1), 200)
+      const { data, error } = await supabase
+        .from('vocabulary')
+        .select('id,word,translation,cefr,status,srs')
+        .eq('lang', 'en')
+        .is('deleted_at', null)
+        .order('updated_at', { ascending: false })
+        .limit(500)
+      if (error) throw new ToolError(error.message)
+      let rows = (data || []) as { id: string; word: string; translation: string; cefr: string | null; status: string; srs: SrsState | null }[]
+      if (onlyDue) rows = rows.filter((r) => r.status !== 'leech' && (r.status === 'new' || isDue(r.srs ?? undefined, now)))
+      const items = rows.slice(0, limit).map((r) => ({ id: r.id, word: r.word, translation: r.translation, cefr: r.cefr, status: r.status }))
+      return { count: items.length, items }
+    },
+  },
+  {
+    name: 'submit_vocab_review',
+    description: 'Registra el resultado de practicar una palabra: grade "again" (fallé), "good" (bien) o "easy" (muy fácil). Actualiza la repetición espaciada.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'id de la palabra.' },
+        grade: { type: 'string', description: 'again | good | easy' },
+      },
+      required: ['id', 'grade'],
+      additionalProperties: false,
+    },
+    async handler(args, { supabase, now }) {
+      const id = requireString(args, 'id', 200)
+      const grade = requireString(args, 'grade', 10) as ReviewGrade
+      if (!VALID_GRADES.has(grade)) throw new ToolError('grade inválido. Usa: again, good o easy.')
+      const { data: row, error: selErr } = await supabase
+        .from('vocabulary')
+        .select('srs,lapses,status,learned_at,mastered_at,review_history')
+        .eq('id', id)
+        .is('deleted_at', null)
+        .maybeSingle()
+      if (selErr) throw new ToolError(selErr.message)
+      if (!row) throw new ToolError('No existe una palabra con ese id (o está borrada).')
+
+      const r = row as { srs: SrsState | null; lapses: number | null; status: string; learned_at: string | null; mastered_at: string | null; review_history: unknown }
+      const srs = reviewSrs(r.srs ?? undefined, grade, now)
+      const nowIso = now.toISOString()
+      const lapses = grade === 'again' ? (r.lapses ?? 0) + 1 : (r.lapses ?? 0)
+      let status = r.status || 'learning'
+      let learned_at = r.learned_at
+      let mastered_at = r.mastered_at
+      if (grade !== 'again' && !learned_at) learned_at = nowIso
+      if (srs.intervalDays >= 21 && !mastered_at) { mastered_at = nowIso; status = 'known' }
+      else if (lapses >= 8) status = 'leech'
+      else if (status !== 'known') status = 'learning'
+      const history = Array.isArray(r.review_history) ? r.review_history : []
+      const review_history = [...history, { date: nowIso, grade, dir: srs.reps < 2 ? 'recv' : 'prod' }]
+
+      const { error } = await supabase
+        .from('vocabulary')
+        .update({ srs, lapses, status, learned_at, mastered_at, review_history, updated_at: nowIso })
+        .eq('id', id)
+      if (error) throw new ToolError(error.message)
+      return { reviewed: true, id, status, next_review_days: srs.intervalDays }
+    },
+  },
 ]
 
 // --------------------------------------------------------------------------
