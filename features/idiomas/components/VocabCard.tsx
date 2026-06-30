@@ -7,6 +7,8 @@
  * Presentacional: el estado (revelado, dirección, modo) lo controla la sesión.
  */
 import { motion } from "framer-motion"
+import { Volume2 } from "lucide-react"
+import { useSpeak } from "../hooks/useSpeak"
 import type { VocabWord, ReviewDirection } from "../types"
 
 const POS_LABEL: Record<VocabWord["partOfSpeech"], string> = {
@@ -57,7 +59,35 @@ interface Props {
   onReveal: () => void
 }
 
+/** Botón para pronunciar texto en inglés. */
+function SpeakButton({
+  onSpeak,
+  label,
+  size = "sm",
+}: {
+  onSpeak: () => void
+  label: string
+  size?: "sm" | "lg"
+}) {
+  const dim = size === "lg" ? "w-10 h-10" : "w-8 h-8"
+  const icon = size === "lg" ? "w-5 h-5" : "w-4 h-4"
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        onSpeak()
+      }}
+      aria-label={label}
+      className={`shrink-0 inline-flex items-center justify-center ${dim} rounded-full text-indigo-500 hover:text-indigo-400 hover:bg-indigo-500/10 active:scale-90 transition-all`}
+    >
+      <Volume2 className={icon} />
+    </button>
+  )
+}
+
 export function VocabCard({ word, direction, mode, revealed, onReveal }: Props) {
+  const { speak, supported } = useSpeak()
   const pos = POS_LABEL[word.partOfSpeech]
   const cloze = mode === "cloze" ? clozeSentence(word.example, word.word) : { text: "", matched: false }
   const useCloze = mode === "cloze" && cloze.matched
@@ -92,7 +122,10 @@ export function VocabCard({ word, direction, mode, revealed, onReveal }: Props) 
         <p className="text-lg sm:text-xl text-foreground leading-relaxed">{cloze.text}</p>
       ) : frontDir === "recv" ? (
         <div>
-          <h1 className="text-3xl sm:text-4xl font-bold text-foreground break-words">{word.word}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl sm:text-4xl font-bold text-foreground break-words">{word.word}</h1>
+            {supported && <SpeakButton size="lg" onSpeak={() => speak(word.word)} label={`Pronunciar ${word.word}`} />}
+          </div>
           {word.phonetic && <p className="text-sm text-muted-foreground mt-1">{word.phonetic}</p>}
         </div>
       ) : (
@@ -119,8 +152,9 @@ export function VocabCard({ word, direction, mode, revealed, onReveal }: Props) 
       ) : (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-5 border-t border-border pt-4 space-y-3">
           {/* Respuesta */}
-          <div className="flex items-baseline gap-3 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-2xl font-bold text-foreground">{word.word}</span>
+            {supported && <SpeakButton onSpeak={() => speak(word.word)} label={`Pronunciar ${word.word}`} />}
             {word.phonetic && <span className="text-sm text-muted-foreground">{word.phonetic}</span>}
           </div>
           <p className="text-lg text-primary font-medium">{word.translation}</p>
@@ -128,7 +162,10 @@ export function VocabCard({ word, direction, mode, revealed, onReveal }: Props) 
           {/* Ejemplo en contexto */}
           {word.example && (
             <div className="bg-muted/50 rounded-xl p-3 space-y-1">
-              <p className="text-sm text-foreground leading-relaxed">{highlight(word.example, word.word)}</p>
+              <div className="flex items-start gap-2">
+                <p className="text-sm text-foreground leading-relaxed flex-1">{highlight(word.example, word.word)}</p>
+                {supported && <SpeakButton onSpeak={() => speak(word.example)} label="Escuchar el ejemplo" />}
+              </div>
               {word.exampleTranslation && (
                 <p className="text-xs text-muted-foreground italic">{word.exampleTranslation}</p>
               )}

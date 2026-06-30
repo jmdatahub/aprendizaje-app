@@ -7,9 +7,10 @@
  * Si la IA no está disponible, permite alta manual.
  */
 import React, { useState } from "react"
-import { Sparkles, Loader2, AlertTriangle } from "lucide-react"
+import { Sparkles, Loader2, AlertTriangle, Volume2 } from "lucide-react"
 import { Sheet } from "@/shared/components"
 import { playClick, playSuccess } from "@/shared/utils/sounds"
+import { useSpeak } from "../hooks/useSpeak"
 import { addWord, updateWord } from "../services/vocabStorage"
 import type { GeneratedCard, PartOfSpeech, CefrLevel, VocabWord } from "../types"
 
@@ -64,6 +65,7 @@ function cardFromWord(w: VocabWord): GeneratedCard {
 
 export function AddWordSheet({ isOpen, onClose, onSaved, initialWord = "", editWord = null }: Props) {
   const isEditing = !!editWord
+  const { speak, supported: ttsSupported } = useSpeak()
   const [step, setStep] = useState<"input" | "review">("input")
   const [word, setWord] = useState(initialWord)
   const [card, setCard] = useState<GeneratedCard>(EMPTY)
@@ -228,11 +230,23 @@ export function AddWordSheet({ isOpen, onClose, onSaved, initialWord = "", editW
             )}
 
             <Field label="Palabra (inglés)">
-              <input
-                value={card.word}
-                onChange={(e) => set("word", e.target.value)}
-                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-base text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              />
+              <div className="flex gap-2">
+                <input
+                  value={card.word}
+                  onChange={(e) => set("word", e.target.value)}
+                  className="flex-1 px-3 py-2 bg-muted border border-border rounded-lg text-base text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+                {ttsSupported && card.word.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => speak(card.word)}
+                    aria-label={`Pronunciar ${card.word}`}
+                    className="shrink-0 inline-flex items-center justify-center w-10 rounded-lg text-indigo-500 hover:bg-indigo-500/10 transition-colors"
+                  >
+                    <Volume2 className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
             </Field>
 
             <Field label="Traducción (español)">

@@ -6,9 +6,10 @@
  * diálogos nativos). Presentacional sobre los datos de localStorage.
  */
 import { useMemo, useState } from "react"
-import { Trash2, Search, Check, X } from "lucide-react"
+import { Trash2, Search, Check, X, Volume2 } from "lucide-react"
 import { playClick } from "@/shared/utils/sounds"
 import { deleteWord } from "../services/vocabStorage"
+import { useSpeak } from "../hooks/useSpeak"
 import type { VocabWord, WordStatus } from "../types"
 
 const STATUS_META: Record<WordStatus, { label: string; cls: string }> = {
@@ -27,6 +28,7 @@ interface Props {
 }
 
 export function VocabList({ words, onChanged, onEdit }: Props) {
+  const { speak, supported } = useSpeak()
   const [q, setQ] = useState("")
   const [filter, setFilter] = useState<Filter>("all")
   const [confirmId, setConfirmId] = useState<string | null>(null)
@@ -129,6 +131,15 @@ export function VocabList({ words, onChanged, onEdit }: Props) {
                   </div>
                   <p className="text-sm text-muted-foreground truncate">{w.translation}</p>
                 </button>
+                {supported && confirmId !== w.id && (
+                  <button
+                    onClick={() => speak(w.word)}
+                    aria-label={`Pronunciar ${w.word}`}
+                    className="shrink-0 p-2 min-h-[40px] min-w-[40px] inline-flex items-center justify-center rounded-lg text-muted-foreground/50 hover:text-indigo-500 hover:bg-indigo-500/10 transition-colors"
+                  >
+                    <Volume2 className="w-4 h-4" />
+                  </button>
+                )}
                 {confirmId === w.id ? (
                   <div className="flex items-center gap-1 shrink-0">
                     <button

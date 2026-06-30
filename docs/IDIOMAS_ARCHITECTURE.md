@@ -402,7 +402,10 @@ viceversa) tras sync; "apunta X" por Telegram crea la tarjeta.
 
 ### Fase 3 — Mejoras (backlog)
 - SRS dual receptivo/productivo (`srsProductive`).
-- Audio TTS de la palabra/ejemplo (ya hay `tone`/voz en el proyecto).
+- ✅ **Audio TTS** (hecho): `features/idiomas/hooks/useSpeak.ts` (Web Speech API, voz
+  inglesa en-GB/en-US, ritmo 0.92). Botón de pronunciar en la tarjeta de práctica
+  (palabra + ejemplo), en la lista y en el alta/edición. En productivo no se ofrece
+  antes de revelar para no dar la respuesta.
 - Migración opcional a FSRS.
 - Multi-idioma (francés, etc.) reutilizando `lang`.
 - Importación masiva desde una lista (Oxford 5000) como banco opcional.
