@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
-import { Plus, Play, Flame, GraduationCap, AlertTriangle, BookMarked } from "lucide-react"
+import { Plus, Play, CalendarClock, GraduationCap, AlertTriangle, BookMarked } from "lucide-react"
 import { useApp } from "@/shared/contexts/AppContext"
 import { playClick } from "@/shared/utils/sounds"
 import { readVocab } from "@/features/idiomas/services/vocabStorage"
@@ -27,6 +27,7 @@ export default function IdiomasPage() {
   const [words, setWords] = useState<VocabWord[]>([])
   const [stats, setStats] = useState<VocabStats | null>(null)
   const [addOpen, setAddOpen] = useState(false)
+  const [editWord, setEditWord] = useState<VocabWord | null>(null)
 
   const refresh = useCallback(() => {
     setWords(readVocab())
@@ -81,7 +82,7 @@ export default function IdiomasPage() {
         {stats && (
           <div className="grid grid-cols-3 gap-2.5">
             <MiniStat icon={<GraduationCap className="w-4 h-4 text-emerald-500" />} label="Dominadas" value={stats.mastered} />
-            <MiniStat icon={<Flame className="w-4 h-4 text-violet-500" />} label="Vencidas" value={stats.dueToday} />
+            <MiniStat icon={<CalendarClock className="w-4 h-4 text-violet-500" />} label="Vencidas" value={stats.dueToday} />
             <MiniStat icon={<BookMarked className="w-4 h-4 text-sky-500" />} label="Total" value={stats.total} />
           </div>
         )}
@@ -124,11 +125,19 @@ export default function IdiomasPage() {
 
         {/* Lista */}
         <div className="bg-card border border-border/60 rounded-2xl p-4 shadow-sm">
-          <VocabList words={words} onChanged={refresh} />
+          <VocabList words={words} onChanged={refresh} onEdit={(w) => setEditWord(w)} />
         </div>
       </div>
 
-      <AddWordSheet isOpen={addOpen} onClose={() => setAddOpen(false)} onSaved={refresh} />
+      <AddWordSheet
+        isOpen={addOpen || !!editWord}
+        editWord={editWord}
+        onClose={() => {
+          setAddOpen(false)
+          setEditWord(null)
+        }}
+        onSaved={refresh}
+      />
     </div>
   )
 }

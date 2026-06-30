@@ -1,11 +1,12 @@
 "use client"
 
 /**
- * Lista de palabras con búsqueda y filtros (estado, nivel). Permite borrar y
- * editar la nota. Presentacional sobre los datos de localStorage.
+ * Lista de palabras con búsqueda y filtros (estado, nivel). Tocar una fila la
+ * abre para editar; el botón papelera pide una confirmación en línea (sin
+ * diálogos nativos). Presentacional sobre los datos de localStorage.
  */
 import { useMemo, useState } from "react"
-import { Trash2, Search } from "lucide-react"
+import { Trash2, Search, Check, X } from "lucide-react"
 import { playClick } from "@/shared/utils/sounds"
 import { deleteWord } from "../services/vocabStorage"
 import type { VocabWord, WordStatus } from "../types"
@@ -22,11 +23,13 @@ type Filter = "all" | WordStatus
 interface Props {
   words: VocabWord[]
   onChanged?: () => void
+  onEdit?: (word: VocabWord) => void
 }
 
-export function VocabList({ words, onChanged }: Props) {
+export function VocabList({ words, onChanged, onEdit }: Props) {
   const [q, setQ] = useState("")
   const [filter, setFilter] = useState<Filter>("all")
+  const [confirmId, setConfirmId] = useState<string | null>(null)
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase()
@@ -42,9 +45,9 @@ export function VocabList({ words, onChanged }: Props) {
   }, [words, q, filter])
 
   const handleDelete = (w: VocabWord) => {
-    if (!confirm(`¿Eliminar "${w.word}"?`)) return
     playClick()
     deleteWord(w.id)
+    setConfirmId(null)
     onChanged?.()
   }
 
@@ -107,9 +110,14 @@ export function VocabList({ words, onChanged }: Props) {
             return (
               <li
                 key={w.id}
-                className="flex items-center gap-3 bg-card border border-border/60 rounded-xl p-3 group"
+                className="flex items-center gap-2 bg-card border border-border/60 rounded-xl p-3 group"
               >
-                <div className="flex-1 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => { playClick(); onEdit?.(w) }}
+                  aria-label={`Editar ${w.word}`}
+                  className="flex-1 min-w-0 text-left"
+                >
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-foreground truncate">{w.word}</span>
                     {w.cefr && (
@@ -120,14 +128,33 @@ export function VocabList({ words, onChanged }: Props) {
                     <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${sm.cls}`}>{sm.label}</span>
                   </div>
                   <p className="text-sm text-muted-foreground truncate">{w.translation}</p>
-                </div>
-                <button
-                  onClick={() => handleDelete(w)}
-                  aria-label={`Eliminar ${w.word}`}
-                  className="shrink-0 p-2 rounded-lg text-muted-foreground/50 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
                 </button>
+                {confirmId === w.id ? (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => handleDelete(w)}
+                      aria-label={`Confirmar borrado de ${w.word}`}
+                      className="p-2 min-h-[40px] min-w-[40px] inline-flex items-center justify-center rounded-lg text-rose-500 bg-rose-500/10 hover:bg-rose-500/20 transition-colors"
+                    >
+                      <Check className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => { playClick(); setConfirmId(null) }}
+                      aria-label="Cancelar borrado"
+                      className="p-2 min-h-[40px] min-w-[40px] inline-flex items-center justify-center rounded-lg text-muted-foreground hover:bg-accent transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { playClick(); setConfirmId(w.id) }}
+                    aria-label={`Eliminar ${w.word}`}
+                    className="shrink-0 p-2 min-h-[40px] min-w-[40px] inline-flex items-center justify-center rounded-lg text-muted-foreground/50 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </li>
             )
           })}

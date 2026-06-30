@@ -74,8 +74,14 @@ export async function POST(request: Request) {
       }
     }
 
-    // Verdad remota completa (el cliente filtra los deleted_at).
-    const { data: all, error: selErr } = await supabase.from('learnings').select('*').limit(10000)
+    // Verdad remota completa (el cliente filtra los deleted_at). Excluimos los
+    // sectores reservados de vocabulario (`__vocab_*__`), que gestiona el módulo
+    // de Idiomas vía /api/idiomas/sync: así no se mandan a todos los clientes.
+    const { data: all, error: selErr } = await supabase
+      .from('learnings')
+      .select('*')
+      .neq('sector_id', '__vocab_en__')
+      .limit(10000)
     if (selErr) {
       console.error('[learnings/sync] select error:', selErr.message)
       return NextResponse.json({ success: false, error: 'DB_ERROR' }, { status: 500 })

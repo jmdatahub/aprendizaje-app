@@ -23,7 +23,13 @@ export function WeeklyRing({ weekLearned, weeklyGoal, todayLearned, dailyGoal }:
   return (
     <div className="flex items-center gap-5">
       <div className="relative shrink-0" style={{ width: size, height: size }}>
-        <svg width={size} height={size} className="-rotate-90">
+        <svg
+          width={size}
+          height={size}
+          className="-rotate-90"
+          role="img"
+          aria-label={`${weekLearned} de ${weeklyGoal} palabras aprendidas esta semana`}
+        >
           <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" strokeWidth={stroke} className="text-muted" />
           <circle
             cx={size / 2}

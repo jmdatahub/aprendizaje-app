@@ -34,6 +34,42 @@ Reglas:
 - Sé honesto con el nivel CEFR: si la palabra es básica (A1-B1) ponlo así.
 - Responde ÚNICAMENTE el JSON.`
 
+/**
+ * Extrae un objeto JSON de la respuesta del cerebro de forma robusta:
+ * 1) intenta parsear tal cual (se pidió con json:true);
+ * 2) quita vallas markdown ```json ... ```;
+ * 3) extrae el PRIMER objeto {...} balanceado (no greedy hasta el último }).
+ */
+function parseJsonObject(content: string): Record<string, unknown> | null {
+  const tryParse = (s: string): Record<string, unknown> | null => {
+    try {
+      const v = JSON.parse(s)
+      return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null
+    } catch {
+      return null
+    }
+  }
+  const direct = tryParse(content.trim())
+  if (direct) return direct
+
+  const fenced = content.replace(/```(?:json)?/gi, '').trim()
+  const fromFence = tryParse(fenced)
+  if (fromFence) return fromFence
+
+  // Primer objeto balanceado.
+  const start = fenced.indexOf('{')
+  if (start === -1) return null
+  let depth = 0
+  for (let i = start; i < fenced.length; i++) {
+    if (fenced[i] === '{') depth++
+    else if (fenced[i] === '}') {
+      depth--
+      if (depth === 0) return tryParse(fenced.slice(start, i + 1))
+    }
+  }
+  return null
+}
+
 export async function POST(request: Request) {
   try {
     const ip = getClientIp(request)
@@ -61,12 +97,8 @@ export async function POST(request: Request) {
       { json: true, temperature: 0.4, maxTokens: 500 },
     )
 
-    let parsed: Record<string, unknown>
-    try {
-      // El cerebro puede envolver el JSON; extrae el primer objeto {...}.
-      const match = content.match(/\{[\s\S]*\}/)
-      parsed = JSON.parse(match ? match[0] : content)
-    } catch {
+    const parsed = parseJsonObject(content)
+    if (!parsed) {
       return NextResponse.json({ ok: false, error: 'BAD_AI_RESPONSE' }, { status: 502 })
     }
 

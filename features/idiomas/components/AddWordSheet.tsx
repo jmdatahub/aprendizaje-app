@@ -10,8 +10,8 @@ import React, { useState } from "react"
 import { Sparkles, Loader2, AlertTriangle } from "lucide-react"
 import { Sheet } from "@/shared/components"
 import { playClick, playSuccess } from "@/shared/utils/sounds"
-import { addWord } from "../services/vocabStorage"
-import type { GeneratedCard, PartOfSpeech, CefrLevel } from "../types"
+import { addWord, updateWord } from "../services/vocabStorage"
+import type { GeneratedCard, PartOfSpeech, CefrLevel, VocabWord } from "../types"
 
 const POS_OPTIONS: { value: PartOfSpeech; label: string }[] = [
   { value: "noun", label: "Sustantivo" },
@@ -45,25 +45,46 @@ interface Props {
   onSaved?: () => void
   /** Palabra inicial (p.ej. preseleccionada desde otra pantalla). */
   initialWord?: string
+  /** Si se pasa, el sheet edita esa palabra en vez de crear una nueva. */
+  editWord?: VocabWord | null
 }
 
-export function AddWordSheet({ isOpen, onClose, onSaved, initialWord = "" }: Props) {
+function cardFromWord(w: VocabWord): GeneratedCard {
+  return {
+    word: w.word,
+    translation: w.translation,
+    partOfSpeech: w.partOfSpeech,
+    phonetic: w.phonetic ?? "",
+    example: w.example ?? "",
+    exampleTranslation: w.exampleTranslation ?? "",
+    cefr: w.cefr,
+    synonyms: w.synonyms ?? [],
+  }
+}
+
+export function AddWordSheet({ isOpen, onClose, onSaved, initialWord = "", editWord = null }: Props) {
+  const isEditing = !!editWord
   const [step, setStep] = useState<"input" | "review">("input")
   const [word, setWord] = useState(initialWord)
   const [card, setCard] = useState<GeneratedCard>(EMPTY)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Reinicia el formulario al abrir.
+  // Reinicia el formulario al abrir (o lo precarga si estamos editando).
   React.useEffect(() => {
-    if (isOpen) {
-      setStep("input")
-      setWord(initialWord)
+    if (!isOpen) return
+    setError(null)
+    setLoading(false)
+    if (editWord) {
+      setCard(cardFromWord(editWord))
+      setWord(editWord.word)
+      setStep("review")
+    } else {
       setCard(EMPTY)
-      setError(null)
-      setLoading(false)
+      setWord(initialWord)
+      setStep("input")
     }
-  }, [isOpen, initialWord])
+  }, [isOpen, initialWord, editWord])
 
   const handleGenerate = async () => {
     const w = word.trim()
@@ -105,7 +126,20 @@ export function AddWordSheet({ isOpen, onClose, onSaved, initialWord = "" }: Pro
       setError("La palabra y su traducción son obligatorias.")
       return
     }
-    addWord(card, { source: "manual" })
+    if (editWord) {
+      updateWord(editWord.id, {
+        word: card.word.trim(),
+        translation: card.translation.trim(),
+        partOfSpeech: card.partOfSpeech,
+        phonetic: card.phonetic?.trim() || undefined,
+        example: (card.example ?? "").trim(),
+        exampleTranslation: card.exampleTranslation?.trim() || undefined,
+        cefr: card.cefr,
+        synonyms: Array.isArray(card.synonyms) ? card.synonyms : undefined,
+      })
+    } else {
+      addWord(card, { source: "manual" })
+    }
     playSuccess()
     onSaved?.()
     onClose()
@@ -120,8 +154,9 @@ export function AddWordSheet({ isOpen, onClose, onSaved, initialWord = "" }: Pro
     <Sheet
       open={isOpen}
       onClose={onClose}
-      title="📝 Apunta una palabra"
+      title={isEditing ? "✏️ Editar palabra" : "📝 Apunta una palabra"}
       desktopMaxWidth="max-w-lg"
+      preventDragClose
       footer={
         <div className="flex justify-between gap-2">
           <button
@@ -142,7 +177,8 @@ export function AddWordSheet({ isOpen, onClose, onSaved, initialWord = "" }: Pro
       }
     >
       <div className="p-4 sm:p-6 space-y-5">
-        {/* Paso 1: introducir la palabra */}
+        {/* Paso 1: introducir la palabra (solo al crear, no al editar) */}
+        {!isEditing && (
         <div className="space-y-2">
           <label className="text-sm font-medium text-foreground">Palabra en inglés</label>
           <div className="flex gap-2">
@@ -169,6 +205,7 @@ export function AddWordSheet({ isOpen, onClose, onSaved, initialWord = "" }: Pro
             La IA rellena traducción, ejemplo, fonética y nivel. Tú revisas antes de guardar.
           </p>
         </div>
+        )}
 
         {error && (
           <div className="flex items-start gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 rounded-lg p-2.5">
@@ -211,7 +248,7 @@ export function AddWordSheet({ isOpen, onClose, onSaved, initialWord = "" }: Pro
                 <select
                   value={card.partOfSpeech}
                   onChange={(e) => set("partOfSpeech", e.target.value as PartOfSpeech)}
-                  className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-base sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 >
                   {POS_OPTIONS.map((o) => (
                     <option key={o.value} value={o.value}>
@@ -224,7 +261,7 @@ export function AddWordSheet({ isOpen, onClose, onSaved, initialWord = "" }: Pro
                 <select
                   value={card.cefr ?? ""}
                   onChange={(e) => set("cefr", (e.target.value || undefined) as CefrLevel | undefined)}
-                  className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-base sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 >
                   <option value="">—</option>
                   {CEFR_OPTIONS.map((c) => (

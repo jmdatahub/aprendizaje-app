@@ -61,6 +61,10 @@ export function VocabCard({ word, direction, mode, revealed, onReveal }: Props) 
   const pos = POS_LABEL[word.partOfSpeech]
   const cloze = mode === "cloze" ? clozeSentence(word.example, word.word) : { text: "", matched: false }
   const useCloze = mode === "cloze" && cloze.matched
+  // Si se pidió "hueco" pero la palabra no aparece literal en la frase (formas
+  // flexionadas, phrasal verbs partidos...), caemos a modo PRODUCTIVO para no
+  // mostrar nunca la respuesta como pregunta.
+  const frontDir: ReviewDirection = mode === "cloze" && !cloze.matched ? "prod" : direction
 
   return (
     <motion.div
@@ -73,7 +77,7 @@ export function VocabCard({ word, direction, mode, revealed, onReveal }: Props) 
       {/* Meta */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          {direction === "recv" ? "🇬🇧 → 🇪🇸 Reconoce" : "🇪🇸 → 🇬🇧 Produce"}
+          {useCloze ? "✍️ Completa el hueco" : frontDir === "recv" ? "🇬🇧 → 🇪🇸 Reconoce" : "🇪🇸 → 🇬🇧 Produce"}
         </span>
         {word.cefr && (
           <span className="text-[10px] font-semibold text-indigo-500 bg-indigo-500/10 px-1.5 py-0.5 rounded">
@@ -86,7 +90,7 @@ export function VocabCard({ word, direction, mode, revealed, onReveal }: Props) 
       {/* Cara A (pregunta) */}
       {useCloze ? (
         <p className="text-lg sm:text-xl text-foreground leading-relaxed">{cloze.text}</p>
-      ) : direction === "recv" ? (
+      ) : frontDir === "recv" ? (
         <div>
           <h1 className="text-3xl sm:text-4xl font-bold text-foreground break-words">{word.word}</h1>
           {word.phonetic && <p className="text-sm text-muted-foreground mt-1">{word.phonetic}</p>}
@@ -100,7 +104,7 @@ export function VocabCard({ word, direction, mode, revealed, onReveal }: Props) 
           <p className="text-sm text-muted-foreground">
             {useCloze
               ? "¿Qué palabra falta? Intenta recordarla."
-              : direction === "recv"
+              : frontDir === "recv"
                 ? "¿Qué significa? Intenta recordarlo."
                 : "¿Cómo se dice en inglés?"}
           </p>

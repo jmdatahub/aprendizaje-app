@@ -60,6 +60,8 @@ interface LearningRow {
 
 const VALID_SECTORS = new Set(SECTORES_DATA.map((s) => s.id))
 const VALID_GRADES = new Set<ReviewGrade>(['again', 'good', 'easy'])
+/** Sector reservado donde vive el vocabulario de idiomas dentro de `learnings`. */
+const VOCAB_SECTOR = '__vocab_en__'
 
 class ToolError extends Error {}
 
@@ -125,6 +127,7 @@ export const TOOLS: ToolDef[] = [
         .from('learnings')
         .select('sector_id')
         .is('deleted_at', null)
+        .neq('sector_id', VOCAB_SECTOR)
         .limit(10000)
       if (error) throw new ToolError(error.message)
       const counts = new Map<string, number>()
@@ -160,6 +163,7 @@ export const TOOLS: ToolDef[] = [
         .from('learnings')
         .select('id,sector_id,title,summary,tags,is_favorite,srs,item_date')
         .is('deleted_at', null)
+        .neq('sector_id', VOCAB_SECTOR) // excluye el vocabulario de idiomas
         .order('item_date', { ascending: false, nullsFirst: false })
         .limit(limit)
 
@@ -192,7 +196,9 @@ export const TOOLS: ToolDef[] = [
       const id = requireString(args, 'id', 200)
       const { data, error } = await supabase.from('learnings').select('*').eq('id', id).is('deleted_at', null).maybeSingle()
       if (error) throw new ToolError(error.message)
-      if (!data) throw new ToolError('No existe un aprendizaje con ese id (o está borrado).')
+      if (!data || (data as LearningRow).sector_id?.startsWith('__')) {
+        throw new ToolError('No existe un aprendizaje con ese id (o está borrado).')
+      }
       const r = data as LearningRow
       return {
         ...toSummaryView(r, now),
@@ -335,6 +341,7 @@ export const TOOLS: ToolDef[] = [
         .from('learnings')
         .select('id,sector_id,title,summary,tags,is_favorite,srs,item_date')
         .is('deleted_at', null)
+        .neq('sector_id', VOCAB_SECTOR)
         .not('srs', 'is', null)
         .limit(5000)
       if (error) throw new ToolError(error.message)
@@ -423,7 +430,7 @@ export const TOOLS: ToolDef[] = [
         if (error) throw new ToolError(error.message)
         rows = (data || []) as LearningRow[]
       } else if (mode === 'random') {
-        const { data, error } = await supabase.from('learnings').select(cols).is('deleted_at', null).limit(500)
+        const { data, error } = await supabase.from('learnings').select(cols).is('deleted_at', null).neq('sector_id', VOCAB_SECTOR).limit(500)
         if (error) throw new ToolError(error.message)
         const pool = (data || []) as LearningRow[]
         for (let i = pool.length - 1; i > 0; i--) {
@@ -437,6 +444,7 @@ export const TOOLS: ToolDef[] = [
           .from('learnings')
           .select(cols)
           .is('deleted_at', null)
+          .neq('sector_id', VOCAB_SECTOR)
           .not('srs', 'is', null)
           .limit(5000)
         if (error) throw new ToolError(error.message)
@@ -471,6 +479,7 @@ export const TOOLS: ToolDef[] = [
         .from('learnings')
         .select('sector_id,is_favorite,srs,review_history,item_date')
         .is('deleted_at', null)
+        .neq('sector_id', VOCAB_SECTOR)
         .limit(10000)
       if (error) throw new ToolError(error.message)
       const rows = (data || []) as LearningRow[]
@@ -875,18 +884,22 @@ export const TOOLS: ToolDef[] = [
       let extra: Record<string, unknown> = {}
       try { extra = r.content ? JSON.parse(r.content) : {} } catch { extra = {} }
 
-      const srs = reviewSrs(r.srs ?? undefined, grade, now)
       const nowIso = now.toISOString()
+      // dir según el progreso ANTES del repaso (igual que la app: nextDirection).
+      const dir = (r.srs?.reps ?? 0) < 2 ? 'recv' : 'prod'
+      const srs = reviewSrs(r.srs ?? undefined, grade, now)
       const lapses = grade === 'again' ? (Number(extra.lapses) || 0) + 1 : (Number(extra.lapses) || 0)
-      let status = (extra.status as string) || 'learning'
       let learnedAt = (extra.learnedAt as string) || null
       let masteredAt = (extra.masteredAt as string) || null
       if (grade !== 'again' && !learnedAt) learnedAt = nowIso
-      if (srs.intervalDays >= 21 && !masteredAt) { masteredAt = nowIso; status = 'known' }
-      else if (lapses >= 8) status = 'leech'
-      else if (status !== 'known') status = 'learning'
+      if (srs.intervalDays >= 21 && !masteredAt) masteredAt = nowIso
+      // Prioridad de estado: leech > known > learning (coincide con computeReviewedState).
+      let status: string
+      if (lapses >= 8) status = 'leech'
+      else if (masteredAt) status = 'known'
+      else status = 'learning'
       const history = Array.isArray(r.review_history) ? r.review_history : []
-      const review_history = [...history, { date: nowIso, grade, dir: srs.reps < 2 ? 'recv' : 'prod' }]
+      const review_history = [...history, { date: nowIso, grade, dir }]
       const newContent = JSON.stringify({ ...extra, status, lapses, learnedAt, masteredAt })
 
       const { error } = await supabase

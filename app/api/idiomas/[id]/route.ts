@@ -10,7 +10,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   try {
     const supabase = getSupabaseAnon()
     const { id } = await params
-    if (!id || typeof id !== 'string') {
+    if (!id || typeof id !== 'string' || id.length > 200) {
       return NextResponse.json({ success: false, error: 'INVALID_REQUEST' }, { status: 400 })
     }
     const now = new Date().toISOString()

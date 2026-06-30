@@ -53,8 +53,11 @@ export function getVocabStats(
       if (learned >= weekStart) weekLearned++
       if (learned >= dayStart) todayLearned++
     }
+    // Categorías mutuamente excluyentes para no doblar el conteo:
+    // - "vencidas" = repasos ya iniciados que tocan hoy (NO las nuevas).
+    // - "nuevas" = nunca practicadas (entran por el cupo diario).
     if (it.status === 'leech') leeches++
-    else if (isDue(it.srs, now)) dueToday++
+    else if (it.status !== 'new' && isDue(it.srs, now)) dueToday++
     if (it.status === 'new') newAvailable++
     if (it.status === 'known') mastered++
     for (const r of it.reviewHistory) if (r?.date) practiceDates.push(r.date)

@@ -30,21 +30,26 @@ export const DEFAULT_LEECH_THRESHOLD = 8
 // Lectura / escritura
 // --------------------------------------------------------------------------
 
-/** Lee todas las palabras NO borradas de un idioma. */
-export function readVocab(lang: VocabLang = DEFAULT_LANG): VocabWord[] {
+/** Lee TODAS las palabras crudas, incluidas las marcadas como borradas (tombstones). */
+function readRaw(lang: VocabLang = DEFAULT_LANG): VocabWord[] {
   if (typeof window === 'undefined') return []
   try {
     const raw = localStorage.getItem(KEY(lang))
     if (!raw) return []
     const d = JSON.parse(raw)
     const items: VocabWord[] = Array.isArray(d?.items) ? d.items : []
-    return items.filter((it) => it && it.id && !it.deletedAt)
+    return items.filter((it) => it && it.id)
   } catch {
     return []
   }
 }
 
-/** Sobrescribe la lista completa de palabras de un idioma. */
+/** Lee las palabras visibles (no borradas) de un idioma. */
+export function readVocab(lang: VocabLang = DEFAULT_LANG): VocabWord[] {
+  return readRaw(lang).filter((it) => !it.deletedAt)
+}
+
+/** Sobrescribe la lista completa de palabras de un idioma (incluye tombstones). */
 export function writeVocab(items: VocabWord[], lang: VocabLang = DEFAULT_LANG): void {
   if (typeof window === 'undefined') return
   try {
@@ -96,9 +101,12 @@ export function addWord(
     updatedAt: nowIso,
     deletedAt: null,
   }
-  const items = readVocab(lang)
-  // Evita duplicar exactamente la misma palabra (case-insensitive).
-  const dupe = items.find((it) => it.word.toLowerCase() === word.word.toLowerCase())
+  const items = readRaw(lang)
+  // Evita duplicar exactamente la misma palabra+tipo (case-insensitive), ignorando
+  // tombstones; así "book" (noun) y "book" (verb) pueden coexistir.
+  const dupe = items.find(
+    (it) => !it.deletedAt && it.word.toLowerCase() === word.word.toLowerCase() && it.partOfSpeech === word.partOfSpeech,
+  )
   if (dupe) return dupe
   writeVocab([word, ...items], lang)
   triggerVocabSync()
@@ -111,7 +119,7 @@ export function updateWord(
   patch: Partial<VocabWord>,
   lang: VocabLang = DEFAULT_LANG,
 ): VocabWord | null {
-  const items = readVocab(lang)
+  const items = readRaw(lang)
   let updated: VocabWord | null = null
   const next = items.map((it) => {
     if (it.id !== wordId) return it
@@ -125,13 +133,16 @@ export function updateWord(
   return updated
 }
 
-/** Borra (tombstone) una palabra y propaga el borrado al sync. */
+/**
+ * Borra una palabra de forma DURABLE: deja un tombstone local (deletedAt) para
+ * que un borrado offline no se "resucite" en el próximo merge, y propaga el
+ * borrado al remoto. readVocab() ya oculta los tombstones.
+ */
 export function deleteWord(wordId: string, lang: VocabLang = DEFAULT_LANG): void {
-  const items = readVocab(lang)
-  writeVocab(
-    items.filter((it) => it.id !== wordId),
-    lang,
-  )
+  const nowIso = new Date().toISOString()
+  const items = readRaw(lang)
+  const next = items.map((it) => (it.id === wordId ? { ...it, deletedAt: nowIso, updatedAt: nowIso } : it))
+  writeVocab(next, lang)
   void pushVocabDeletion(wordId)
   triggerVocabSync()
 }
@@ -142,8 +153,12 @@ export function deleteWord(wordId: string, lang: VocabLang = DEFAULT_LANG): void
 
 /**
  * Devuelve la cola de práctica de hoy:
- *   [vencidas (SRS due, no leech) ...] + [hasta `dailyGoal` palabras nuevas ...]
- * Las nuevas priorizan las que NO vienen de generación masiva de IA.
+ *   [repasos vencidos (ya practicados, SRS due, no leech) ...] +
+ *   [hasta `dailyGoal` palabras NUEVAS (nunca practicadas) ...]
+ *
+ * Importante: una palabra nueva tiene dueDate=ahora, pero NO cuenta como
+ * "repaso vencido" (su lastReviewed es null); solo entra por el cupo de nuevas,
+ * así se respeta la cadencia de ~3/día.
  */
 export function getTodayQueue(
   now: Date,
@@ -151,7 +166,9 @@ export function getTodayQueue(
   lang: VocabLang = DEFAULT_LANG,
 ): VocabWord[] {
   const items = readVocab(lang)
-  const due = items.filter((it) => it.status !== 'leech' && isDue(it.srs, now))
+  const reviewsDue = items.filter(
+    (it) => it.status !== 'leech' && it.srs.lastReviewed !== null && isDue(it.srs, now),
+  )
   const fresh = items
     .filter((it) => it.status === 'new')
     .sort((a, b) => {
@@ -163,9 +180,7 @@ export function getTodayQueue(
     })
     .slice(0, Math.max(0, dailyGoal))
 
-  // Quita de "fresh" las que ya estuvieran en "due" (una palabra nueva due no se duplica).
-  const dueIds = new Set(due.map((d) => d.id))
-  return [...due, ...fresh.filter((f) => !dueIds.has(f.id))]
+  return [...reviewsDue, ...fresh]
 }
 
 /** Palabras "atascadas" (leech). */
@@ -183,11 +198,39 @@ export function nextDirection(word: VocabWord): ReviewDirection {
 }
 
 /**
- * Aplica un repaso a una palabra: actualiza SRS, lapsos, estado, hitos
- * (learnedAt/masteredAt) e historial. Persiste y dispara sync. Devuelve la
- * palabra actualizada (o null si no existe).
+ * Calcula el nuevo estado de una palabra tras un repaso (puro, sin persistir).
+ * Centraliza la lógica para que la app y el agente de Telegram la compartan.
  *
- * `leechThreshold`: nº de lapsos a partir del cual la palabra pasa a "atascada".
+ * Orden de prioridad del estado: leech > known > learning. Así una palabra
+ * "dominada" que se vuelve a fallar repetidamente PUEDE pasar a "atascada"
+ * (antes quedaba atrapada en "known" para siempre).
+ */
+export function computeReviewedState(
+  prev: { srs: VocabWord['srs']; lapses: number; status: VocabWord['status']; learnedAt?: string; masteredAt?: string },
+  grade: ReviewGrade,
+  now: Date,
+  leechThreshold: number = DEFAULT_LEECH_THRESHOLD,
+): { srs: VocabWord['srs']; lapses: number; status: VocabWord['status']; learnedAt?: string; masteredAt?: string } {
+  const srs = reviewSrs(prev.srs, grade, now)
+  const nowIso = now.toISOString()
+  const lapses = grade === 'again' ? prev.lapses + 1 : prev.lapses
+  let learnedAt = prev.learnedAt
+  let masteredAt = prev.masteredAt
+
+  if (grade !== 'again' && !learnedAt) learnedAt = nowIso
+  if (srs.intervalDays >= MASTERED_INTERVAL_DAYS && !masteredAt) masteredAt = nowIso
+
+  let status: VocabWord['status']
+  if (lapses >= leechThreshold) status = 'leech'
+  else if (masteredAt) status = 'known'
+  else status = 'learning'
+
+  return { srs, lapses, status, learnedAt, masteredAt }
+}
+
+/**
+ * Aplica un repaso a una palabra: actualiza SRS, lapsos, estado, hitos e
+ * historial. Persiste y dispara sync. Devuelve la palabra actualizada.
  */
 export function applyVocabReview(
   wordId: string,
@@ -197,33 +240,19 @@ export function applyVocabReview(
   leechThreshold: number = DEFAULT_LEECH_THRESHOLD,
   lang: VocabLang = DEFAULT_LANG,
 ): VocabWord | null {
-  const items = readVocab(lang)
+  const items = readRaw(lang)
   let updated: VocabWord | null = null
 
   const next = items.map((it) => {
     if (it.id !== wordId) return it
-    const srs = reviewSrs(it.srs, grade, now)
-    const nowIso = now.toISOString()
-    const lapses = grade === 'again' ? it.lapses + 1 : it.lapses
-    const reviewHistory = [...it.reviewHistory, { date: nowIso, grade, dir }]
-
-    let status = it.status
-    let learnedAt = it.learnedAt
-    let masteredAt = it.masteredAt
-
-    // Primer acierto → cuenta como "aprendida" (meta semanal).
-    if (grade !== 'again' && !learnedAt) learnedAt = nowIso
-    // Intervalo largo → dominada.
-    if (srs.intervalDays >= MASTERED_INTERVAL_DAYS && !masteredAt) {
-      masteredAt = nowIso
-      status = 'known'
-    } else if (lapses >= leechThreshold) {
-      status = 'leech'
-    } else if (status !== 'known') {
-      status = 'learning'
-    }
-
-    updated = { ...it, srs, lapses, reviewHistory, status, learnedAt, masteredAt, updatedAt: nowIso }
+    const r = computeReviewedState(
+      { srs: it.srs, lapses: it.lapses, status: it.status, learnedAt: it.learnedAt, masteredAt: it.masteredAt },
+      grade,
+      now,
+      leechThreshold,
+    )
+    const reviewHistory = [...it.reviewHistory, { date: now.toISOString(), grade, dir }]
+    updated = { ...it, ...r, reviewHistory, updatedAt: now.toISOString() }
     return updated
   })
 

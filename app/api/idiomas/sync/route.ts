@@ -11,8 +11,12 @@
  */
 import { NextResponse } from 'next/server'
 import { getSupabaseAnon } from '@/lib/supabaseAnonClient'
+import { rateLimit, getClientIp } from '@/lib/rateLimit'
 
 export const runtime = 'nodejs'
+
+/** Cap de items por sync (vocabulario es pequeño; evita IN() gigantes). */
+const MAX_ITEMS = 2000
 
 /** Solo aceptamos sectores reservados de vocabulario (defensa). */
 const RESERVED_RE = /^__vocab_[a-z]{2}__$/
@@ -35,12 +39,18 @@ interface IncomingRow {
 
 export async function POST(request: Request) {
   try {
+    const ip = getClientIp(request)
+    const { success: allowed } = await rateLimit(`idiomas-sync:${ip}`, 60, 60)
+    if (!allowed) {
+      return NextResponse.json({ success: false, error: 'RATE_LIMITED' }, { status: 429 })
+    }
+
     const supabase = getSupabaseAnon()
     const body = await request.json().catch(() => ({}))
     const rawItems: unknown = (body as { items?: unknown })?.items
     const items: IncomingRow[] = Array.isArray(rawItems) ? (rawItems as IncomingRow[]) : []
 
-    if (items.length > 10000) {
+    if (items.length > MAX_ITEMS) {
       return NextResponse.json({ success: false, error: 'TOO_MANY' }, { status: 400 })
     }
 
