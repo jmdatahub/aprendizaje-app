@@ -18,6 +18,18 @@
 > La migración `docs/migrations/2026_07_vocabulary.sql` queda como **mejora
 > futura OPCIONAL** (tabla dedicada `vocabulary` más limpia) si algún día hay
 > acceso DDL; migrar entonces sería copiar las filas de `__vocab_en__`.
+>
+> **Revisión sistemática (post-lanzamiento).** Auditoría multi-ángulo
+> (correctitud, UX/móvil, datos/seguridad). Corregido: cupo real de palabras
+> nuevas/día (las nuevas no contaban como "vencidas"), stats sin doble conteo,
+> estado leech>known, aislamiento del sector `__vocab_en__` en TODAS las tools
+> del agente (search/get/quiz/stats/review_today), `dir` pre-repaso, borrado con
+> tombstone local, cloze→productivo sin match, rate-limit/cap/validación en las
+> rutas, parseo JSON robusto, y UX (editar palabras, confirmación in-line,
+> preventDragClose, selects sin zoom iOS, aria del anillo). Lógica de grading
+> centralizada en `computeReviewedState` con tests unitarios. **Deuda técnica
+> conocida:** la corrección depende de que cada query sobre `learnings` excluya
+> el sector reservado — la tabla dedicada lo resolvería de raíz.
 > Objetivo de Jorge: aprender **20 palabras de vocabulario a la semana (~3/día)**,
 > que él mismo propone, con buen vocabulario (B2–C2, nada básico), en contexto
 > (ejemplos), con seguimiento real y sincronizado entre móvil y PC.
